@@ -1,0 +1,58 @@
+# Stellar Station — handoff
+
+The Decentraland scene for the inside of a Galaxy Gardeners space station. Players come here from their ship
+(the Galaxy Gardeners ship scene) while the ship is docked at a station.
+
+- **World:** `stellarstation.dcl.eth` (set in `scene.json` → `worldConfiguration.name`)
+- **Size:** 16 × 16 parcels (256 m square), the same as the ship scene. Spawn at the centre, (128, 0, 128).
+- **State:** scaffold only. `src/index.ts` places a placeholder deck; everything else is to be built.
+
+## Requirements (from the product owner)
+
+1. **Docked players only.** A player may be in this scene only while their ship is docked at a station.
+2. **Per-station audience.** Everyone sees only the players docked at *their* station. Two players docked at
+   different stations share the world but must not see each other.
+3. **Transfer from the ship.** Players move here from the ship scene when docked (and back when they leave or undock).
+
+## What already exists
+
+**Ship scene** — `../galaxy-gardeners-dcl` (branch `feature/ship-stations`):
+- `src/auth.ts`: wallet sign-in against the Galaxy Gardeners server (`/api/auth/dcl`); reuse it here so the
+  station knows the player.
+- `src/api.ts`: API client (`API_BASE`, bearer token). `src/uiScale.ts`: HUD scaling (author at 1080 px tall,
+  `px()` scales to the canvas; use it for every 2D UI size).
+- `src/docking.ts` / `src/navConsole.ts`: the DOCK / UNDOCK flow. The "go to the station" button belongs there.
+
+**Server** — `galaxy-gardeners-server` (Express + Supabase on Railway; push to `main` deploys production):
+- `GET /api/stations/status` → `{ isDocked, stationId }` for the signed-in player. This is the entry check.
+- `GET /api/stations/docked/:stationId` → `[{ playerId, username, dockedAt }]`, players docked at a station.
+  It has **no wallet addresses**; the visibility filter below needs them. Decentraland players' auth emails
+  are `<wallet lowercase>@dcl.galaxy-gardeners.app` (`src/routes/authDcl.ts`), so a server change can add
+  `walletAddress` for DCL players.
+- `POST /api/stations/undock`, station chat (`/api/stations/chat/:stationId`).
+- Docking is stored in the `station_docking` table (one row per docked player).
+
+## Platform limits to design around
+
+- **A world can't refuse entry.** The scene must enforce requirement 1 itself: sign in, call
+  `/api/stations/status`, and if the player isn't docked, send them back to the ship world
+  (`changeRealm` from `~system/RestrictedActions`) with a short explanation. Re-check periodically, since a
+  player can undock from the iOS app while standing here.
+- **Everyone in a world shares one comms room.** Hiding other stations' players is a scene-side effect: an
+  `AvatarModifierArea` covering the whole scene with `HIDE_AVATARS` and `excludeIds` set to the wallets docked
+  at the player's station (refreshed as players dock and undock). Proximity voice and world text chat are
+  **not** filtered by this; decide whether to accept that or disable voice in `scene.json`.
+- **Transfers.** `changeRealm` to `stellarstation.dcl.eth` from the ship (and to `metapetal.dcl.eth` back).
+  The explorer asks the player to confirm. The station scene learns which station from `/api/stations/status`,
+  so nothing needs to travel in the URL.
+
+## Build and deploy
+
+- Node 20 is required: `source ~/.nvm/nvm.sh && nvm use 20`, then `npm install` and `npm run build`.
+- The SDK is pinned to 7.23.2, the ship scene's version. Newer `sdk-commands` (7.29) call `fs.globSync`,
+  which needs Node 22, and fail on Node 20.
+- Deploy: `npm run deploy -- --target-content https://worlds-content-server.decentraland.org`, signing with
+  the MetaPetal wallet `0x7e56…374C`. That wallet must own `stellarstation.dcl.eth` (or be granted deploy
+  permission) first.
+- The ship scene's `.editor/project.json` and its `scene.json` `source.projectId` belong to that project; don't
+  copy them here. Creator Hub assigns this project its own on import.
