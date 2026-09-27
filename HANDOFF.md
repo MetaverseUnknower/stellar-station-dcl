@@ -50,7 +50,9 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     materialized view `leaderboard_stats` refreshed every 10 min (`052_leaderboards.sql`).
   - Lounge club: `src/lounge/` — Relay Radio (`music.ts`), a beat clock (`beatClock.ts`: AudioAnalysis on the
     stream when it reports bands, else rebel-radio's 124 BPM clock; `beat.ts` copied from rebel-radio), four moving
-    spotlights with beams and a mirror ball (`clubLights.ts`), the dance floor stepping on the beat.
+    spotlights with beams, a mirror ball throwing light specks and a kinetic chandelier (`clubLights.ts`;
+    `tools/build_disco_ball.py`), the dance floor stepping on the beat, and the SPACE BAR neon sign
+    (`spaceBarSign.ts`; `tools/build_space_bar_sign.py`) on the dome above the east lift.
   - Couches (`src/lounge/couches.ts`): rebel-radio's couch.glb and seat layout, with `seating.ts` copied unchanged
     (`descent.ts` is its stand-in): four in the lounge, two in each upper pod facing its window. Placeholders until
     the space couches arrive.
