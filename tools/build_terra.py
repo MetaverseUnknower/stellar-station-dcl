@@ -295,7 +295,7 @@ outer = [bm.verts.new((LAWN_R * math.cos(2 * math.pi * i / SEG), LAWN_R * math.s
 inner = [bm.verts.new((POND_R * math.cos(2 * math.pi * i / SEG), POND_R * math.sin(2 * math.pi * i / SEG), LAWN_Z)) for i in range(SEG)]
 for i in range(SEG):
     j = (i + 1) % SEG
-    f = bm.faces.new((inner[i], inner[j], outer[j], outer[i]))
+    f = bm.faces.new((outer[i], outer[j], inner[j], inner[i]))   # anticlockwise from above: facing up (the explorer culls back faces)
     for loop in f.loops:
         loop[uv].uv = (loop.vert.co.x / 2.5, loop.vert.co.y / 2.5)
 link('Lawn', bm, GRASS)
@@ -408,6 +408,12 @@ for ob in bpy.data.objects:
     if ob.name.endswith('_collider'):
         ob.data.materials.clear()
 
+# The explorer draws only front faces: check the flat ground pieces face up (a Blender render shows both sides, so
+# a downward lawn looks fine here and invisible in-world).
+for ob in bpy.data.objects:
+    if ob.type == 'MESH' and ob.name in ('Lawn', 'Pond', 'LilyPads', 'SteppingStones'):
+        down = sum(1 for p in ob.data.polygons if p.normal.z < 0)
+        print('FACING', ob.name, 'down' if down else 'up', down, '/', len(ob.data.polygons))
 bpy.ops.object.select_all(action='SELECT')
 os.makedirs(OUT, exist_ok=True)
 path = os.path.join(OUT, 'terra.glb')
