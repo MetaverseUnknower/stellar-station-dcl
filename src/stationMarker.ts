@@ -39,7 +39,8 @@ export function markStation(root: Entity, detail: any): (dt: number) => void {
     albedoColor: Color4.create(0, 0.9, 1, 1),
     emissiveColor: CYAN,
     emissiveIntensity: 2,
-    transparencyMode: MaterialTransparencyMode.MTM_ALPHA_TEST
+    // Blended, as the ship draws its icons (draw.ts icon()): the image's transparent background stays clear.
+    transparencyMode: MaterialTransparencyMode.MTM_ALPHA_BLEND
   })
   Billboard.create(icon, { billboardMode: BillboardMode.BM_ALL })
   const glow = engine.addEntity()
