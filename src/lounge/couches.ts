@@ -1,10 +1,12 @@
-// Sittable couches: a space-lounge couch (couch.glb) with rebel-radio's seat layout and seating.ts (copied from
-// rebel-radio unchanged). The seat maths in placeCouch is rebel-radio's buildCouch (src/lounge.ts).
+// Sittable couches: MetaPetal's dark station sofa (metapetal-dark-sofa-v2-dcl.glb) with rebel-radio's seat layout and
+// seating.ts (copied from rebel-radio unchanged). The seat maths in placeCouch is rebel-radio's buildCouch
+// (src/lounge.ts).
 //
-// The model is Y-up at real size (3.9 m wide, cushion tops 0.61 m up, facing +Z, origin on the floor), so it stands
-// as it is: no turn to stand it up and no scaling, unlike rebel-radio's Z-up couch (-90 degrees on X, 0.6 scale).
-// The seat offsets keep that couch's tested relation to its cushions: the player's position 0.48 m below the cushion
-// top and 0.1 m past its front edge, the orb 0.17 m over the cushion.
+// The model is Y-up at real size: 3.1 m wide, origin on the floor, its front facing -Z (the back cushions are on +Z),
+// seat anchors (Seat_1..3_Anchor) 0.838 m apart, 0.549 m up and 0.11 m forward, cushions' front edge 0.46 m forward.
+// It carries its own invisible *_collider meshes (seat, back, arms), so its visible meshes only take pointer clicks.
+// The seat offsets keep rebel-radio's tested relation to its couch's cushions: the player's position 0.48 m below
+// the cushion top and 0.1 m past its front edge, the orb 0.17 m over the cushion.
 //
 // Where they go: four round the lounge's dance floor, facing it; and in each observation pod (the upper two), a
 // pair facing each of its two windows.
@@ -13,12 +15,13 @@ import { Vector3, Quaternion } from '@dcl/sdk/math'
 import { addSeat } from '../seating'
 import { CENTER, FLOOR_Y } from '../station'
 
-const COUCH_HALF_W = 1.94
-const COUCH_SEAT_SPACING = 0.89 // the model's three seat cushions
-const COUCH_ORB_FORWARD = 0.1
-const COUCH_ORB_RISE = 0.78
-const COUCH_SEAT_FORWARD = 0.59
-const COUCH_SEAT_RISE = 0.13
+const COUCH_MODEL = 'assets/models/metapetal-dark-sofa-v2-dcl.glb'
+const COUCH_HALF_W = 1.56
+const COUCH_SEAT_SPACING = 0.838 // the seat anchors
+const COUCH_ORB_FORWARD = 0.11 // over the seat anchor
+const COUCH_ORB_RISE = 0.72
+const COUCH_SEAT_FORWARD = 0.56
+const COUCH_SEAT_RISE = 0.07
 const COUCH_LOOK_AHEAD = 4.0
 const COUCH_LOOK_RISE = 1.5
 const COUCH_BODY_CUSHION_INDEX = 1
@@ -30,11 +33,12 @@ function placeCouch(spec: CouchSpec): void {
   const couch = engine.addEntity()
   Transform.create(couch, {
     position: Vector3.create(spec.cx, spec.floorY, spec.cz),
-    rotation: Quaternion.fromEulerDegrees(0, spec.yaw, 0)
+    rotation: Quaternion.fromEulerDegrees(0, spec.yaw + 180, 0) // the model faces -Z
   })
   GltfContainer.create(couch, {
-    src: 'assets/models/couch.glb',
-    visibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS | ColliderLayer.CL_POINTER
+    src: COUCH_MODEL,
+    visibleMeshesCollisionMask: ColliderLayer.CL_POINTER,
+    invisibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS
   })
   const facing = Vector3.rotate(Vector3.create(0, 0, 1), Quaternion.fromEulerDegrees(0, spec.yaw, 0))
   const across = Vector3.rotate(Vector3.create(1, 0, 0), Quaternion.fromEulerDegrees(0, spec.yaw, 0))
