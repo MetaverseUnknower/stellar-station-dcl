@@ -1,5 +1,6 @@
 // Ship Services: the ship scene's two desks, copied unchanged (stations.ts, stations/*): the ship desk (Overview,
-// Ship Systems, Pod Operations) and Flora Collections (Summary, Catalog, Vault, Inventory). Every pod has the pair,
+// Ship Systems, Pod Operations) and Flora Collections (Summary, Catalog, Vault, Inventory), and the ship's 3D system
+// map (systemView.ts, unchanged) over the pod's projector. Every pod has the pair,
 // but only one pair is live: the copied code refreshes desks by id ('ship', 'flora'), so there is one live desk of
 // each, and it moves to whichever pod the player is in (their home pod on arrival). The other pods show the desk
 // models with dark screens. Only docking.ts, cabinDim.ts, soundtrack.ts and systemView.ts are stand-ins for
@@ -15,15 +16,22 @@ import { summaryView, inventoryView } from './stations/floraCollections'
 import { catalogView, vaultView } from './stations/floraSpecies'
 import { showNotification, updateNotification } from './shipDialogs'
 import { onGateChanged, getGateState } from './gate'
+import * as api from './api'
+import { renderSystemView, systemViewAnimationSystem, getSystemRoot, getSystemAutoScale } from './systemView'
 import { podCenter, podOutward, podForWallet, FLOOR_Y } from './station'
 
 const PODS = 4
-const FROM_POD_CENTER = 6.5 // on the pod's outer side, past its projector
-// As in the ship (index.ts): the desks stand 10.8 m apart, each turned 58 degrees in from facing straight out, Flora
-// Collections on the right and the ship desk on the left as you walk up to them.
-const HALF_SPACING = 5.4
-const TURN_IN = 58
+// The desks flank each pod's engine hatch (the round "airlock" on the pod's wall, ~16 m from its centre), 11 m out
+// and 40 degrees either side of it, facing the pod's centre: Flora Collections on the right as you face the hatch,
+// the ship desk on the left. The explorer turns the kit's Blender axes half round (Blender +Y, the window, is -Z in
+// the scene: the ship scene's window glass is south of its centre), which puts the hatch 90 degrees clockwise (seen
+// from above) from the pod's outward direction.
+const DESK_RADIUS = 11
+const DESK_SPREAD = 40 // degrees either side of the hatch
 const IN_POD = 17 // metres from a pod's centre that count as being in it (its wall is ~15.4 m out)
+// The ship's 3D system map (systemView.ts, copied unchanged) floats over the pod's projector, as over the ship's.
+const MAP_ABOVE_FLOOR = 2.1 // the ship's SYSTEM_CENTER is 2.1 m above its deck
+const MAP_SCALE = 0.75 // of the ship's size: keeps it within ~6 m of the projector, clear of the spawn and desks
 
 type Placement = { position: Vector3; yaw: number }
 
@@ -31,17 +39,14 @@ type Placement = { position: Vector3; yaw: number }
 function placement(p: number, side: number): Placement {
   const out = podOutward(p)
   const center = podCenter(p)
-  const base = Vector3.create(center.x + out.x * FROM_POD_CENTER, center.y, center.z + out.z * FROM_POD_CENTER)
-  // Walking out toward the desks you face `out`; your right is (out.z, -out.x) (DCL is left-handed, y up).
-  const right = Vector3.create(out.z, 0, -out.x)
-  const turn = (TURN_IN * Math.PI) / 180
-  // Straight back toward the hub, turned in toward the middle of the pair.
-  const fx = -out.x * Math.cos(turn) - side * right.x * Math.sin(turn)
-  const fz = -out.z * Math.cos(turn) - side * right.z * Math.sin(turn)
+  const hatch = Vector3.create(out.z, 0, -out.x) // out turned 90 degrees clockwise from above
+  const right = Vector3.create(hatch.z, 0, -hatch.x) // facing the hatch, your right (DCL is left-handed, y up)
+  const a = (DESK_SPREAD * Math.PI) / 180
+  const dir = Vector3.create(hatch.x * Math.cos(a) + side * right.x * Math.sin(a), 0, hatch.z * Math.cos(a) + side * right.z * Math.sin(a))
   return {
-    position: Vector3.create(base.x + side * right.x * HALF_SPACING, base.y, base.z + side * right.z * HALF_SPACING),
-    // A desk's front faces (sin yaw, cos yaw), as in the ship's placements.
-    yaw: (Math.atan2(fx, fz) * 180) / Math.PI
+    position: Vector3.create(center.x + dir.x * DESK_RADIUS, center.y, center.z + dir.z * DESK_RADIUS),
+    // Facing the pod's centre; a desk's front faces (sin yaw, cos yaw), as in the ship's placements.
+    yaw: (Math.atan2(-dir.x, -dir.z) * 180) / Math.PI
   }
 }
 
@@ -75,7 +80,35 @@ export function buildShipServices(): void {
     const ship = createStation({ id: 'ship', ...placement(pod, -1), views: [shipOverviewView, shipSystemsView, podOperationsView], notify: showNotification })
     live = { pod, flora, ship }
     if (getGateState().kind === 'aboard') void Promise.all([flora.refresh(), ship.refresh()])
+    placeSystemMap()
   }
+
+  // One system map, like the one pair of live desks: shown over the projector of the pod you're in.
+  let mapRendered = false
+  const placeSystemMap = () => {
+    const root = getSystemRoot()
+    if (!live || !root) return
+    const c = podCenter(live.pod)
+    const t = Transform.getMutable(root)
+    t.position = Vector3.create(c.x, FLOOR_Y + MAP_ABOVE_FLOOR, c.z)
+    const s = getSystemAutoScale() * MAP_SCALE
+    t.scale = Vector3.create(s, s, s)
+  }
+  const showSystemMap = async () => {
+    if (mapRendered) return
+    mapRendered = true
+    try {
+      const me = await api.getPlayerMe()
+      if (me?.current_system_id) {
+        await renderSystemView(me.current_system_id)
+        placeSystemMap()
+      }
+    } catch (err) {
+      mapRendered = false
+      console.log('[ship services] system map failed', err)
+    }
+  }
+  engine.addSystem(systemViewAnimationSystem)
 
   // The desks read the player's ship, so load them once signed in and whenever the gate's answer changes
   // (docked or not decides instant installs). Start in the player's home pod.
@@ -84,6 +117,7 @@ export function buildShipServices(): void {
     const wallet = getPlayer()?.userId
     if (!live && wallet) goLive(podForWallet(wallet))
     else if (live) void Promise.all([live.flora.refresh(), live.ship.refresh()])
+    void showSystemMap()
   })
 
   // Follow the player into whichever pod they walk into.

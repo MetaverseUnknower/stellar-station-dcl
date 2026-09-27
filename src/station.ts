@@ -53,8 +53,8 @@ export function podOutward(index: number): Vector3 {
 }
 
 // Hub desks: a ring round the projector, facing out. Clear of the lift lanes (+-X), the doorways (diagonals) and the
-// window and engine alcoves (+-Z) at the wall; 11 m out keeps them outside the projector dais and under the board.
-export const HUB_DESK_RADIUS = 11
+// window alcoves (+-Z) at the wall; 8 m out is as close as they go: the projector dais reaches ~6.5 m.
+export const HUB_DESK_RADIUS = 8
 export const HUB_DESK_ANGLES = { tradingPost: 90, noticeBoard: 210, hallOfRecords: 330 } // degrees from +X toward +Z
 
 /** A desk on the hub floor at `deg`, its front (sin yaw, cos yaw) facing out toward the wall. */

@@ -11,7 +11,9 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     pods, fixed per wallet (`podForWallet`), once the gate clears them. A refused player stays in (or is returned
     to) the box while the gate sends them back to the ship. Anyone who falls through the hull goes back to their pod.
   - Hub levels: two ring balconies (9 m, 17 m) and a lounge (25 m) are in the model; `src/hubLevels.ts` adds the
-    lift pads (cyan up, magenta down, on both ends of the X axis) and the lounge's dance floor. Heights and the
+    lifts (a physical platform in a vertical shaft on each end of the X axis: E / F to ride, call buttons on each
+    level, gates at the landings; lift state synced between players), the lounge's dance floor, and Relay Radio
+    (`src/lounge/music.ts`, fading in with height). Heights and the
     lift radius must match `BALCONIES` / `LOUNGE` / `LIFT_R` in the build script.
   - `tools/build_station_models.py`: builds `station.glb` from
     `~/-MetaPetal/Daisy Class Assets/DaisyClass_Interior_Kit.blend` (read only, never saved): a 2x hub with four
