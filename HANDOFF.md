@@ -25,8 +25,8 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     station (refreshed every 10 s). Needs the server's `walletAddress` on `/docked` (branch
     `feature/station-wallets`); without it, players see only themselves.
   - `src/ui.tsx`: status banner, docked crew list, RETURN TO SHIP. Voice chat is disabled in `scene.json`.
-  - Ship Services (pod 0, `src/shipServices.ts`): the ship's ship desk (Overview, Ship Systems, Pod Operations),
-    copied unchanged from `galaxy-gardeners-dcl` (`stations.ts`, `stations/*`, `api.ts`, `countdown.ts`, `sfx.ts`,
+  - Ship Services (pod 0, `src/shipServices.ts`): the ship's two desks, set up as in the ship: the ship desk
+    (Overview, Ship Systems, Pod Operations) and Flora Collections (Summary, Catalog, Vault, Inventory), copied unchanged from `galaxy-gardeners-dcl` (`stations.ts`, `stations/*`, `api.ts`, `countdown.ts`, `sfx.ts`,
     `payments.ts`, `types.ts`, `topViewHide.ts`, and assets). Keep them identical: re-copy rather than edit. Stand-ins
     for ship-only systems: `docking.ts`, `cabinDim.ts`, `soundtrack.ts`, `systemView.ts`; the desk's HUD dialogs are
     lifted verbatim into `shipDialogs.tsx`. The station's own server calls are in `stationApi.ts`.
