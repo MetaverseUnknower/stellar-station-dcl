@@ -39,8 +39,10 @@ export function buildClubLights(): void {
       type: LightSource.Type.Spot({ innerAngle: 14, outerAngle: 26 }),
       color: PALETTE[i % PALETTE.length],
       intensity: 8000,
-      range: 26,
-      shadow: false
+      // Only as far as the dance floor: 9.5 m down at the steepest tilt, ~12.8 m along the beam at the shallowest.
+      // The old 26 m, with no shadows, lit the Observation Deck 8 m under the lounge's floor, through it.
+      range: 13,
+      shadow: true // and the floor stops the light, wherever the range would still reach past it
     })
     // The visible beam: a translucent cone along the light's forward (+Z), narrow at the light.
     const beam = engine.addEntity()
