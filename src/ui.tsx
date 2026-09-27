@@ -96,34 +96,69 @@ function CrewPanel() {
 }
 
 /** Admin-only debug panel: every station; picking one switches whose players you see. */
+const ADMIN_PAGE = 8 // stations listed at a time
+let adminCollapsed = false
+let adminPage = 0
+
 function AdminPanel() {
   const gate = getGateState()
   if (!isAdmin() || gate.kind !== 'aboard') return null
+  const stations = getStations()
+  const pages = Math.max(1, Math.ceil(stations.length / ADMIN_PAGE))
+  adminPage = Math.min(adminPage, pages - 1)
+  const shown = stations.slice(adminPage * ADMIN_PAGE, (adminPage + 1) * ADMIN_PAGE)
+  const current = stations.find((s) => s.id === gate.stationId)
+  const button = (key: string, text: string, enabled: boolean, onClick: () => void) => (
+    <UiEntity
+      key={key}
+      uiTransform={{ width: px(40), height: px(30), justifyContent: 'center', alignItems: 'center', margin: { left: px(6) } }}
+      uiBackground={{ color: enabled ? Color4.create(1, 1, 1, 0.12) : Color4.create(1, 1, 1, 0.04) }}
+      onMouseDown={() => { if (enabled) onClick() }}
+    >
+      <Label value={text} fontSize={px(16)} color={enabled ? CYAN : Color4.create(0.4, 0.45, 0.55, 1)} />
+    </UiEntity>
+  )
   return (
     <UiEntity
       uiTransform={{
         positionType: 'absolute',
         position: { left: px(24), top: px(200) },
         width: px(300),
-        padding: px(16),
+        padding: px(adminCollapsed ? 10 : 16),
         flexDirection: 'column'
       }}
       uiBackground={{ color: PANEL }}
     >
-      <Label value="ADMIN  ·  STATIONS" fontSize={px(20)} color={WARN} uiTransform={{ height: px(30) }} textAlign="middle-left" />
-      {getStations().map((s) => {
-        const current = s.id === gate.stationId
-        return (
-          <UiEntity
-            key={s.id}
-            uiTransform={{ height: px(34), margin: { top: px(4) }, padding: { left: px(10) }, alignItems: 'center' }}
-            uiBackground={{ color: current ? CYAN : Color4.create(1, 1, 1, 0.08) }}
-            onMouseDown={() => pickStation(s.id)}
-          >
-            <Label value={s.name} fontSize={px(17)} color={current ? Color4.Black() : DIM} textAlign="middle-left" />
-          </UiEntity>
-        )
-      })}
+      {/* Header: the title, and a toggle to fold the panel away. */}
+      <UiEntity uiTransform={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: px(30) }}>
+        <Label value={`ADMIN  ·  STATIONS (${stations.length})`} fontSize={px(18)} color={WARN} textAlign="middle-left" />
+        {button('fold', adminCollapsed ? '+' : '–', true, () => { adminCollapsed = !adminCollapsed })}
+      </UiEntity>
+      {!adminCollapsed && (
+        <UiEntity uiTransform={{ flexDirection: 'column' }}>
+          <Label value={`AT  ${current ? current.name : '—'}`} fontSize={px(14)} color={DIM} textAlign="middle-left" uiTransform={{ height: px(22), margin: { top: px(4) } }} />
+          {shown.map((s) => {
+            const here = s.id === gate.stationId
+            return (
+              <UiEntity
+                key={s.id}
+                uiTransform={{ height: px(34), margin: { top: px(4) }, padding: { left: px(10) }, alignItems: 'center' }}
+                uiBackground={{ color: here ? CYAN : Color4.create(1, 1, 1, 0.08) }}
+                onMouseDown={() => pickStation(s.id)}
+              >
+                <Label value={s.name} fontSize={px(17)} color={here ? Color4.Black() : DIM} textAlign="middle-left" />
+              </UiEntity>
+            )
+          })}
+          {pages > 1 && (
+            <UiEntity uiTransform={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', height: px(34), margin: { top: px(8) } }}>
+              <Label value={`${adminPage + 1} / ${pages}`} fontSize={px(14)} color={DIM} uiTransform={{ margin: { right: px(4) } }} />
+              {button('up', '▲', adminPage > 0, () => { adminPage = Math.max(0, adminPage - 1) })}
+              {button('down', '▼', adminPage < pages - 1, () => { adminPage = Math.min(pages - 1, adminPage + 1) })}
+            </UiEntity>
+          )}
+        </UiEntity>
+      )}
     </UiEntity>
   )
 }
