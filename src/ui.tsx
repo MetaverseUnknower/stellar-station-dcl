@@ -10,6 +10,7 @@ import { ComposePanel } from './board/compose'
 import { liftPanel } from './lift/lifts'
 import { InvadersScreen } from './arcade/invaders/hud'
 import { currentTrack, isMuted, toggleMuted, nextTrack } from './soundtrack'
+import { radioDisplay, radioGenre, inTheClub } from './lounge/radioNow'
 
 // stations/shipOverview.ts (copied from the ship) opens these from '../ui', as on the ship.
 export { openRefineryDialog, openPurchaseDialog, openRecallDialog } from './shipDialogs'
@@ -164,6 +165,27 @@ const MusicBar = () => {
   )
 }
 
+/** In the club: the same bar, showing what Relay Radio is playing instead (the soundtrack's faded out up there). */
+const RadioBar = () => {
+  const d = radioDisplay()
+  const genre = radioGenre()
+  const body = d.body.replace('\n', ' — ')
+  return (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { bottom: px(20), right: px(30) }, flexDirection: 'row', alignItems: 'center', padding: px(4) }}
+      uiBackground={{ color: Color4.create(0.02, 0.05, 0.12, 0.85) }}>
+      <UiEntity uiTransform={{ height: px(26), padding: { left: px(8), right: px(8) }, justifyContent: 'center', alignItems: 'center' }}
+        uiBackground={{ color: Color4.create(1, 0.22, 0.7, 1) }}>
+        <Label value="RELAY RADIO" fontSize={px(12)} color={Color4.create(0.02, 0.05, 0.1, 1)} />
+      </UiEntity>
+      <Label value={d.head === 'NOW PLAYING' ? `♪ ${body}${genre ? `  ·  ${genre}` : ''}` : `♪ ${body}`} fontSize={px(12)}
+        color={Color4.create(0.45, 0.65, 0.75, 1)} uiTransform={{ margin: { left: px(8), right: px(8) } }} />
+    </UiEntity>
+  )
+}
+
+/** The music bar: the soundtrack's (the ship's own bar) on the station, Relay Radio's in the club. */
+const StationMusicBar = () => (inTheClub() ? <RadioBar /> : <MusicBar />)
+
 export function setupUi(): void {
   ReactEcsRenderer.setUiRenderer(() => (
     <UiEntity uiTransform={{ width: '100%', height: '100%' }}>
@@ -174,7 +196,7 @@ export function setupUi(): void {
       <ShipDialogs />
       <ComposePanel />
       <InvadersScreen />
-      <MusicBar />
+      <StationMusicBar />
     </UiEntity>
   ))
 }

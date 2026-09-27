@@ -8,6 +8,7 @@ import { engine, Entity, Transform, AudioStream } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
 import { startSoundtrack, setSoundtrackContext, setSoundtrackFade } from '../soundtrack'
+import { startRadioNowPlaying } from './radioNow'
 
 export const RELAY_RADIO_URL = 'https://relayradio.org/api/live/stream.mp3' // as rebel-radio's STREAM_URL
 const LOUNGE = 25 // metres above the deck (build_station_models.py LOUNGE)
@@ -47,6 +48,7 @@ function startStationSoundtrack(): void {
 
 export function buildLoungeMusic(): void {
   startStationSoundtrack()
+  startRadioNowPlaying()
   const base = () => Vector3.create(CENTER.x, FLOOR_Y + LOUNGE + SOURCE_ABOVE_FLOOR, CENTER.z)
   const at = (gain: number) => {
     const b = base()
