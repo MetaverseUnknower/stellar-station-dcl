@@ -525,6 +525,54 @@ def annulus(name, center, r0, r1, z0, z1, mat=None, n=48):
     return mesh_object(name, bm, mat)
 
 
+def glow_material(name, rgb, strength):
+    """Emissive material (the glTF export carries the emission colour and strength)."""
+    m = panel_material(name, tuple(c * 0.4 for c in rgb), 0.2, 0.4)
+    bsdf = m.node_tree.nodes['Principled BSDF']
+    colour = 'Emission Color' if 'Emission Color' in bsdf.inputs else 'Emission'   # Blender 4 renamed it
+    bsdf.inputs[colour].default_value = (*rgb, 1)
+    bsdf.inputs['Emission Strength'].default_value = strength
+    return m
+
+
+def dock_sign(name, deg, wall):
+    """A 3D "DOCK" sign over a hub doorway: extruded lettering on a backing plate with a glowing border, just in
+    front of the curved wall above the corridor's trim, facing the hub's centre."""
+    coll = bpy.data.collections.new(name)
+    bpy.context.scene.collection.children.link(coll)
+    w, h, depth = 3.6, 1.2, 0.12
+    trim_top = DOOR_H + 0.55                      # the corridor trim's top edge (build_corridor's t)
+    z = trim_top + 0.3 + h / 2
+    # Built facing -Y at the origin, then turned and moved into place.
+    coll.objects.link(box(f'{name}Plate', (-w / 2, 0, -h / 2), (w / 2, depth, h / 2), panel_material('SignPlate', (0.05, 0.05, 0.12), 0.7, 0.35)))
+    edge = glow_material('SignEdge', (0, 0.9, 1), 3)
+    b = 0.05
+    for lo, hi in (((-w / 2, -0.02, h / 2 - b), (w / 2, 0.02, h / 2)), ((-w / 2, -0.02, -h / 2), (w / 2, 0.02, -h / 2 + b)),
+                   ((-w / 2, -0.02, -h / 2), (-w / 2 + b, 0.02, h / 2)), ((w / 2 - b, -0.02, -h / 2), (w / 2, 0.02, h / 2))):
+        coll.objects.link(box(f'{name}Edge', lo, hi, edge))
+    curve = bpy.data.curves.new(f'{name}Text', 'FONT')
+    curve.body = 'DOCK'
+    curve.align_x, curve.align_y = 'CENTER', 'CENTER'
+    curve.size = 0.8
+    curve.extrude = 0.05
+    curve.bevel_depth = 0.008
+    text_ob = bpy.data.objects.new(f'{name}TextCurve', curve)
+    bpy.context.scene.collection.objects.link(text_ob)
+    dg = bpy.context.evaluated_depsgraph_get()
+    text_mesh = bpy.data.meshes.new_from_object(text_ob.evaluated_get(dg))
+    bpy.context.scene.collection.objects.unlink(text_ob)
+    bpy.data.objects.remove(text_ob)
+    bpy.data.curves.remove(curve)
+    text_mesh.transform(Matrix.Translation((0, -0.07, 0)) @ Matrix.Rotation(math.radians(90), 4, 'X'))  # stand it up, just proud of the plate
+    text_mesh.materials.append(glow_material('SignText', (0, 0.9, 1), 5))
+    coll.objects.link(bpy.data.objects.new(f'{name}Letters', text_mesh))
+    # Place: the plate's front faces -Y; turn it to face the centre from `deg`, in front of the wall at that height.
+    a = math.radians(deg)
+    r = wall.radius(a, z) - 0.35
+    transform(coll, Matrix.Translation((math.cos(a) * r, math.sin(a) * r, z)) @ Matrix.Rotation(a + math.radians(270), 4, 'Z'))
+    return coll
+
+
 def landing(coll, name, side, z, deck):
     """A landing from a balcony's inner edge out to the lift shaft on the X axis, railed along its sides. The edge
     facing the shaft is closed by a gate in the scene (src/hubLevels.ts) while the lift is elsewhere."""
@@ -647,6 +695,8 @@ def main():
 
     parts.append(build_hub_levels(hub))
     hub_wall = HubWall(hub)
+    for a in HUB_DOORS:
+        parts.append(dock_sign(f'DockSign{a}', a, hub_wall))
     for a in LOUNGE_BENCHES:
         # Bench backs against the lounge wall (the model sits on the 1x wall, 15.4 m out).
         wall_r = hub_wall.radius(math.radians(a), LOUNGE + 0.5)
