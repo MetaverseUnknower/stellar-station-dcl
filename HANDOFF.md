@@ -43,7 +43,7 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     moderators), pin (moderators) and report. Typed in a HUD box (`compose.tsx`). Server: `routes/board.ts`,
     table `station_posts` (`051_station_posts.sql`). Polls every 20 s while viewed.
   - Hall of Records (hub floor, `src/records/`): galaxy leaderboards on a desk (rankings with category tabs; your
-    standing below) and on a double-sided board turning above the hub's projector. Server: `routes/leaderboards.ts`,
+    standing below). Server: `routes/leaderboards.ts`,
     materialized view `leaderboard_stats` refreshed every 10 min (`052_leaderboards.sql`).
   - Features plan (trading, message boards, leaderboards): `docs/station-features-plan.md` (all four parts built).
   - Ship: BOARD STATION on the nav console's station card while docked (`boardStation` in `src/docking.ts`).
