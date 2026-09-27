@@ -9,9 +9,10 @@
 // way the explorer converts the model's axes.
 import {
   engine, Entity, Transform, MeshRenderer, MeshCollider, Material, Tween, EasingFunction,
-  PointerEventType, InputAction, inputSystem, pointerEventsSystem, ColliderLayer
+  PointerEventType, InputAction, inputSystem, pointerEventsSystem, ColliderLayer, Schemas
 } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color4, Color3 } from '@dcl/sdk/math'
+import { syncEntity } from '@dcl/sdk/network'
 import { CENTER, FLOOR_Y } from './station'
 
 const LEVELS = [
@@ -28,12 +29,24 @@ const DWELL = 0.4 // seconds after arriving before the gate opens
 const GLOW = Color3.create(0, 0.9, 1)
 const GATE = Color3.create(1, 0.25, 0.8)
 
+// What every player agrees on about a lift, synced between scenes: the level it last settled at, where it's going
+// (the same level when idle) and when it set off (ms, the sender's clock; only used by players who join mid-ride).
+// Each scene animates its own platform from this, so the platform itself is never synced.
+const LiftState = engine.defineComponent('stellar::LiftState', {
+  level: Schemas.Int,
+  target: Schemas.Int,
+  startedAt: Schemas.Int64
+})
+const LIFT_SYNC_IDS = { 1: 7101, [-1]: 7102 } as Record<number, number>
+
 type Lift = {
   side: number
   platform: Entity
+  state: Entity // synced LiftState
   gates: (Entity | null)[] // per level; none on the hub floor
-  level: number
+  level: number // settled level, as this scene shows it
   moving: boolean
+  seen: { target: number; startedAt: number } | null // the last LiftState this scene acted on
 }
 
 const lifts: Lift[] = []
@@ -59,6 +72,9 @@ export function liftUnderPlayer(): { level: string; canUp: boolean; canDown: boo
 export function buildHubLevels(): void {
   for (const side of [1, -1]) lifts.push(makeLift(side))
   buildDanceFloor()
+  engine.addSystem(() => {
+    for (const lift of lifts) followState(lift)
+  })
 
   // E / F while standing on a platform rides it one level up / down.
   engine.addSystem(() => {
@@ -86,7 +102,11 @@ function makeLift(side: number): Lift {
   MeshCollider.setCylinder(platform)
   Material.setPbrMaterial(platform, { albedoColor: Color4.create(0, 0.5, 0.7, 1), emissiveColor: GLOW, emissiveIntensity: 1.4, metallic: 0.6, roughness: 0.3 })
 
-  const lift: Lift = { side, platform, gates: [], level: 0, moving: false }
+  const state = engine.addEntity()
+  LiftState.create(state, { level: 0, target: 0, startedAt: 0 })
+  syncEntity(state, [LiftState.componentId], LIFT_SYNC_IDS[side])
+
+  const lift: Lift = { side, platform, state, gates: [], level: 0, moving: false, seen: null }
   for (let level = 0; level < LEVELS.length; level++) {
     lift.gates.push(level === 0 ? null : makeGate(side, level))
     makeCallButton(lift, level)
@@ -151,27 +171,58 @@ function makeCallButton(lift: Lift, level: number): void {
   )
 }
 
+/** Ask for the lift: writes the synced state; every scene (this one included) then animates it. */
 function sendTo(lift: Lift, target: number): void {
   if (lift.moving || target < 0 || target >= LEVELS.length || target === lift.level) return
-  const from = lift.level
+  LiftState.createOrReplace(lift.state, { level: lift.level, target, startedAt: Date.now() })
+}
+
+const travelSeconds = (from: number, to: number) => Math.abs(LEVELS[to].height - LEVELS[from].height) / SPEED
+
+/** Follow the synced state: start a ride when it changes, settle when the ride's time is up. */
+function followState(lift: Lift): void {
+  const st = LiftState.get(lift.state)
+  const changed = !lift.seen || lift.seen.target !== st.target || lift.seen.startedAt !== Number(st.startedAt)
+  if (!changed) return
+  const firstLook = !lift.seen
+  lift.seen = { target: st.target, startedAt: Number(st.startedAt) }
+  if (st.target === st.level) {
+    settle(lift, st.target)
+    return
+  }
+  const seconds = travelSeconds(st.level, st.target)
+  // A ride already under way when we joined: finish what's left of it (or skip it if it's over). Otherwise it
+  // starts now, whatever the sender's clock said: a moment behind the rider, rather than trusting two clocks.
+  const elapsed = firstLook ? Math.max(0, (Date.now() - Number(st.startedAt)) / 1000) : 0
+  if (elapsed >= seconds) {
+    settle(lift, st.target)
+    return
+  }
+  const from = firstLook ? lerp(platformAt(lift.side, st.level), platformAt(lift.side, st.target), elapsed / seconds) : platformAt(lift.side, st.level)
+  const remaining = seconds - elapsed
   lift.moving = true
   closeGates(lift)
-  const distance = Math.abs(LEVELS[target].height - LEVELS[from].height)
-  const seconds = distance / SPEED
-  Tween.setMove(lift.platform, platformAt(lift.side, from), platformAt(lift.side, target), seconds * 1000, EasingFunction.EF_EASESINE)
+  Tween.setMove(lift.platform, from, platformAt(lift.side, st.target), remaining * 1000, firstLook ? EasingFunction.EF_LINEAR : EasingFunction.EF_EASESINE)
   let t = 0
   const wait = (dt: number) => {
     t += dt
-    if (t < seconds + DWELL) return
+    if (t < remaining + DWELL) return
     engine.removeSystem(wait)
-    Tween.deleteFrom(lift.platform)
-    Transform.getMutable(lift.platform).position = platformAt(lift.side, target)
-    lift.level = target
-    lift.moving = false
-    closeGates(lift)
+    // Only if nothing newer arrived meanwhile.
+    if (lift.seen?.target === st.target) settle(lift, st.target)
   }
   engine.addSystem(wait)
 }
+
+function settle(lift: Lift, level: number): void {
+  Tween.deleteFrom(lift.platform)
+  Transform.getMutable(lift.platform).position = platformAt(lift.side, level)
+  lift.level = level
+  lift.moving = false
+  closeGates(lift)
+}
+
+const lerp = (a: Vector3, b: Vector3, t: number) => Vector3.create(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
 
 // Dance floor: a ring of tiles round the lounge's central opening, cycling colours in waves.
 const DANCE_INNER = 7

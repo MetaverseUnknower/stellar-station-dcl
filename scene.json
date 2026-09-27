@@ -308,7 +308,8 @@
   "allowedMediaHostnames": [
     "galaxygardeners.app",
     "staging.galaxygardeners.app",
-    "localhost"
+    "localhost",
+    "relayradio.org"
   ],
   "featureToggles": {
     "voiceChat": "disabled",

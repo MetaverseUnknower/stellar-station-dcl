@@ -395,9 +395,45 @@ def near_lift(theta):
 
 def slab(name, wall, z, r_in, mat, wells=(), n=144, radial=20.0, collider_n=72, collider_radial=20.0):
     """A floor slab from r_in to the hub wall, top at z, with round holes at `wells` (x, y centres). Returns the
-    visible slab and a coarser collider. Holes need fine radial steps; plain rings don't."""
-    return (slab_mesh(name, wall, z, r_in, mat, wells, n, radial),
-            slab_mesh(name + '_collider', wall, z, r_in, None, wells, collider_n, collider_radial))
+    visible slab and a coarser collider. Holes are cut with a boolean, so their edges are true circles on both."""
+    vis = slab_mesh(name, wall, z, r_in, mat, (), n, radial)
+    col = slab_mesh(name + '_collider', wall, z, r_in, None, (), collider_n, collider_radial)
+    for ob in (vis, col):
+        if wells:
+            cut_holes(ob, wells, WELL_R, z - SLAB - 1, z + 1)
+    return vis, col
+
+
+def cut_holes(ob, centres, radius, z0, z1, segments=64):
+    """Boolean-subtract round holes (vertical cylinders) from a closed mesh, in place."""
+    bm = bmesh.new()
+    for cx, cy in centres:
+        made = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=segments,
+                                     radius1=radius, radius2=radius, depth=z1 - z0)
+        bmesh.ops.translate(bm, verts=made['verts'], vec=Vector((cx, cy, (z0 + z1) / 2)))
+    cutter_mesh = bpy.data.meshes.new('cutter')
+    bm.to_mesh(cutter_mesh)
+    bm.free()
+    cutter = bpy.data.objects.new('cutter', cutter_mesh)
+    scene = bpy.context.scene.collection
+    scene.objects.link(cutter)
+    linked = ob.name not in scene.objects
+    if linked:
+        scene.objects.link(ob)
+    mod = ob.modifiers.new('holes', 'BOOLEAN')
+    mod.operation = 'DIFFERENCE'
+    mod.solver = 'EXACT'
+    mod.object = cutter
+    dg = bpy.context.evaluated_depsgraph_get()
+    cut = bpy.data.meshes.new_from_object(ob.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
+    ob.modifiers.remove(mod)
+    old = ob.data
+    ob.data = cut
+    bpy.data.meshes.remove(old)
+    if linked:
+        scene.objects.unlink(ob)
+    bpy.data.objects.remove(cutter)
+    bpy.data.meshes.remove(cutter_mesh)
 
 
 def slab_mesh(name, wall, z, r_in, mat, wells, n, radial):
@@ -437,7 +473,7 @@ def ring_band(name, radius, z0, z1, mat, center=(0, 0), gap=None, n=None, depth=
     With depth it's a closed ring of that thickness (for colliders)."""
     bm = bmesh.new()
     cx, cy = center
-    n = n or max(24, round(radius * 4))   # ~1.5 m segments on the big rings, 24 on the small ones
+    n = n or max(48, round(radius * 4))   # ~1.5 m segments on the big rings, 48 on the small ones (smooth up close)
     for i in range(n):
         t0, t1 = 2 * math.pi * i / n, 2 * math.pi * (i + 1) / n
         if gap and gap((t0 + t1) / 2):
@@ -522,17 +558,15 @@ def build_hub_levels(hub):
             landing(coll, f'Balcony{i}Landing{side}', side, z, deck)
 
     wells = [(LIFT_R, 0), (-LIFT_R, 0)]
-    vis, col = slab('Lounge', wall, LOUNGE, OCULUS_R, deck, wells=wells, radial=0.6, collider_n=144, collider_radial=0.6)   # the collider's well holes must match the floor you see
+    vis, col = slab('Lounge', wall, LOUNGE, OCULUS_R, deck, wells=wells, radial=2.0, collider_n=96, collider_radial=4.0)
     coll.objects.link(vis)
     coll.objects.link(col)
     coll.objects.link(ring_band('PureEM_OculusEdge', OCULUS_R - 0.01, LOUNGE - SLAB * 0.65, LOUNGE - SLAB * 0.35, material('Blue EM')))
     railing(coll, 'Oculus', OCULUS_R + 0.15, LOUNGE)
     for side, (wx, wy) in zip((1, -1), wells):
-        # Lift well: a lined shaft through the slab, a collar over the cut edge, and a rail open on its outer side.
-        coll.objects.link(ring_band(f'Well{side}Liner', WELL_R, LOUNGE - SLAB - 0.01, LOUNGE + 0.01, under, (wx, wy)))
+        # Lift well: the slab's round hole (its wall comes from the cut), a glowing collar, and a rail open on its outer side.
         coll.objects.link(ring_band(f'PureEM_Well{side}Glow', WELL_R + 0.3, LOUNGE + 0.01, LOUNGE + 0.03, material('Blue EM'), (wx, wy), depth=0.6))
-        # Solid footing under the collar: the slab's hole is cut from whole cells, so its edge is ragged out to ~2.6 m.
-        coll.objects.link(annulus(f'Well{side}Collar_collider', (wx, wy), WELL_R, WELL_R + 1.0, LOUNGE - SLAB, LOUNGE + 0.03))
+
         outward = (lambda t, side=side: abs(((math.degrees(t) - (0 if side > 0 else 180) + 180) % 360) - 180) < 40)
         railing(coll, f'Well{side}', WELL_R + 0.9, LOUNGE, (wx, wy), gap=outward)
     name_colliders(coll)
