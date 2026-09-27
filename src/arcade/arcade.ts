@@ -1,7 +1,7 @@
 // The arcade: a small pod off the Recreation Deck (tools/build_station_models.py ARCADE_*), lined with upright
 // cabinets (arcade_cabinet.glb, from tools/build_arcade_cabinet.py). Each has its title on the marquee and an
-// attract-mode screen that cycles colours with a blinking INSERT COIN. PETAL INVADERS (invaders/) and ASTRO GARDEN
-// (garden/) are playable, run by cabinet.ts;
+// attract-mode screen that cycles colours with a blinking INSERT COIN. PETAL INVADERS (invaders/), ASTRO GARDEN
+// (garden/) and NEBULA BREAKER (breaker/) are playable, run by cabinet.ts;
 // the rest are for the look for now, and a hover says so.
 //
 // Model to scene: the explorer turns Blender's (x, y, z) to (-x, z, -y) about the hub's centre, so a Blender angle A
@@ -15,11 +15,13 @@ import { CENTER, FLOOR_Y } from '../station'
 import { Vector3 as V3 } from '@dcl/sdk/math'
 import { playInvaders, invadersHiScore } from './invaders/play'
 import { playGarden, gardenHiScore } from './garden/play'
+import { playBreaker, breakerHiScore } from './breaker/play'
 
 /** The cabinets you can play: their title, how to start them, and their station high score. */
 const GAMES: Record<string, { play: (front: V3, screen: V3) => void; hi: () => { score: number } }> = {
   'PETAL INVADERS': { play: playInvaders, hi: invadersHiScore },
-  'ASTRO GARDEN': { play: playGarden, hi: gardenHiScore }
+  'ASTRO GARDEN': { play: playGarden, hi: gardenHiScore },
+  'NEBULA BREAKER': { play: playBreaker, hi: breakerHiScore }
 }
 
 const ARCADE_ANGLE = 18.5 + 180 // build_station_models.py ARCADE_ANGLE, in scene degrees (from +X toward +Z)
@@ -29,7 +31,7 @@ const CABINET_R = 4.4 // out from the pod's centre (its floor is flat to 5.6 m; 
 // Round the pod from its outward direction: five along the back wall, one each side of the door (at 180); the
 // windows are at +-90.
 const CABINET_ANGLES = [-36, -18, 0, 18, 36, 140, -140]
-const TITLES = ['PETAL INVADERS', 'COMET RUN', 'ASTRO GARDEN', 'NEBULA PONG', 'STAR DRIFT', 'ORBIT BLASTER', 'VOID RACER']
+const TITLES = ['PETAL INVADERS', 'COMET RUN', 'ASTRO GARDEN', 'NEBULA BREAKER', 'STAR DRIFT', 'ORBIT BLASTER', 'VOID RACER']
 
 // The screen recess (build_arcade_cabinet.py: the slope from (y -0.22, z 1.06) to (-0.12, 1.62), bezel opening
 // 0.6 x 0.51), in the cabinet's own scene axes (it faces +Z).

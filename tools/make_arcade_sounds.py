@@ -60,4 +60,15 @@ write('wilt', render(0.25, lambda t, p: square(700 - 400 * p, t, 0.5) * (1 - p))
 write('level', render(0.3, lambda t, p: square([523, 659, 988][min(2, int(p * 3))], t, 0.25) * (1 - 0.3 * p)), 0.3)
 # Crash: a noise burst with a thud under it.
 write('crash', render(0.6, lambda t, p: (0.6 * noise[int(t * RATE / (1 + 2 * p)) % RATE] + 0.4 * square(90 - 50 * p, t)) * (1 - p) ** 1.3), 0.55)
+# NEBULA BREAKER:
+# Bounce off the paddle: a round low blip.
+write('bounce', render(0.08, lambda t, p: square(330, t, 0.5) * (1 - p)), 0.4)
+# A cloud breaking: a bright pop with a little noise.
+write('brick', render(0.12, lambda t, p: (0.6 * square(880 - 300 * p, t, 0.3) + 0.4 * noise[int(t * RATE)]) * (1 - p) ** 1.5), 0.4)
+# Tick: walls, asteroids and two-hit clouds.
+write('tick', render(0.04, lambda t, p: square(1200, t, 0.5) * (1 - p)), 0.25)
+# Power-up caught: a rising warble.
+write('power', render(0.45, lambda t, p: square(500 + 900 * p + 80 * math.sin(t * 2 * math.pi * 18), t, 0.35) * (1 - 0.5 * p)), 0.3)
+# Launch: a quick rising zip.
+write('launch', render(0.12, lambda t, p: square(400 + 800 * p, t, 0.25) * (1 - p)), 0.3)
 print('wrote', sorted(os.listdir(OUT)))
