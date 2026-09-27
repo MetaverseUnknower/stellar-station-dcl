@@ -594,6 +594,29 @@ def landing(coll, name, side, z, deck):
         coll.objects.link(box(f'{name}Rail{s}_collider', (x0, y - 0.1, z), (x1, y + 0.1, z + 1.3)))
 
 
+def fill_projector_well(coll, center, floor):
+    """With the projector left out, the deck has a 3.5 m hole where it stood (the under-floor 0.18 m below shows
+    through, under a collider that stays flat at deck height). Fill it: a disc flush with the deck, with a thin
+    glowing edge."""
+    def disc(name, r0, r1, z, mat, n=128):
+        bm = bmesh.new()
+        if r0 == 0:
+            bmesh.ops.create_circle(bm, cap_ends=True, radius=r1, segments=n)
+        else:
+            outer = [bm.verts.new((r1 * math.cos(2 * math.pi * i / n), r1 * math.sin(2 * math.pi * i / n), 0)) for i in range(n)]
+            inner = [bm.verts.new((r0 * math.cos(2 * math.pi * i / n), r0 * math.sin(2 * math.pi * i / n), 0)) for i in range(n)]
+            for i in range(n):
+                j = (i + 1) % n
+                bm.faces.new((inner[i], inner[j], outer[j], outer[i]))
+        for f in bm.faces:
+            if f.normal.z < 0:
+                f.normal_flip()
+        bmesh.ops.translate(bm, verts=bm.verts, vec=(center.x, center.y, z))
+        coll.objects.link(mesh_object(name, bm, mat))
+    disc('WellCap', 0, 3.52, floor - 0.003, panel_material('DeckFloor', (0.09, 0.08, 0.22), 0.7, 0.35))
+    disc('PureEM_WellCapEdge', 3.3, 3.38, floor - 0.001, material('Blue EM'))
+
+
 def build_hub_levels(hub, wall):
     coll = bpy.data.collections.new('levels')
     bpy.context.scene.collection.children.link(coll)
@@ -703,11 +726,12 @@ def main():
 
     # The upper ring: pods off Balcony 2 (the Observation Deck), on the X axis where the hub wall is plain (the
     # windows are on +-Y). Observation pods: no engine; a second window, turned half round, fills its opening, as in
-    # the hub.
+    # the hub. No projector dais on the floor either.
     for a in UPPER_PODS:
-        pod = bake(lambda o: not o.name.startswith(('Engine', 'PureEM_Engine')))
+        pod = bake(lambda o: not o.name.startswith(('Engine', 'PureEM_Engine', 'Projector', 'PureEM_Projector', 'PureEm_Projector')))
         at = Matrix.Translation((0, 0, UPPER_Z)) @ placed(a, POD_DISTANCE)
         transform(pod, at)
+        fill_projector_well(pod, Vector((math.cos(math.radians(a)), math.sin(math.radians(a)), 0)) * POD_DISTANCE, UPPER_Z)
         window = bake(lambda o: o.name.startswith(('Window', 'Glass_Window')))
         transform(window, at @ Matrix.Rotation(math.pi, 4, 'Z'))
         for ob in list(window.objects):
