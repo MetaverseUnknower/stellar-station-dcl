@@ -15,7 +15,7 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene.collection
 
 
-def neon(name, rgb, strength=6.0):
+def neon(name, rgb, strength=3.0):
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     b = m.node_tree.nodes['Principled BSDF']
@@ -39,7 +39,7 @@ PINK = neon('NeonPink', (1.0, 0.22, 0.7))
 CYAN = neon('NeonCyan', (0.2, 0.9, 1.0))
 AMBER = neon('NeonAmber', (1.0, 0.55, 0.12))
 YELLOW = neon('NeonYellow', (1.0, 0.9, 0.3))
-WARM = neon('NeonWarm', (1.0, 0.85, 0.65), 5.0)
+WARM = neon('NeonWarm', (1.0, 0.85, 0.65), 2.5)
 BOARD = plain('Backboard', (0.03, 0.07, 0.12), 0.4, 0.35)
 
 
