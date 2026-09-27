@@ -26,6 +26,8 @@ CORRIDOR_LENGTH = 19.0
 TEXTURE_MAX = 1024
 INNER_WALL, HUB_OUTER, POD_OUTER = 15.4, 16.8, 16.8   # pod wall radii at floor height, 1x (fallbacks for raycasts)
 HUB_DOORS = (45, 135, 225, 315)          # clear of the window (+Y) and the engine (-Y)
+UPPER_PODS = (0, 180)                    # a second ring off Balcony 2, on the X axis (the hub wall is plain there)
+UPPER_Z = 17.0                           # BALCONIES[1]
 BENCH_ANGLES = (-20, 0, 20, 160, 180, 200)
 POD_DISTANCE = INNER_WALL * HUB_SCALE + CORRIDOR_LENGTH + INNER_WALL   # pod centre from hub centre
 # Hub levels (src/station.ts HUB_LEVELS must match): two ring balconies open over the atrium, and a lounge with a
@@ -218,17 +220,19 @@ def hull_bvh(coll, parts=('Wall 0', 'RivetWall')):
 
 class CorridorFrame:
     """A corridor's frame in station space: axial distance s from the hub centre along the corridor, lateral
-    offset y, height z above the deck. hub/pod are (walls, walls-and-floor) raycast trees for each hull."""
+    offset y, height z above the corridor's floor, which is `base` above the deck (0 for the lower pods, the
+    upper pods' level for theirs). hub/pod are (walls, walls-and-floor) raycast trees for each hull."""
 
-    def __init__(self, deg, hub, pod):
+    def __init__(self, deg, hub, pod, base=0.0):
         a = math.radians(deg)
         self.axis = Vector((math.cos(a), math.sin(a), 0))
         self.side = Vector((-math.sin(a), math.cos(a), 0))
         self.hub, self.pod = hub, pod
+        self.base = base
         self.mid = (HUB_OUTER * HUB_SCALE + POD_DISTANCE - POD_OUTER) / 2   # between the two hulls
 
     def at(self, s, y, z):
-        return self.axis * s + self.side * y + Vector((0, 0, z))
+        return self.axis * s + self.side * y + Vector((0, 0, z + self.base))
 
     def _hit(self, tree, s0, sign, y, z):
         loc, _, _, dist = tree.ray_cast(self.at(s0, y, z), self.axis * sign, 40)
@@ -266,16 +270,16 @@ class CorridorFrame:
         """Trim a mesh to the stretch between the hub's and the pod's inner surfaces (the bumper near the deck,
         the wall above it), per vertex, so the tube's ends meet the trim and cover the bumper's cut ends."""
         for v in ob.data.vertices:
-            s, y, z = v.co.dot(self.axis), v.co.dot(self.side), v.co.z
+            s, y, z = v.co.dot(self.axis), v.co.dot(self.side), v.co.z - self.base
             s = min(max(s, self.hub_inner(y, z, bumper=True)), self.pod_inner(y, z, bumper=True))
             v.co = self.at(s, y, z)
 
 
-def build_corridor(deg, hub_tree, pod_tree):
+def build_corridor(deg, hub_tree, pod_tree, base=0.0):
     """A corridor on the diagonal deg, built in station space and fitted to the curved hulls at both ends."""
     coll = bpy.data.collections.new('corridor')
     bpy.context.scene.collection.children.link(coll)
-    f = CorridorFrame(deg, hub_tree, pod_tree)
+    f = CorridorFrame(deg, hub_tree, pod_tree, base)
     w, h, c = DOOR_W / 2, DOOR_H, 0.9   # c: chamfer on the ceiling corners
     s0, s1 = INNER_WALL * HUB_SCALE - 4, POD_DISTANCE - INNER_WALL + 4   # overshoot; clamp() trims to the walls
 
@@ -535,13 +539,13 @@ def glow_material(name, rgb, strength):
     return m
 
 
-def dock_sign(name, deg, wall):
+def dock_sign(name, deg, wall, base=0.0):
     """A 3D "DOCK" sign over a hub doorway: extruded lettering on a backing plate with a glowing border, just in
     front of the curved wall above the corridor's trim, facing the hub's centre."""
     coll = bpy.data.collections.new(name)
     bpy.context.scene.collection.children.link(coll)
     w, h, depth = 3.6, 1.2, 0.12
-    trim_top = DOOR_H + 0.55                      # the corridor trim's top edge (build_corridor's t)
+    trim_top = base + DOOR_H + 0.55               # the corridor trim's top edge (build_corridor's t)
     z = trim_top + 0.3 + h / 2
     # Built facing -Y at the origin, then turned and moved into place.
     coll.objects.link(box(f'{name}Plate', (-w / 2, 0, -h / 2), (w / 2, depth, h / 2), panel_material('SignPlate', (0.05, 0.05, 0.12), 0.7, 0.35)))
@@ -589,10 +593,10 @@ def landing(coll, name, side, z, deck):
         coll.objects.link(box(f'{name}Rail{s}_collider', (x0, y - 0.1, z), (x1, y + 0.1, z + 1.3)))
 
 
-def build_hub_levels(hub):
+def build_hub_levels(hub, wall):
     coll = bpy.data.collections.new('levels')
     bpy.context.scene.collection.children.link(coll)
-    wall = HubWall(hub)
+    # `wall` is measured before the doorways are cut (see main).
     deck = panel_material('DeckFloor', (0.09, 0.08, 0.22), 0.7, 0.35)
     under = panel_material('CorridorPanel', (0.16, 0.15, 0.4))
 
@@ -680,8 +684,11 @@ def main():
     name_colliders(hub)   # the copy's collider names would clash (and gain .001) otherwise
     # Uncut, so corridor ends can be fitted to the hull across the doorway.
     hub_tree = (hull_bvh(hub), hull_bvh(hub, ('Wall 0', 'RivetWall', 'Ground')))
+    hub_wall = HubWall(hub)   # also uncut: floors built across a doorway must still reach the wall line
     for a in HUB_DOORS:
         cut_door(hub, a, DOOR_W, DOOR_H, r_min=11 * HUB_SCALE, floor=0)
+    for a in UPPER_PODS:
+        cut_door(hub, a, DOOR_W, DOOR_H, r_min=11 * HUB_SCALE, floor=UPPER_Z)
     parts.append(hub)
 
     for a in HUB_DOORS:
@@ -693,10 +700,20 @@ def main():
         parts.append(pod)
         parts.append(build_corridor(a, hub_tree, pod_tree))
 
-    parts.append(build_hub_levels(hub))
-    hub_wall = HubWall(hub)
+    # The upper ring: pods off Balcony 2, on the X axis where the hub wall is plain (the windows are on +-Y).
+    for a in UPPER_PODS:
+        pod = bake(lambda o: True)
+        transform(pod, Matrix.Translation((0, 0, UPPER_Z)) @ placed(a, POD_DISTANCE))
+        pod_tree = (hull_bvh(pod), hull_bvh(pod, ('Wall 0', 'RivetWall', 'Ground')))
+        cut_door(pod, a + 180, DOOR_W, DOOR_H, center=Vector((math.cos(math.radians(a)), math.sin(math.radians(a)), 0)) * POD_DISTANCE, floor=UPPER_Z)
+        parts.append(pod)
+        parts.append(build_corridor(a, hub_tree, pod_tree, base=UPPER_Z))
+
+    parts.append(build_hub_levels(hub, hub_wall))
     for a in HUB_DOORS:
         parts.append(dock_sign(f'DockSign{a}', a, hub_wall))
+    for a in UPPER_PODS:
+        parts.append(dock_sign(f'UpperDockSign{a}', a, hub_wall, base=UPPER_Z))
     for a in LOUNGE_BENCHES:
         # Bench backs against the lounge wall (the model sits on the 1x wall, 15.4 m out).
         wall_r = hub_wall.radius(math.radians(a), LOUNGE + 0.5)

@@ -11,7 +11,8 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     pods, fixed per wallet (`podForWallet`), once the gate clears them. A refused player stays in (or is returned
     to) the box while the gate sends them back to the ship. Anyone who falls through the hull goes back to their pod.
   - Hub levels: two ring balconies (9 m, 17 m) and a lounge (25 m) are in the model; `src/hubLevels.ts` adds the
-    Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
+    Upper pods: two more pods off Balcony 2 (17 m) on the X axis (empty lounges for now), with corridors and DOCK
+    signs like the lower four. Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
     (`src/observation/galaxyHologram.ts`; `galaxyMap.ts`, `heatMap.ts`, `prefs.ts` copied unchanged). The
     lifts (a physical platform in a vertical shaft on each end of the X axis: E / F to ride, call buttons on each
     level, gates at the landings; lift state synced between players), the lounge's dance floor, and Relay Radio
