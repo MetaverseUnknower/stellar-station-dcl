@@ -1,4 +1,4 @@
-// The galaxy hologram (at balcony 1, Observation Deck 1): the ship's 3D galaxy map, big, turning slowly in the middle of the
+// The galaxy hologram (at balcony 1, the Recreation Deck): the ship's 3D galaxy map, big, turning slowly in the middle of the
 // hub's atrium at the balcony's eye level, with the social heat map on (where explorers are in the galaxy). galaxyMap.ts,
 // heatMap.ts and prefs.ts are copied unchanged from the ship scene (environment.ts is a stand-in for its constants).
 //
@@ -21,8 +21,8 @@ import { CENTER, FLOOR_Y } from '../station'
 const SHIP_MAP_X = 128 // galaxyMap.ts MAP_CENTER (x, z) and its default height
 const SHIP_MAP_Z = 128
 const SHIP_MAP_Y = 41.2 // heightFor(DEFAULT_HEIGHT_LEVEL): 40.3 + 3 * 0.3
-const DECK_1 = 9 // Observation Deck 1 (balcony 1), metres above the deck (build_station_models.py BALCONIES[0])
-const MAP_ABOVE_DECK = 1.5 // the galaxy's plane, a little above eye level on Observation Deck 1
+const DECK_1 = 9 // the Recreation Deck (balcony 1), metres above the deck (build_station_models.py BALCONIES[0])
+const MAP_ABOVE_DECK = 1.5 // the galaxy's plane, a little above eye level on the Recreation Deck
 const MAP_SCALE = 1.6 // the ship's zoom levels (0.2 steps): 1.6 spreads it ~14.4 m, just inside the lift platforms (15.5 m out)
 const SPIN = 1 // degrees per second: once round every six minutes
 const HUB_PROJECTOR_TOP = 2.2 // the hub projector dais, above the deck

@@ -11,8 +11,11 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     pods, fixed per wallet (`podForWallet`), once the gate clears them. A refused player stays in (or is returned
     to) the box while the gate sends them back to the ship. Anyone who falls through the hull goes back to their pod.
   - Hub levels: two ring balconies (9 m, 17 m) and a lounge (25 m) are in the model; `src/hubLevels.ts` adds the
-    Observation pods: two more pods off Balcony 2 (17 m, Observation Deck 2; balcony 1 is Observation Deck 1) on the X axis,
+    Observation pods: two more pods off Balcony 2 (17 m, the Observation Deck; balcony 1 is the Recreation Deck) on the X axis,
     each with a second window in place of its engine, couches facing both windows, with corridors and DOCK
+    Arcade: a small pod (the kit at 0.4) off the Recreation Deck (balcony 1) at Blender 10.5 degrees, under an
+    observation pod (0.38 m clear), with an ARCADE sign and seven cabinets (`src/arcade/arcade.ts`;
+    `tools/build_arcade_cabinet.py`), attract-mode screens only for now.
     signs like the lower four. Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
     (`src/observation/galaxyHologram.ts`; `galaxyMap.ts`, `heatMap.ts`, `prefs.ts` copied unchanged). The
     lifts (`src/lift/`: a physical platform in a vertical shaft on each end of the X axis, run as elevators. A HUD

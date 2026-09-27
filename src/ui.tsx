@@ -132,7 +132,6 @@ function LiftLegend() {
         >
           <Label value={f.number} fontSize={px(20)} color={f.here || f.picked ? Color4.Black() : CYAN} uiTransform={{ width: px(28) }} />
           <Label value={f.name} fontSize={px(15)} color={f.here || f.picked ? Color4.Black() : DIM} textAlign="middle-left" uiTransform={{ flexGrow: 1 }} />
-          <Label value={`[${f.key}]`} fontSize={px(13)} color={f.here || f.picked ? Color4.Black() : DIM} uiTransform={{ width: px(30) }} />
         </UiEntity>
       ))}
     </UiEntity>

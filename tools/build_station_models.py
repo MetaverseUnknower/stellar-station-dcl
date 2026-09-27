@@ -28,6 +28,11 @@ INNER_WALL, HUB_OUTER, POD_OUTER = 15.4, 16.8, 16.8   # pod wall radii at floor 
 HUB_DOORS = (45, 135, 225, 315)          # clear of the window (+Y) and the engine (-Y)
 UPPER_PODS = (0, 180)                    # observation pods off Balcony 2, on the X axis (the hub wall is plain there)
 UPPER_Z = 17.0                           # BALCONIES[1]
+# The arcade: a small pod (the kit at 0.4) off Balcony 1 (the Recreation Deck), on a plain stretch of hub wall between
+# an observation pod's axis and a docking pod. Small enough that its roof clears the observation pod's hull above it
+# (16.8 m up) and its sides the docking pod at 45 degrees.
+ARCADE_ANGLE, ARCADE_SCALE, ARCADE_DIST, ARCADE_Z = 10.5, 0.4, 46.0, 9.0
+ARCADE_DOOR = (3.0, 3.0)
 BENCH_ANGLES = (-20, 0, 20, 160, 180, 200)
 POD_DISTANCE = INNER_WALL * HUB_SCALE + CORRIDOR_LENGTH + INNER_WALL   # pod centre from hub centre
 # Hub levels (src/station.ts HUB_LEVELS must match): two ring balconies open over the atrium, and a lounge with a
@@ -224,13 +229,14 @@ class CorridorFrame:
     offset y, height z above the corridor's floor, which is `base` above the deck (0 for the lower pods, the
     upper pods' level for theirs). hub/pod are (walls, walls-and-floor) raycast trees for each hull."""
 
-    def __init__(self, deg, hub, pod, base=0.0):
+    def __init__(self, deg, hub, pod, base=0.0, pod_dist=POD_DISTANCE, pod_scale=1.0):
         a = math.radians(deg)
+        self.pod_dist, self.pod_scale = pod_dist, pod_scale
         self.axis = Vector((math.cos(a), math.sin(a), 0))
         self.side = Vector((-math.sin(a), math.cos(a), 0))
         self.hub, self.pod = hub, pod
         self.base = base
-        self.mid = (HUB_OUTER * HUB_SCALE + POD_DISTANCE - POD_OUTER) / 2   # between the two hulls
+        self.mid = (HUB_OUTER * HUB_SCALE + pod_dist - POD_OUTER * pod_scale) / 2   # between the two hulls
 
     def at(self, s, y, z):
         return self.axis * s + self.side * y + Vector((0, 0, z + self.base))
@@ -255,7 +261,7 @@ class CorridorFrame:
         return self._inner(self.hub, 18, 1, y, z, INNER_WALL * HUB_SCALE, bumper)
 
     def pod_inner(self, y, z, bumper=False):
-        return self._inner(self.pod, POD_DISTANCE - 8, -1, y, z, POD_DISTANCE - INNER_WALL, bumper)
+        return self._inner(self.pod, self.pod_dist - 8 * self.pod_scale, -1, y, z, self.pod_dist - INNER_WALL * self.pod_scale, bumper)
 
     # Outside, a ray near the hull's lower edge can slip under it and hit the floor from below; only trust hits
     # near where the hull should be (None otherwise, and trim() borrows a neighbour's).
@@ -265,7 +271,7 @@ class CorridorFrame:
 
     def pod_outer(self, y, z):
         s = self._hit(self.pod[1], self.mid, 1, y, z)
-        return s if s is not None and abs(s - (POD_DISTANCE - POD_OUTER)) < 3 else None
+        return s if s is not None and abs(s - (self.pod_dist - POD_OUTER * self.pod_scale)) < 3 else None
 
     def clamp(self, ob):
         """Trim a mesh to the stretch between the hub's and the pod's inner surfaces (the bumper near the deck,
@@ -276,13 +282,13 @@ class CorridorFrame:
             v.co = self.at(s, y, z)
 
 
-def build_corridor(deg, hub_tree, pod_tree, base=0.0):
+def build_corridor(deg, hub_tree, pod_tree, base=0.0, pod_dist=POD_DISTANCE, pod_scale=1.0, door=(DOOR_W, DOOR_H)):
     """A corridor on the diagonal deg, built in station space and fitted to the curved hulls at both ends."""
     coll = bpy.data.collections.new('corridor')
     bpy.context.scene.collection.children.link(coll)
-    f = CorridorFrame(deg, hub_tree, pod_tree, base)
-    w, h, c = DOOR_W / 2, DOOR_H, 0.9   # c: chamfer on the ceiling corners
-    s0, s1 = INNER_WALL * HUB_SCALE - 4, POD_DISTANCE - INNER_WALL + 4   # overshoot; clamp() trims to the walls
+    f = CorridorFrame(deg, hub_tree, pod_tree, base, pod_dist, pod_scale)
+    w, h, c = door[0] / 2, door[1], min(0.9, door[0] / 5)   # c: chamfer on the ceiling corners
+    s0, s1 = INNER_WALL * HUB_SCALE - 4, pod_dist - INNER_WALL * pod_scale + 4   # overshoot; clamp() trims to the walls
 
     def run(name, profile, closed, mat, inward=True):
         """Extrude a 2D (y, z) profile from s0 to s1."""
@@ -540,25 +546,25 @@ def glow_material(name, rgb, strength):
     return m
 
 
-def dock_sign(name, deg, wall, base=0.0):
-    """A 3D "DOCK" sign over a hub doorway: extruded lettering on a backing plate with a glowing border, just in
-    front of the curved wall above the corridor's trim, facing the hub's centre."""
+def dock_sign(name, deg, wall, base=0.0, text='DOCK', door_h=DOOR_H, rgb=(0, 0.9, 1), w=3.6):
+    """A 3D sign (by default "DOCK") over a hub doorway: extruded lettering on a backing plate with a glowing border,
+    just in front of the curved wall above the corridor's trim, facing the hub's centre."""
     coll = bpy.data.collections.new(name)
     bpy.context.scene.collection.children.link(coll)
-    w, h, depth = 3.6, 1.2, 0.12
-    trim_top = base + DOOR_H + 0.55               # the corridor trim's top edge (build_corridor's t)
+    h, depth = 1.2, 0.12
+    trim_top = base + door_h + 0.55               # the corridor trim's top edge (build_corridor's t)
     z = trim_top + 0.3 + h / 2
     # Built facing -Y at the origin, then turned and moved into place.
     coll.objects.link(box(f'{name}Plate', (-w / 2, 0, -h / 2), (w / 2, depth, h / 2), panel_material('SignPlate', (0.05, 0.05, 0.12), 0.7, 0.35)))
-    edge = glow_material('SignEdge', (0, 0.9, 1), 3)
+    edge = glow_material(f'SignEdge{rgb}', rgb, 3)
     b = 0.05
     for lo, hi in (((-w / 2, -0.02, h / 2 - b), (w / 2, 0.02, h / 2)), ((-w / 2, -0.02, -h / 2), (w / 2, 0.02, -h / 2 + b)),
                    ((-w / 2, -0.02, -h / 2), (-w / 2 + b, 0.02, h / 2)), ((w / 2 - b, -0.02, -h / 2), (w / 2, 0.02, h / 2))):
         coll.objects.link(box(f'{name}Edge', lo, hi, edge))
     curve = bpy.data.curves.new(f'{name}Text', 'FONT')
-    curve.body = 'DOCK'
+    curve.body = text
     curve.align_x, curve.align_y = 'CENTER', 'CENTER'
-    curve.size = 0.8
+    curve.size = 0.8 if len(text) <= 4 else 0.62
     curve.extrude = 0.05
     curve.bevel_depth = 0.008
     text_ob = bpy.data.objects.new(f'{name}TextCurve', curve)
@@ -569,7 +575,7 @@ def dock_sign(name, deg, wall, base=0.0):
     bpy.data.objects.remove(text_ob)
     bpy.data.curves.remove(curve)
     text_mesh.transform(Matrix.Translation((0, -0.07, 0)) @ Matrix.Rotation(math.radians(90), 4, 'X'))  # stand it up, just proud of the plate
-    text_mesh.materials.append(glow_material('SignText', (0, 0.9, 1), 5))
+    text_mesh.materials.append(glow_material(f'SignText{rgb}', rgb, 5))
     coll.objects.link(bpy.data.objects.new(f'{name}Letters', text_mesh))
     # Place: the plate's front faces -Y; turn it to face the centre from `deg`, in front of the wall at that height.
     a = math.radians(deg)
@@ -594,7 +600,7 @@ def landing(coll, name, side, z, deck):
         coll.objects.link(box(f'{name}Rail{s}_collider', (x0, y - 0.1, z), (x1, y + 0.1, z + 1.3)))
 
 
-def fill_projector_well(coll, center, floor):
+def fill_projector_well(coll, center, floor, scale=1.0):
     """With the projector left out, the deck has a 3.5 m hole where it stood (the under-floor 0.18 m below shows
     through, under a collider that stays flat at deck height). Fill it: a disc flush with the deck, with a thin
     glowing edge."""
@@ -613,8 +619,8 @@ def fill_projector_well(coll, center, floor):
                 f.normal_flip()
         bmesh.ops.translate(bm, verts=bm.verts, vec=(center.x, center.y, z))
         coll.objects.link(mesh_object(name, bm, mat))
-    disc('WellCap', 0, 3.52, floor - 0.003, panel_material('DeckFloor', (0.09, 0.08, 0.22), 0.7, 0.35))
-    disc('PureEM_WellCapEdge', 3.3, 3.38, floor - 0.001, material('Blue EM'))
+    disc('WellCap', 0, 3.52 * scale, floor - 0.003, panel_material('DeckFloor', (0.09, 0.08, 0.22), 0.7, 0.35))
+    disc('PureEM_WellCapEdge', 3.3 * scale, 3.3 * scale + 0.08, floor - 0.001, material('Blue EM'))
 
 
 def build_hub_levels(hub, wall):
@@ -691,6 +697,30 @@ def merge(colls):
     return out
 
 
+def build_arcade(hub_tree, hub_wall):
+    """The arcade pod, its corridor and its sign. Like the observation pods: no engine (a second window instead) and
+    no projector; no benches or wall rails either (they'd be doll-sized at this scale)."""
+    a = ARCADE_ANGLE
+    centre = Vector((math.cos(math.radians(a)), math.sin(math.radians(a)), 0)) * ARCADE_DIST
+    skip = ('Engine', 'PureEM_Engine', 'Projector', 'PureEM_Projector', 'PureEm_Projector', 'Bench', 'PureEM_Bench', 'Railing', 'Wall Rail')
+    pod = bake(lambda o: not o.name.startswith(skip))
+    at = Matrix.Translation((0, 0, ARCADE_Z)) @ placed(a, ARCADE_DIST, ARCADE_SCALE)
+    transform(pod, at)
+    fill_projector_well(pod, centre, ARCADE_Z, ARCADE_SCALE)
+    window = bake(lambda o: o.name.startswith(('Window', 'Glass_Window')))
+    transform(window, at @ Matrix.Rotation(math.pi, 4, 'Z'))
+    for ob in list(window.objects):
+        window.objects.unlink(ob)
+        pod.objects.link(ob)
+    bpy.data.collections.remove(window)
+    name_colliders(pod)
+    pod_tree = (hull_bvh(pod), hull_bvh(pod, ('Wall 0', 'RivetWall', 'Ground')))
+    cut_door(pod, a + 180, *ARCADE_DOOR, r_min=11 * ARCADE_SCALE, center=centre, floor=ARCADE_Z)
+    corridor = build_corridor(a, hub_tree, pod_tree, base=ARCADE_Z, pod_dist=ARCADE_DIST, pod_scale=ARCADE_SCALE, door=ARCADE_DOOR)
+    sign = dock_sign('ArcadeSign', a, hub_wall, base=ARCADE_Z, text='ARCADE', door_h=ARCADE_DOOR[1], rgb=(1, 0.2, 0.75), w=3.8)
+    return [pod, corridor, sign]
+
+
 def main():
     shrink_textures()
     parts = []
@@ -713,6 +743,7 @@ def main():
         cut_door(hub, a, DOOR_W, DOOR_H, r_min=11 * HUB_SCALE, floor=0)
     for a in UPPER_PODS:
         cut_door(hub, a, DOOR_W, DOOR_H, r_min=11 * HUB_SCALE, floor=UPPER_Z)
+    cut_door(hub, ARCADE_ANGLE, *ARCADE_DOOR, r_min=11 * HUB_SCALE, floor=ARCADE_Z)
     parts.append(hub)
 
     for a in HUB_DOORS:
@@ -744,6 +775,7 @@ def main():
         parts.append(pod)
         parts.append(build_corridor(a, hub_tree, pod_tree, base=UPPER_Z))
 
+    parts += build_arcade(hub_tree, hub_wall)
     parts.append(build_hub_levels(hub, hub_wall))
     for a in HUB_DOORS:
         parts.append(dock_sign(f'DockSign{a}', a, hub_wall))

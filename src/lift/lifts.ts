@@ -21,11 +21,11 @@ import { onGateChanged, getGateState, GateState } from '../gate'
 import { Calls, Dir, has, withCall, serve, next } from './controller'
 import { stationName } from '../stationMarker'
 
-// Floors are numbered from 0; the number keys 1-4 pick them (the explorer has no action on 0).
+// Floors are numbered from 1, as the number keys that pick them (the explorer has no action on 0).
 export const FLOORS = [
   { name: 'DOCKS', height: 0 },
-  { name: 'OBSERVATION DECK 1', height: 9 },
-  { name: 'OBSERVATION DECK 2', height: 17 },
+  { name: 'RECREATION DECK', height: 9 },
+  { name: 'OBSERVATION DECK', height: 17 },
   { name: 'SPACE BAR', height: 25 }
 ]
 const floorName = (i: number) => (i === 3 ? `SPACE BAR @ ${(stationName() ?? 'STELLAR STATION').toUpperCase()}` : FLOORS[i].name)
@@ -358,7 +358,7 @@ export function liftPanel(): LiftPanel | null {
   const s = read(lift.state)
   return {
     floors: FLOORS.map((_, i) => ({
-      number: `${i}`,
+      number: `${i + 1}`,
       name: floorName(i),
       key: `${i + 1}`,
       here: !lift.moving && lift.at === i,
