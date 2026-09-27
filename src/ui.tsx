@@ -14,6 +14,7 @@ import { GardenScreen } from './arcade/garden/hud'
 import { BreakerScreen } from './arcade/breaker/hud'
 import { CometScreen } from './arcade/comet/hud'
 import { DriftScreen } from './arcade/drift/hud'
+import { OrbitScreen } from './arcade/orbit/hud'
 import { currentTrack, isMuted, toggleMuted, nextTrack } from './soundtrack'
 import { radioDisplay, radioGenre, inTheClub } from './lounge/radioNow'
 import { isRadioMuted, toggleRadioMuted } from './lounge/music'
@@ -231,6 +232,7 @@ export function setupUi(): void {
       <BreakerScreen />
       <CometScreen />
       <DriftScreen />
+      <OrbitScreen />
       <StationMusicBar />
     </UiEntity>
   ))

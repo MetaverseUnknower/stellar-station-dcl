@@ -15,7 +15,7 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     each with a second window in place of its engine, couches facing both windows, with corridors and DOCK
     Arcade: a small pod (the kit at 0.4) off the Recreation Deck (balcony 1) at Blender 18.5 degrees (across the hub
     from Terra), under an observation pod, with an ARCADE sign and seven cabinets (`src/arcade/arcade.ts`;
-    `tools/build_arcade_cabinet.py`), attract-mode screens. STAR DRIFT (`src/arcade/drift/`, a lander), COMET RUN (`src/arcade/comet/`, an asteroid-field dodger), NEBULA BREAKER (`src/arcade/breaker/`, a
+    `tools/build_arcade_cabinet.py`), attract-mode screens. ORBIT BLASTER (`src/arcade/orbit/`, an orbital defence shooter), STAR DRIFT (`src/arcade/drift/`, a lander), COMET RUN (`src/arcade/comet/`, an asteroid-field dodger), NEBULA BREAKER (`src/arcade/breaker/`, a
     brick-breaker), ASTRO GARDEN (`src/arcade/garden/`, a vine-growing
     snake game) and PETAL INVADERS are playable, all run by
     `src/arcade/cabinet.ts` (session, keys, sounds, per-station high scores). PETAL INVADERS (`src/arcade/invaders/`: `game.ts` pure rules, `play.ts`
