@@ -23,8 +23,8 @@ const SHIP_MAP_Z = 128
 const SHIP_MAP_Y = 41.2 // heightFor(DEFAULT_HEIGHT_LEVEL): 40.3 + 3 * 0.3
 const OBSERVATION_DECK = 9 // metres above the deck (build_station_models.py BALCONIES[0])
 const MAP_ABOVE_DECK = 1.5 // the galaxy's plane, a little above eye level on the Observation Deck
-const MAP_SCALE = 1.4 // the ship's zoom levels: 1.4 spreads it ~12.6 m, inside the lift shafts (15.5 m out)
-const SPIN = 3 // degrees per second: once round every two minutes
+const MAP_SCALE = 1.6 // the ship's zoom levels (0.2 steps): 1.6 spreads it ~14.4 m, just inside the lift platforms (15.5 m out)
+const SPIN = 1 // degrees per second: once round every six minutes
 const HUB_PROJECTOR_TOP = 2.2 // the hub projector dais, above the deck
 
 export function buildGalaxyHologram(): void {
