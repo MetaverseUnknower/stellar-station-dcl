@@ -1,7 +1,7 @@
 // The station: a central hub (the Daisy Class pod at 2x) with a pod on each diagonal, joined by corridors.
 // tools/build_station_models.py bakes the whole layout into one model with the hub centre at its origin and the
 // deck at y 0, so it's placed once, unrotated, and the pieces line up however the explorer converts glTF axes.
-import { engine, Entity, Transform, GltfContainer, MeshRenderer, MeshCollider, Material } from '@dcl/sdk/ecs'
+import { engine, Entity, Transform, GltfContainer, MeshRenderer, MeshCollider, Material, TextShape } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color4, Color3 } from '@dcl/sdk/math'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { getPlayer } from '@dcl/sdk/players'
@@ -93,13 +93,13 @@ export function buildStation(): void {
   buildHallOfRecords()
 
   // scene.json spawns everyone in the holding box. They're released into their pod once the gate clears them
-  // (in preview, once the check has run, since nobody there is docked) and sent back to the box if the gate
-  // later refuses them, while it hands them back to the ship.
+  // (in preview straight away: nobody there is docked, and a preview sign-in can hang) and sent back to the box if
+  // the gate later refuses them, while it hands them back to the ship.
   let released = false
   const release = () => {
     const wallet = getPlayer()?.userId
     const gate = getGateState()
-    const cleared = gate.kind === 'aboard' || (isPreview() && gate.kind !== 'checking')
+    const cleared = gate.kind === 'aboard' || isPreview()
     if (released || !cleared || !wallet) return
     released = true
     goTo(podSpawn(podForWallet(wallet)))
@@ -168,5 +168,16 @@ function buildHoldingBox(): void {
     albedoColor: Color4.create(0, 0.2, 0.25, 1),
     emissiveColor: Color3.create(0, 0.5, 0.6),
     emissiveIntensity: 0.6
+  })
+  // A sign on the wall the spawn faces, so the room reads as an arrivals airlock rather than a scene that didn't load.
+  const sign = engine.addEntity()
+  Transform.create(sign, {
+    // Unrotated text reads from the -z side, where the spawn stands looking toward +z (as the desks' screens do).
+    position: Vector3.create(BOX_CENTER.x, BOX_CENTER.y + 2, BOX_CENTER.z + BOX_SIZE.z / 2 - 0.05)
+  })
+  TextShape.create(sign, {
+    text: 'STELLAR STATION\n<size=60%>ARRIVALS AIRLOCK</size>\n\n<size=45%>Checking your docking clearance…</size>',
+    fontSize: 5,
+    textColor: Color4.create(0, 0.9, 1, 1)
   })
 }

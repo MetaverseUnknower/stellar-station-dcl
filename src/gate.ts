@@ -96,7 +96,12 @@ export async function startGate(): Promise<void> {
     /* not a preview */
   }
   try {
-    const { hasPlayer } = await authenticate()
+    // A sign-in that never answers would leave the player waiting in the airlock with no word; give up after 20 s
+    // and say so (the checks below keep retrying).
+    const { hasPlayer } = await Promise.race([
+      authenticate(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('sign-in timed out')), 20000))
+    ])
     if (!hasPlayer) {
       set({ kind: 'refused', reason: 'No Galaxy Gardeners captain found for this wallet.' })
       eject('Set up your ship in Galaxy Gardeners first, then dock at a station to come aboard.')
