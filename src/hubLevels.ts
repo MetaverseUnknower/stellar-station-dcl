@@ -17,7 +17,7 @@ import { CENTER, FLOOR_Y } from './station'
 
 const LEVELS = [
   { name: 'HUB FLOOR', height: 0 },
-  { name: 'BALCONY 1', height: 9 },
+  { name: 'OBSERVATION DECK', height: 9 },
   { name: 'BALCONY 2', height: 17 },
   { name: 'LOUNGE', height: 25 }
 ]

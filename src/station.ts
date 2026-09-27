@@ -12,6 +12,7 @@ import { buildTradingPost } from './trading/tradingPost'
 import { buildNoticeBoard } from './board/noticeBoard'
 import { buildHallOfRecords } from './records/hallOfRecords'
 import { buildLoungeMusic } from './lounge/music'
+import { buildGalaxyHologram } from './observation/galaxyHologram'
 
 export const CENTER = Vector3.create(128, 0, 128)
 export const FLOOR_Y = 40 // same deck height as the ship scene, so the skybox frames it the same way
@@ -93,6 +94,7 @@ export function buildStation(): void {
   buildNoticeBoard()
   buildHallOfRecords()
   buildLoungeMusic()
+  buildGalaxyHologram()
 
   // scene.json spawns everyone in the holding box. They're released into their pod once the gate clears them
   // (in preview straight away: nobody there is docked, and a preview sign-in can hang) and sent back to the box if
