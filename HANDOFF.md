@@ -30,6 +30,9 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     `payments.ts`, `types.ts`, `topViewHide.ts`, and assets). Keep them identical: re-copy rather than edit. Stand-ins
     for ship-only systems: `docking.ts`, `cabinDim.ts`, `soundtrack.ts`, `systemView.ts`; the desk's HUD dialogs are
     lifted verbatim into `shipDialogs.tsx`. The station's own server calls are in `stationApi.ts`.
+  - Trading Post (pod 1, `src/trading/`): BOARD (this station's offers; accept, choosing which of your specimens
+    fill requests; cancel your own), POST OFFER, MY TRADES (open offers, history), GALLERY. Server: `routes/trades.ts`,
+    with the trade logic in Postgres functions (`050_atomic_trades.sql`). Polls the board every 15 s while viewed.
   - Features plan (trading, message boards, leaderboards): `docs/station-features-plan.md`.
   - Ship: BOARD STATION on the nav console's station card while docked (`boardStation` in `src/docking.ts`).
 
