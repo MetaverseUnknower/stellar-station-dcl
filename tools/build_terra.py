@@ -20,8 +20,10 @@ DOOR_TOP = 4.0                 # the shell is open below this in the doorway's s
 HILLS_R, HILLS_TOP = 8.7, 3.4
 LAWN_R = 9.1
 POND_R = 2.3
+LAWN_Z = 0.06   # the lawn's height over the deck: well clear of it, or the deck flickers through at a distance
 SEG = 96
 rng = random.Random(11)
+BENCHES = [(4.0, 90), (4.0, 270)]   # (r, degrees) round the pod; src/terra/terra.ts seats players on them
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene.collection
@@ -286,28 +288,28 @@ hills = revolve('Hills', [(0.0, HILLS_R), (HILLS_TOP, HILLS_R)], HILLS, lambda z
 for loop_face in hills.data.uv_layers.active.data:
     loop_face.uv[0] *= 2
 
-# The lawn, just above the deck, and a pond sunk into it (drawn on top: the lawn has a hole for it).
+# The lawn, LAWN_Z over the deck, and a pond sunk into it (drawn on top: the lawn has a hole for it).
 bm = bmesh.new()
 uv = bm.loops.layers.uv.new()
-outer = [bm.verts.new((LAWN_R * math.cos(2 * math.pi * i / SEG), LAWN_R * math.sin(2 * math.pi * i / SEG), 0.015)) for i in range(SEG)]
-inner = [bm.verts.new((POND_R * math.cos(2 * math.pi * i / SEG), POND_R * math.sin(2 * math.pi * i / SEG), 0.015)) for i in range(SEG)]
+outer = [bm.verts.new((LAWN_R * math.cos(2 * math.pi * i / SEG), LAWN_R * math.sin(2 * math.pi * i / SEG), LAWN_Z)) for i in range(SEG)]
+inner = [bm.verts.new((POND_R * math.cos(2 * math.pi * i / SEG), POND_R * math.sin(2 * math.pi * i / SEG), LAWN_Z)) for i in range(SEG)]
 for i in range(SEG):
     j = (i + 1) % SEG
     f = bm.faces.new((inner[i], inner[j], outer[j], outer[i]))
     for loop in f.loops:
         loop[uv].uv = (loop.vert.co.x / 2.5, loop.vert.co.y / 2.5)
 link('Lawn', bm, GRASS)
-disc('Pond', POND_R + 0.05, 0.01, WATER, n=64)
+disc('Pond', POND_R + 0.05, LAWN_Z - 0.01, WATER, n=64)
 bm = bmesh.new()
 for i in range(22):   # rocks round the pond's edge
     a = 2 * math.pi * i / 22 + rng.uniform(-0.05, 0.05)
-    blob(bm, (math.cos(a) * (POND_R + 0.08), math.sin(a) * (POND_R + 0.08), 0.05), rng.uniform(0.18, 0.28), squash=0.45)
+    blob(bm, (math.cos(a) * (POND_R + 0.08), math.sin(a) * (POND_R + 0.08), LAWN_Z + 0.04), rng.uniform(0.18, 0.28), squash=0.45)
 link('PondRocks', bm, STONE)
 bm = bmesh.new()
 for x, y, r in ((0.8, 0.6, 0.35), (-0.5, 1.1, 0.28), (0.2, -1.2, 0.32), (-1.1, -0.4, 0.25)):
     ret = bmesh.ops.create_circle(bm, cap_ends=True, radius=r, segments=12)
     for v in ret['verts']:
-        v.co += Vector((x, y, 0.03))
+        v.co += Vector((x, y, LAWN_Z + 0.005))
 link('LilyPads', bm, LILY)
 
 # Stepping stones from the doorway (at -X) to the pond.
@@ -315,7 +317,7 @@ bm = bmesh.new()
 for k, x in enumerate([-8.3, -7.3, -6.3, -5.3, -4.3, -3.3]):
     ret = bmesh.ops.create_circle(bm, cap_ends=True, radius=0.38 + rng.uniform(-0.04, 0.04), segments=10)
     for v in ret['verts']:
-        v.co += Vector((x, (0.25 if k % 2 else -0.25), 0.03))
+        v.co += Vector((x, (0.25 if k % 2 else -0.25), LAWN_Z + 0.015))
 link('SteppingStones', bm, STONE)
 
 # Trees round the edge: leafy ones and a couple of pines, clear of the path and the benches.
@@ -349,13 +351,13 @@ for r, deg in beds:
     cx, cy = polar(r, deg)
     for n in range(26):
         a, d = rng.uniform(0, 2 * math.pi), rng.uniform(0, 0.9) ** 0.7
-        blob(blossoms[rng.randrange(len(FLOWERS))], (cx + math.cos(a) * d, cy + math.sin(a) * d, rng.uniform(0.18, 0.36)), rng.uniform(0.06, 0.1), squash=0.7, subdiv=1)
+        blob(blossoms[rng.randrange(len(FLOWERS))], (cx + math.cos(a) * d, cy + math.sin(a) * d, LAWN_Z + rng.uniform(0.18, 0.36)), rng.uniform(0.06, 0.1), squash=0.7, subdiv=1)
 for i, bm in enumerate(blossoms):
     link(f'Blossoms{i}', bm, FLOWERS[i])
 bm = bmesh.new()
 for r, deg in beds:   # leafy mounds under the blossoms
     cx, cy = polar(r, deg)
-    blob(bm, (cx, cy, 0.0), 1.0, squash=0.22, subdiv=2)
+    blob(bm, (cx, cy, LAWN_Z - 0.03), 1.0, squash=0.22, subdiv=2)
 link('BedFoliage', bm, LEAVES[1])
 
 # Grass tufts scattered over the lawn (off the path, the pond and the beds).
@@ -365,12 +367,13 @@ for n in range(260):
     x, y = r * math.cos(a), r * math.sin(a)
     if x < -2.8 and abs(y) < 0.9:
         continue
+    if any(math.hypot(x - bx, y - by) < 1.4 for bx, by in (polar(br, bd) for br, bd in BENCHES)):
+        continue   # clear round the benches, where players sit
     for k in range(3):
-        cone(bm, (x + rng.uniform(-0.08, 0.08), y + rng.uniform(-0.08, 0.08), 0), 0.05, 0.0, rng.uniform(0.18, 0.32), seg=3)
+        cone(bm, (x + rng.uniform(-0.08, 0.08), y + rng.uniform(-0.08, 0.08), LAWN_Z - 0.02), 0.05, 0.0, rng.uniform(0.18, 0.32), seg=3)
 link('GrassTufts', bm, TUFT)
 
 # Park benches either side of the pond, facing it: wooden slats on iron legs. Seat 0.45 m up, 1.6 m wide.
-BENCHES = [(4.0, 90), (4.0, 270)]
 wood, iron, benchcol = bmesh.new(), bmesh.new(), bmesh.new()
 for r, deg in BENCHES:
     # Build facing +X (toward the pond from -X), then turn to face the centre.
@@ -391,7 +394,7 @@ for r, deg in BENCHES:
         part.free()
         into.from_mesh(me)
     cb = bmesh.new()
-    box(cb, (-0.32, -0.8, 0), (0.1, 0.8, 0.47))
+    box(cb, (-0.32, -0.8, 0), (-0.02, 0.8, 0.47))   # stops short of the seat's front, where a sitter stands
     cb.transform(turn)
     me = bpy.data.meshes.new('tmp')
     cb.to_mesh(me)

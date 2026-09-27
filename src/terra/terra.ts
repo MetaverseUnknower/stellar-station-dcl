@@ -6,7 +6,7 @@
 // Model to scene: terra.glb is built in the pod's frame with +X pointing out from the hub, which the explorer turns
 // to scene -X (angle 180) unturned; a yaw carries scene angle A to A - yaw. Angles round the pod keep their sense, so
 // a point at angle p in the model's frame is at scene angle TERRA_ANGLE + p.
-import { engine, Entity, Transform, GltfContainer, LightSource, AudioSource, MeshRenderer, Material } from '@dcl/sdk/ecs'
+import { engine, Entity, Transform, GltfContainer, LightSource, AudioSource, MeshRenderer, Material, ColliderLayer } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { addSeat } from '../seating'
 import { CENTER, FLOOR_Y } from '../station'
@@ -15,12 +15,12 @@ const TERRA_ANGLE = 201 + 180 - 360 // build_station_models.py TERRA_ANGLE, in s
 const TERRA_DIST = 46.5
 const TERRA_Z = 9 // the Recreation Deck
 const BENCHES = [{ r: 4, deg: 90 }, { r: 4, deg: 270 }] // build_terra.py BENCHES
-// Bench seats (build_terra.py: slats 0.43-0.47 m up, from 0.24 m in front of the bench's line to 0.25 m behind),
-// with seating.ts's relation to the seat as on the couches: the player 0.47 m under the seat top, 0.1 m past its
-// front edge, the orb 0.17 m over the seat.
+// Bench seats (build_terra.py: slats 0.43-0.47 m up over the lawn, from 0.24 m in front of the bench's line to
+// 0.25 m behind), with seating.ts's relation to the seat as on the couches: the player about 0.45 m under the seat
+// top, standing on the lawn just in front of it, the orb 0.17 m over the seat.
 const SEAT_LATERAL = [-0.4, 0.4]
-const SEAT_FORWARD = 0.34
-const SEAT_RISE = 0.0
+const SEAT_FORWARD = 0.42 // clear of the bench's collider (it stops 0.02 m behind the bench's line), so the sitter isn't nudged out of the emote
+const SEAT_RISE = 0.02 // on the deck, the solid floor under the lawn (a teleport above it would drop the sitter out of the emote)
 const ORB_RISE = 0.64
 const HEAR_INSIDE = 9.5 // the ambience is full inside the room (it's ~9 m across to the wall)
 const HEAR_OUTSIDE = 15 // and silent this far from its centre
@@ -42,7 +42,13 @@ export function buildTerra(): void {
   const c = centre()
   const room = engine.addEntity()
   Transform.create(room, { position: c, rotation: Quaternion.fromEulerDegrees(0, 180 - TERRA_ANGLE, 0) })
-  GltfContainer.create(room, { src: 'assets/models/terra.glb' }) // its *_collider meshes: tree trunks, benches
+  // Only its *_collider meshes (tree trunks, benches) are solid; nothing visible (rocks, tufts, flowers) catches the
+  // player or the pointer, so clicks reach the seat orbs.
+  GltfContainer.create(room, {
+    src: 'assets/models/terra.glb',
+    visibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+    invisibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS
+  })
 
   // Benches: two seats each, looking across the pond.
   for (const b of BENCHES) {
