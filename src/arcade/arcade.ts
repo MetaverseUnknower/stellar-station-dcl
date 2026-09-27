@@ -1,7 +1,7 @@
 // The arcade: a small pod off the Recreation Deck (tools/build_station_models.py ARCADE_*), lined with upright
 // cabinets (arcade_cabinet.glb, from tools/build_arcade_cabinet.py). Each has its title on the marquee and an
 // attract-mode screen that cycles colours with a blinking INSERT COIN. PETAL INVADERS (invaders/), ASTRO GARDEN
-// (garden/), NEBULA BREAKER (breaker/) and COMET RUN (comet/) are playable, run by cabinet.ts;
+// (garden/), NEBULA BREAKER (breaker/), COMET RUN (comet/) and STAR DRIFT (drift/) are playable, run by cabinet.ts;
 // the rest are for the look for now, and a hover says so.
 //
 // Model to scene: the explorer turns Blender's (x, y, z) to (-x, z, -y) about the hub's centre, so a Blender angle A
@@ -17,13 +17,15 @@ import { playInvaders, invadersHiScore } from './invaders/play'
 import { playGarden, gardenHiScore } from './garden/play'
 import { playBreaker, breakerHiScore } from './breaker/play'
 import { playComet, cometHiScore } from './comet/play'
+import { playDrift, driftHiScore } from './drift/play'
 
 /** The cabinets you can play: their title, how to start them, and their station high score. */
 const GAMES: Record<string, { play: (front: V3, screen: V3) => void; hi: () => { score: number } }> = {
   'PETAL INVADERS': { play: playInvaders, hi: invadersHiScore },
   'ASTRO GARDEN': { play: playGarden, hi: gardenHiScore },
   'NEBULA BREAKER': { play: playBreaker, hi: breakerHiScore },
-  'COMET RUN': { play: playComet, hi: cometHiScore }
+  'COMET RUN': { play: playComet, hi: cometHiScore },
+  'STAR DRIFT': { play: playDrift, hi: driftHiScore }
 }
 
 const ARCADE_ANGLE = 18.5 + 180 // build_station_models.py ARCADE_ANGLE, in scene degrees (from +X toward +Z)

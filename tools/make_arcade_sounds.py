@@ -91,4 +91,11 @@ write('shield', render(0.5, lambda t, p: (square(1047, t, 0.5) * 0.5 + square(15
 write('block', render(0.3, lambda t, p: (square(220, t, 0.5) * 0.5 + square(233, t, 0.5) * 0.5) * (1 - p) ** 1.5), 0.4)
 # Boost: a rising roar.
 write('boost', render(0.4, lambda t, p: (0.5 * noise[int(t * RATE) % RATE] + 0.5 * square(120 + 300 * p, t, 0.5)) * (0.4 + 0.6 * math.sin(math.pi * p))), 0.35)
+# STAR DRIFT:
+# Thrust: a short rumbling puff (played every few units of fuel burnt, so it chuffs while you burn).
+write('thrust', render(0.16, lambda t, p: (0.8 * noise[int(t * RATE / 3) % RATE] + 0.2 * square(70, t)) * math.sin(math.pi * p)), 0.35)
+# Landed: a bright ascending fanfare.
+write('land', render(0.7, lambda t, p: square([523, 659, 784, 1047, 1319][min(4, int(p * 5))], t, 0.3) * (1 - 0.3 * p)), 0.35)
+# Low fuel: two warning beeps.
+write('lowfuel', render(0.4, lambda t, p: (square(880, t, 0.5) if (p < 0.35 or 0.5 < p < 0.85) else 0.0) * 0.8), 0.3)
 print('wrote', sorted(os.listdir(OUT)))
