@@ -33,6 +33,11 @@ UPPER_Z = 17.0                           # BALCONIES[1]
 # (16.8 m up) and its sides the docking pod at 45 degrees.
 ARCADE_ANGLE, ARCADE_SCALE, ARCADE_DIST, ARCADE_Z = 10.5, 0.4, 46.0, 9.0
 ARCADE_DOOR = (3.0, 3.0)
+# Terra, the Earth room: a bigger small pod (the kit at 0.6, 20 m across) off the Recreation Deck across the hub, on
+# the plain stretch of wall between the -X observation pod and the docking pod at 225. At 0.6 it's too tall to pass
+# under an observation pod, so it's placed to clear them sideways (27.4 m between centres, 26.9 needed).
+TERRA_ANGLE, TERRA_SCALE, TERRA_DIST, TERRA_Z = 201.0, 0.6, 46.5, 9.0
+TERRA_DOOR = (4.0, 3.6)
 BENCH_ANGLES = (-20, 0, 20, 160, 180, 200)
 POD_DISTANCE = INNER_WALL * HUB_SCALE + CORRIDOR_LENGTH + INNER_WALL   # pod centre from hub centre
 # Hub levels (src/station.ts HUB_LEVELS must match): two ring balconies open over the atrium, and a lounge with a
@@ -697,16 +702,16 @@ def merge(colls):
     return out
 
 
-def build_arcade(hub_tree, hub_wall):
-    """The arcade pod, its corridor and its sign. Like the observation pods: no engine (a second window instead) and
-    no projector; no benches or wall rails either (they'd be doll-sized at this scale)."""
-    a = ARCADE_ANGLE
-    centre = Vector((math.cos(math.radians(a)), math.sin(math.radians(a)), 0)) * ARCADE_DIST
+def build_small_pod(hub_tree, hub_wall, angle, scale, dist, z, door, sign_text, sign_rgb):
+    """A small pod off a balcony (the arcade, Terra), its corridor and its sign. Like the observation pods: no engine
+    (a second window instead) and no projector; no benches or wall rails either (they'd be doll-sized at this
+    scale)."""
+    centre = Vector((math.cos(math.radians(angle)), math.sin(math.radians(angle)), 0)) * dist
     skip = ('Engine', 'PureEM_Engine', 'Projector', 'PureEM_Projector', 'PureEm_Projector', 'Bench', 'PureEM_Bench', 'Railing', 'Wall Rail')
     pod = bake(lambda o: not o.name.startswith(skip))
-    at = Matrix.Translation((0, 0, ARCADE_Z)) @ placed(a, ARCADE_DIST, ARCADE_SCALE)
+    at = Matrix.Translation((0, 0, z)) @ placed(angle, dist, scale)
     transform(pod, at)
-    fill_projector_well(pod, centre, ARCADE_Z, ARCADE_SCALE)
+    fill_projector_well(pod, centre, z, scale)
     window = bake(lambda o: o.name.startswith(('Window', 'Glass_Window')))
     transform(window, at @ Matrix.Rotation(math.pi, 4, 'Z'))
     for ob in list(window.objects):
@@ -715,9 +720,9 @@ def build_arcade(hub_tree, hub_wall):
     bpy.data.collections.remove(window)
     name_colliders(pod)
     pod_tree = (hull_bvh(pod), hull_bvh(pod, ('Wall 0', 'RivetWall', 'Ground')))
-    cut_door(pod, a + 180, *ARCADE_DOOR, r_min=11 * ARCADE_SCALE, center=centre, floor=ARCADE_Z)
-    corridor = build_corridor(a, hub_tree, pod_tree, base=ARCADE_Z, pod_dist=ARCADE_DIST, pod_scale=ARCADE_SCALE, door=ARCADE_DOOR)
-    sign = dock_sign('ArcadeSign', a, hub_wall, base=ARCADE_Z, text='ARCADE', door_h=ARCADE_DOOR[1], rgb=(1, 0.2, 0.75), w=3.8)
+    cut_door(pod, angle + 180, *door, r_min=11 * scale, center=centre, floor=z)
+    corridor = build_corridor(angle, hub_tree, pod_tree, base=z, pod_dist=dist, pod_scale=scale, door=door)
+    sign = dock_sign(f'{sign_text}Sign', angle, hub_wall, base=z, text=sign_text, door_h=door[1], rgb=sign_rgb, w=3.8)
     return [pod, corridor, sign]
 
 
@@ -744,6 +749,7 @@ def main():
     for a in UPPER_PODS:
         cut_door(hub, a, DOOR_W, DOOR_H, r_min=11 * HUB_SCALE, floor=UPPER_Z)
     cut_door(hub, ARCADE_ANGLE, *ARCADE_DOOR, r_min=11 * HUB_SCALE, floor=ARCADE_Z)
+    cut_door(hub, TERRA_ANGLE, *TERRA_DOOR, r_min=11 * HUB_SCALE, floor=TERRA_Z)
     parts.append(hub)
 
     for a in HUB_DOORS:
@@ -775,7 +781,8 @@ def main():
         parts.append(pod)
         parts.append(build_corridor(a, hub_tree, pod_tree, base=UPPER_Z))
 
-    parts += build_arcade(hub_tree, hub_wall)
+    parts += build_small_pod(hub_tree, hub_wall, ARCADE_ANGLE, ARCADE_SCALE, ARCADE_DIST, ARCADE_Z, ARCADE_DOOR, 'ARCADE', (1, 0.2, 0.75))
+    parts += build_small_pod(hub_tree, hub_wall, TERRA_ANGLE, TERRA_SCALE, TERRA_DIST, TERRA_Z, TERRA_DOOR, 'TERRA', (0.4, 1, 0.5))
     parts.append(build_hub_levels(hub, hub_wall))
     for a in HUB_DOORS:
         parts.append(dock_sign(f'DockSign{a}', a, hub_wall))

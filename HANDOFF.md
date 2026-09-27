@@ -18,6 +18,10 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     `tools/build_arcade_cabinet.py`), attract-mode screens. PETAL INVADERS is playable (`src/arcade/invaders/`: `game.ts` pure rules, `play.ts`
     controls/sounds/station high score synced per station, `hud.tsx` the screen; sounds from
     `tools/make_arcade_sounds.py`).
+    Terra, the Earth room: a 0.6-scale pod off the Recreation Deck at Blender 201 degrees (clear of the -X
+    observation pod sideways), dressed as a park (`src/terra/terra.ts`; `tools/build_terra.py` builds terra.glb with
+    generated sky/hills/grass textures; `tools/make_terra_ambience.py` the birdsong loop): sittable benches,
+    butterflies, a warm light, ambience fading with distance.
     signs like the lower four. Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
     (`src/observation/galaxyHologram.ts`; `galaxyMap.ts`, `heatMap.ts`, `prefs.ts` copied unchanged). The
     lifts (`src/lift/`: a physical platform in a vertical shaft on each end of the X axis, run as elevators. A HUD

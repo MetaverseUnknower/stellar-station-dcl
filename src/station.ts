@@ -20,6 +20,7 @@ import { buildSpaceBarSign } from './lounge/spaceBarSign'
 import { buildSpaceBar } from './lounge/spaceBar'
 import { buildArcade } from './arcade/arcade'
 import { setupInvaders } from './arcade/invaders/play'
+import { buildTerra } from './terra/terra'
 
 export const CENTER = Vector3.create(128, 0, 128)
 export const FLOOR_Y = 40 // same deck height as the ship scene, so the skybox frames it the same way
@@ -109,6 +110,7 @@ export function buildStation(): void {
   buildSpaceBar()
   buildArcade()
   setupInvaders()
+  buildTerra()
 
   // scene.json spawns everyone in the holding box. They're released into their pod once the gate clears them
   // (in preview straight away: nobody there is docked, and a preview sign-in can hang) and sent back to the box if
