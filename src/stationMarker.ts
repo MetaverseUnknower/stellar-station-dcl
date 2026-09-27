@@ -2,6 +2,7 @@
 // orbit (the ship's map doesn't draw stations), and a sign over the map: "Welcome To <station>" / "Located In <star>
 // System". The station has no orbit of its own in the data, so it goes just inside the habitable zone, the way the
 // ship offsets its asteroid belts from it.
+import { getCrew } from './audience'
 import { engine, Entity, Transform, MeshRenderer, Material, TextShape, Billboard, BillboardMode, MaterialTransparencyMode } from '@dcl/sdk/ecs'
 import { Vector3, Color3, Color4 } from '@dcl/sdk/math'
 import { orbitalRadius } from './systemView'
@@ -71,13 +72,23 @@ export function welcomeSign(detail: any): Entity {
   const starName = sys.name || 'this'
   const sign = engine.addEntity()
   Transform.create(sign, { position: Vector3.create(0, -100, 0) })
+  // A third line: how many ships are docked here (the crews audience.ts tracks), kept current.
+  const text = (docked: number) =>
+    `Welcome To ${stationName}\n<size=65%>Located In ${starName} System</size>\n<size=50%>Ships Docked: ${docked}</size>`
+  let shown = getCrew().length
   TextShape.create(sign, {
-    text: `Welcome To ${stationName}\n<size=65%>Located In ${starName} System</size>`,
+    text: text(shown),
     fontSize: 4.5,
     textColor: Color4.create(0, 0.9, 1, 1),
     outlineWidth: 0.12,
     outlineColor: Color3.Black()
   })
   Billboard.create(sign, { billboardMode: BillboardMode.BM_Y })
+  engine.addSystem(() => {
+    const docked = getCrew().length
+    if (docked === shown || !TextShape.has(sign)) return
+    shown = docked
+    TextShape.getMutable(sign).text = text(docked)
+  })
   return sign
 }

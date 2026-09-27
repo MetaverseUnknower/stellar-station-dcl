@@ -4,7 +4,6 @@ import ReactEcs, { ReactEcsRenderer, UiEntity, Label } from '@dcl/sdk/react-ecs'
 import { Color4 } from '@dcl/sdk/math'
 import { px } from './uiScale'
 import { getGateState, returnToShip, isAdmin, getStations, pickStation } from './gate'
-import { getCrew } from './audience'
 import { ShipDialogs } from './shipDialogs'
 import { ComposePanel } from './board/compose'
 import { liftPanel } from './lift/lifts'
@@ -56,50 +55,11 @@ function StatusBanner() {
   )
 }
 
-function CrewPanel() {
-  if (getGateState().kind !== 'aboard') return null
-  const crew = getCrew()
-  return (
-    <UiEntity
-      uiTransform={{
-        positionType: 'absolute',
-        position: { right: px(24), top: px(200) },
-        width: px(300),
-        padding: px(16),
-        flexDirection: 'column'
-      }}
-      uiBackground={{ color: PANEL }}
-    >
-      <Label value="DOCKED CREWS" fontSize={px(20)} color={CYAN} uiTransform={{ height: px(30) }} textAlign="middle-left" />
-      {crew.map((p) => (
-        <Label
-          key={p.playerId}
-          value={p.walletAddress ? p.username : `${p.username} (mobile)`}
-          fontSize={px(18)}
-          color={DIM}
-          uiTransform={{ height: px(26) }}
-          textAlign="middle-left"
-        />
-      ))}
-      {/* Admins only: everyone else goes home by an airlock (airlock.ts). */}
-      {isAdmin() && (
-        <UiEntity
-          uiTransform={{ margin: { top: px(12) }, padding: px(10), justifyContent: 'center' }}
-          uiBackground={{ color: CYAN }}
-          onMouseDown={() => returnToShip('Heading back to your ship.')}
-        >
-          <Label value="RETURN TO SHIP" fontSize={px(18)} color={Color4.Black()} />
-        </UiEntity>
-      )}
-    </UiEntity>
-  )
-}
-
-/** Admin-only debug panel: every station; picking one switches whose players you see. */
 const ADMIN_PAGE = 8 // stations listed at a time
 let adminCollapsed = false
 let adminPage = 0
 
+/** Admin-only debug panel: every station, in pages; picking one switches whose players you see. Folds away. */
 function AdminPanel() {
   const gate = getGateState()
   if (!isAdmin() || gate.kind !== 'aboard') return null
@@ -257,7 +217,6 @@ export function setupUi(): void {
   ReactEcsRenderer.setUiRenderer(() => (
     <UiEntity uiTransform={{ width: '100%', height: '100%' }}>
       <StatusBanner />
-      <CrewPanel />
       <AdminPanel />
       <LiftLegend />
       <AirlockPrompt />
