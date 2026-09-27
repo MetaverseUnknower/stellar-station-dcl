@@ -27,13 +27,15 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     station (refreshed every 10 s). Needs the server's `walletAddress` on `/docked` (branch
     `feature/station-wallets`); without it, players see only themselves.
   - `src/ui.tsx`: status banner, docked crew list, RETURN TO SHIP. Voice chat is disabled in `scene.json`.
-  - Ship Services (every pod, `src/shipServices.ts`): the ship's two desks, set up as in the ship: the ship desk
-    (Overview, Ship Systems, Pod Operations) and Flora Collections (Summary, Catalog, Vault, Inventory). Every pod has
-    the desk models; the one live pair moves to the pod the player is in (the copied code refreshes desks by id).
-    Copied unchanged from `galaxy-gardeners-dcl` (`stations.ts`, `stations/*`, `api.ts`, `countdown.ts`, `sfx.ts`,
+  - Ship Services (every pod, `src/shipServices.ts`): the ship's two desks: the ship desk (Overview, Ship Systems,
+    Pod Operations) and Flora Collections (Summary, Catalog, Vault, Inventory), either side of each pod's engine hatch,
+    and the ship's 3D system map over the pod's projector. Every pod has the desk models; the one live pair, and the
+    map, move to the pod the player is in (the copied code refreshes desks by id). Copied unchanged from
+    `galaxy-gardeners-dcl` (`stations.ts`, `stations/*`, `api.ts`, `systemView.ts`, `countdown.ts`, `sfx.ts`,
     `payments.ts`, `types.ts`, `topViewHide.ts`, and assets). Keep them identical: re-copy rather than edit. Stand-ins
-    for ship-only systems: `docking.ts`, `cabinDim.ts`, `soundtrack.ts`, `systemView.ts`; the desk's HUD dialogs are
-    lifted verbatim into `shipDialogs.tsx`. The station's own server calls are in `stationApi.ts`.
+    for ship-only systems: `docking.ts`, `cabinDim.ts`, `soundtrack.ts`; the desk's HUD dialogs are lifted verbatim
+    into `shipDialogs.tsx`. The station's own server calls are in `stationApi.ts`. Axis note: the explorer turns the
+    kit's Blender axes half round (Blender +Y, the window, is scene -Z).
   - Trading Post (hub floor, `src/trading/`): BOARD (this station's offers; accept, choosing which of your specimens
     fill requests; cancel your own), POST OFFER, MY TRADES (open offers, history), GALLERY. Server: `routes/trades.ts`,
     with the trade logic in Postgres functions (`050_atomic_trades.sql`). Polls the board every 15 s while viewed.
