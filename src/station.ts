@@ -19,7 +19,7 @@ import { buildCouches } from './lounge/couches'
 import { buildSpaceBarSign } from './lounge/spaceBarSign'
 import { buildSpaceBar } from './lounge/spaceBar'
 import { buildArcade } from './arcade/arcade'
-import { setupInvaders } from './arcade/invaders/play'
+import { setupCabinets } from './arcade/cabinet'
 import { buildTerra } from './terra/terra'
 import { buildLab } from './lab/lab'
 import { buildAirlocks } from './airlock'
@@ -117,7 +117,7 @@ export function buildStation(): void {
   buildSpaceBarSign()
   buildSpaceBar()
   buildArcade()
-  setupInvaders()
+  setupCabinets()
   buildTerra()
   buildLab()
   buildAirlocks()

@@ -7,7 +7,7 @@ import { Vector3, Color3, Color4 } from '@dcl/sdk/math'
 import { orbitalRadius } from './systemView'
 
 const CYAN = Color3.create(0, 0.9, 1)
-const ICON = 'assets/icons/space-station-icon.png'
+const ICON = 'assets/icons/space-station-icon-clear.png' // the ship's icon with its black made transparent (the original has no alpha)
 const ORBIT_SECONDS = 90 // once round the star
 const RING_DOTS = 72
 
