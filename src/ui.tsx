@@ -11,6 +11,7 @@ import { liftPanel } from './lift/lifts'
 import { InvadersScreen } from './arcade/invaders/hud'
 import { currentTrack, isMuted, toggleMuted, nextTrack } from './soundtrack'
 import { radioDisplay, radioGenre, inTheClub } from './lounge/radioNow'
+import { isRadioMuted, toggleRadioMuted } from './lounge/music'
 
 // stations/shipOverview.ts (copied from the ship) opens these from '../ui', as on the ship.
 export { openRefineryDialog, openPurchaseDialog, openRecallDialog } from './shipDialogs'
@@ -169,6 +170,7 @@ const MusicBar = () => {
 const RadioBar = () => {
   const d = radioDisplay()
   const genre = radioGenre()
+  const muted = isRadioMuted()
   const body = d.body.replace('\n', ' — ')
   return (
     <UiEntity uiTransform={{ positionType: 'absolute', position: { bottom: px(20), right: px(30) }, flexDirection: 'row', alignItems: 'center', padding: px(4) }}
@@ -177,8 +179,13 @@ const RadioBar = () => {
         uiBackground={{ color: Color4.create(1, 0.22, 0.7, 1) }}>
         <Label value="RELAY RADIO" fontSize={px(12)} color={Color4.create(0.02, 0.05, 0.1, 1)} />
       </UiEntity>
-      <Label value={d.head === 'NOW PLAYING' ? `♪ ${body}${genre ? `  ·  ${genre}` : ''}` : `♪ ${body}`} fontSize={px(12)}
+      <Label value={muted ? '♪ MUTED' : d.head === 'NOW PLAYING' ? `♪ ${body}${genre ? `  ·  ${genre}` : ''}` : `♪ ${body}`} fontSize={px(12)}
         color={Color4.create(0.45, 0.65, 0.75, 1)} uiTransform={{ margin: { left: px(8), right: px(8) } }} />
+      <UiEntity uiTransform={{ width: px(76), height: px(26), justifyContent: 'center', alignItems: 'center' }}
+        uiBackground={{ color: muted ? Color4.create(0.05, 0.12, 0.2, 1) : Color4.create(0, 0.9, 1, 1) }}
+        onMouseDown={() => { toggleRadioMuted() }}>
+        <Label value={muted ? 'UNMUTE' : 'MUTE'} fontSize={px(12)} color={muted ? Color4.create(0, 0.9, 1, 1) : Color4.create(0.02, 0.05, 0.1, 1)} />
+      </UiEntity>
     </UiEntity>
   )
 }

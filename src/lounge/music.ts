@@ -46,6 +46,16 @@ function startStationSoundtrack(): void {
   })
 }
 
+let radioMuted = false
+let radioMuteChanged = false
+export const isRadioMuted = () => radioMuted
+/** Mute or unmute the club's radio (the HUD's MUTE in the lounge). The stream keeps playing, silent, so unmuting
+ *  picks up live; it isn't remembered between visits. */
+export function toggleRadioMuted(): void {
+  radioMuted = !radioMuted
+  radioMuteChanged = true
+}
+
 export function buildLoungeMusic(): void {
   startStationSoundtrack()
   startRadioNowPlaying()
@@ -69,8 +79,9 @@ export function buildLoungeMusic(): void {
   let shown = -1
   engine.addSystem(() => {
     if (!Transform.has(engine.PlayerEntity)) return
-    const gain = loungeFade()
-    if (Math.abs(gain - shown) < 0.01 && !(gain === 0 && shown !== 0) && !(gain === 1 && shown !== 1)) return
+    const gain = radioMuted ? 0 : loungeFade()
+    if (!radioMuteChanged && Math.abs(gain - shown) < 0.01 && !(gain === 0 && shown !== 0) && !(gain === 1 && shown !== 1)) return
+    radioMuteChanged = false
     shown = gain
     Transform.getMutable(speaker).position = at(gain)
     const stream = AudioStream.getMutableOrNull(speaker)
