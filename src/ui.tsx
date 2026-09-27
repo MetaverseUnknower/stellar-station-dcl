@@ -120,7 +120,7 @@ function LiftLegend() {
   if (!lift) return null
   const status = lift.moving ? (lift.dir > 0 ? '▲  GOING UP' : '▼  GOING DOWN') : 'PICK A FLOOR  ·  KEYS 1-4'
   return (
-    <UiEntity uiTransform={{ positionType: 'absolute', position: { right: px(24), top: '30%' }, width: px(300), flexDirection: 'column', padding: px(12) }} uiBackground={{ color: PANEL }}>
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { right: px(24), top: '30%' }, width: px(380), flexDirection: 'column', padding: px(12) }} uiBackground={{ color: PANEL }}>
       <Label value="LIFT" fontSize={px(16)} color={DIM} textAlign="middle-left" uiTransform={{ height: px(22) }} />
       <Label value={status} fontSize={px(15)} color={CYAN} textAlign="middle-left" uiTransform={{ height: px(22), margin: { bottom: px(6) } }} />
       {[...lift.floors].reverse().map((f) => (
@@ -130,8 +130,9 @@ function LiftLegend() {
           uiBackground={{ color: f.here ? CYAN : f.picked ? AMBER : Color4.create(1, 1, 1, 0.08) }}
           onMouseDown={f.press}
         >
-          <Label value={f.key} fontSize={px(20)} color={f.here || f.picked ? Color4.Black() : CYAN} uiTransform={{ width: px(28) }} />
-          <Label value={f.name} fontSize={px(16)} color={f.here || f.picked ? Color4.Black() : DIM} textAlign="middle-left" />
+          <Label value={f.number} fontSize={px(20)} color={f.here || f.picked ? Color4.Black() : CYAN} uiTransform={{ width: px(28) }} />
+          <Label value={f.name} fontSize={px(15)} color={f.here || f.picked ? Color4.Black() : DIM} textAlign="middle-left" uiTransform={{ flexGrow: 1 }} />
+          <Label value={`[${f.key}]`} fontSize={px(13)} color={f.here || f.picked ? Color4.Black() : DIM} uiTransform={{ width: px(30) }} />
         </UiEntity>
       ))}
     </UiEntity>

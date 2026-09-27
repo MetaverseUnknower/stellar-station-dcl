@@ -19,13 +19,16 @@ import { syncEntity, isStateSyncronized } from '@dcl/sdk/network'
 import { CENTER, FLOOR_Y } from '../station'
 import { onGateChanged, getGateState, GateState } from '../gate'
 import { Calls, Dir, has, withCall, serve, next } from './controller'
+import { stationName } from '../stationMarker'
 
+// Floors are numbered from 0; the number keys 1-4 pick them (the explorer has no action on 0).
 export const FLOORS = [
-  { name: 'HUB FLOOR', height: 0 },
-  { name: 'THE TRACK', height: 9 },
-  { name: 'OBSERVATION DECK', height: 17 },
-  { name: 'SPACE BAR LOUNGE', height: 25 }
+  { name: 'DOCKS', height: 0 },
+  { name: 'OBSERVATION DECK 1', height: 9 },
+  { name: 'OBSERVATION DECK 2', height: 17 },
+  { name: 'SPACE BAR', height: 25 }
 ]
+const floorName = (i: number) => (i === 3 ? `SPACE BAR @ ${(stationName() ?? 'STELLAR STATION').toUpperCase()}` : FLOORS[i].name)
 const LIFT_R = 17 // the shaft's centre: in the open atrium (balconies start at 20 m) and through the lounge's wells
 const PLATFORM_RADIUS = 1.5 // build_station_models.py LIFT_PLATFORM_R
 const PLATFORM_THICKNESS = 0.12
@@ -343,7 +346,7 @@ function liftUnder(): Lift | null {
 }
 
 export type LiftPanel = {
-  floors: { name: string; key: string; here: boolean; picked: boolean; press: () => void }[]
+  floors: { number: string; name: string; key: string; here: boolean; picked: boolean; press: () => void }[]
   moving: boolean
   dir: number
 }
@@ -354,8 +357,9 @@ export function liftPanel(): LiftPanel | null {
   if (!lift) return null
   const s = read(lift.state)
   return {
-    floors: FLOORS.map((f, i) => ({
-      name: f.name,
+    floors: FLOORS.map((_, i) => ({
+      number: `${i}`,
+      name: floorName(i),
       key: `${i + 1}`,
       here: !lift.moving && lift.at === i,
       picked: has(s.car, i),

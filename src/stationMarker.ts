@@ -59,10 +59,15 @@ export function markStation(root: Entity, detail: any): (dt: number) => void {
   }
 }
 
+let knownStationName: string | null = null
+/** The station's name, once a system map has loaded its details (null until then). */
+export const stationName = () => knownStationName
+
 /** The sign over the map; place it with the returned entity. */
 export function welcomeSign(detail: any): Entity {
   const sys = detail?.system || detail || {}
   const stationName = detail?.station?.name || 'Stellar Station'
+  if (detail?.station?.name) knownStationName = detail.station.name
   const starName = sys.name || 'this'
   const sign = engine.addEntity()
   Transform.create(sign, { position: Vector3.create(0, -100, 0) })
