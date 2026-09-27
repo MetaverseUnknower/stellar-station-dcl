@@ -1,7 +1,7 @@
 // The arcade: a small pod off the Recreation Deck (tools/build_station_models.py ARCADE_*), lined with upright
 // cabinets (arcade_cabinet.glb, from tools/build_arcade_cabinet.py). Each has its title on the marquee and an
-// attract-mode screen that cycles colours with a blinking INSERT COIN. No games yet: they're for the look, and a
-// hover says so.
+// attract-mode screen that cycles colours with a blinking INSERT COIN. PETAL INVADERS is playable (invaders/);
+// the rest are for the look for now, and a hover says so.
 //
 // Model to scene: the explorer turns Blender's (x, y, z) to (-x, z, -y) about the hub's centre, so a Blender angle A
 // round the hub is scene angle A + 180, turning the same way.
@@ -11,6 +11,7 @@ import {
 } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
+import { playInvaders, invadersHiScore } from './invaders/play'
 
 const ARCADE_ANGLE = 10.5 + 180 // build_station_models.py ARCADE_ANGLE, in scene degrees (from +X toward +Z)
 const ARCADE_DIST = 46
@@ -40,7 +41,8 @@ const SCREEN_COLOURS = [
   Color3.create(1, 0.7, 0.1)
 ]
 
-type Cabinet = { screen: Entity; coin: Entity; phase: number }
+type Cabinet = { screen: Entity; coin: Entity; phase: number; playable: boolean }
+const STAND_OFF = 1.1 // how far in front of a cabinet the player stands to play
 
 export function buildArcade(): void {
   const a0 = (ARCADE_ANGLE * Math.PI) / 180
@@ -62,9 +64,18 @@ export function buildArcade(): void {
       src: 'assets/models/arcade_cabinet.glb',
       visibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS | ColliderLayer.CL_POINTER
     })
+    const playable = TITLES[i] === 'PETAL INVADERS'
+    const fx = (cx - x) / CABINET_R // the way the cabinet faces
+    const fz = (cz - z) / CABINET_R
     pointerEventsSystem.onPointerDown(
-      { entity: cabinet, opts: { button: InputAction.IA_POINTER, hoverText: `${TITLES[i]}: coming soon`, maxDistance: 4 } },
-      () => {}
+      { entity: cabinet, opts: { button: InputAction.IA_POINTER, hoverText: playable ? `Play ${TITLES[i]}` : `${TITLES[i]}: coming soon`, maxDistance: 4 } },
+      () => {
+        if (!playable) return
+        playInvaders(
+          Vector3.create(x + fx * STAND_OFF, floorY, z + fz * STAND_OFF),
+          Vector3.create(x + fx * SCREEN_CENTRE.z, floorY + SCREEN_CENTRE.y, z + fz * SCREEN_CENTRE.z)
+        )
+      }
     )
 
     const screen = engine.addEntity()
@@ -88,7 +99,7 @@ export function buildArcade(): void {
     Transform.create(title, { parent: cabinet, position: MARQUEE_CENTRE, rotation: FACE_FRONT })
     TextShape.create(title, { text: TITLES[i], fontSize: 0.85, textColor: Color4.create(0.15, 0.02, 0.2, 1) })
 
-    return { screen, coin, phase: i * 1.3 }
+    return { screen, coin, phase: i * 1.3, playable }
   })
 
   // Attract mode: each screen drifts through the palette (a material write every 0.15 s per screen), and INSERT
@@ -112,7 +123,11 @@ export function buildArcade(): void {
     const on = Math.floor(t * 1.5) % 2 === 0
     if (on !== blinkOn) {
       blinkOn = on
-      for (const c of cabinets) TextShape.getMutable(c.coin).text = on ? 'INSERT COIN' : ''
+      const hi = invadersHiScore()
+      for (const c of cabinets) {
+        // The playable cabinet shows the station's high score between blinks.
+        TextShape.getMutable(c.coin).text = on ? 'INSERT COIN' : c.playable && hi.score > 0 ? `HI ${hi.score}` : ''
+      }
     }
   })
 }

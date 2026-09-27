@@ -15,7 +15,9 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     each with a second window in place of its engine, couches facing both windows, with corridors and DOCK
     Arcade: a small pod (the kit at 0.4) off the Recreation Deck (balcony 1) at Blender 10.5 degrees, under an
     observation pod (0.38 m clear), with an ARCADE sign and seven cabinets (`src/arcade/arcade.ts`;
-    `tools/build_arcade_cabinet.py`), attract-mode screens only for now.
+    `tools/build_arcade_cabinet.py`), attract-mode screens. PETAL INVADERS is playable (`src/arcade/invaders/`: `game.ts` pure rules, `play.ts`
+    controls/sounds/station high score synced per station, `hud.tsx` the screen; sounds from
+    `tools/make_arcade_sounds.py`).
     signs like the lower four. Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
     (`src/observation/galaxyHologram.ts`; `galaxyMap.ts`, `heatMap.ts`, `prefs.ts` copied unchanged). The
     lifts (`src/lift/`: a physical platform in a vertical shaft on each end of the X axis, run as elevators. A HUD

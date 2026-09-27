@@ -8,6 +8,7 @@ import { getCrew } from './audience'
 import { ShipDialogs } from './shipDialogs'
 import { ComposePanel } from './board/compose'
 import { liftPanel } from './lift/lifts'
+import { InvadersScreen } from './arcade/invaders/hud'
 
 // stations/shipOverview.ts (copied from the ship) opens these from '../ui', as on the ship.
 export { openRefineryDialog, openPurchaseDialog, openRecallDialog } from './shipDialogs'
@@ -147,6 +148,7 @@ export function setupUi(): void {
       <LiftLegend />
       <ShipDialogs />
       <ComposePanel />
+      <InvadersScreen />
     </UiEntity>
   ))
 }
