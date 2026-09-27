@@ -33,6 +33,9 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
   - Trading Post (pod 1, `src/trading/`): BOARD (this station's offers; accept, choosing which of your specimens
     fill requests; cancel your own), POST OFFER, MY TRADES (open offers, history), GALLERY. Server: `routes/trades.ts`,
     with the trade logic in Postgres functions (`050_atomic_trades.sql`). Polls the board every 15 s while viewed.
+  - Notice Board (pod 2, `src/board/`): the station's posts (pinned first) and replies, with reply, delete (own, or
+    moderators), pin (moderators) and report. Typed in a HUD box (`compose.tsx`). Server: `routes/board.ts`,
+    table `station_posts` (`051_station_posts.sql`). Polls every 20 s while viewed.
   - Features plan (trading, message boards, leaderboards): `docs/station-features-plan.md`.
   - Ship: BOARD STATION on the nav console's station card while docked (`boardStation` in `src/docking.ts`).
 

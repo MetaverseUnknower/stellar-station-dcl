@@ -10,7 +10,7 @@ export type StationSummary = { id: string; name: string }
 /** walletAddress is present only when the caller is docked at that station; null for non-Decentraland players. */
 export type DockedPlayer = { playerId: string; username: string; dockedAt: string; walletAddress?: string | null }
 
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const send = () => {
     const token = getToken()
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -119,4 +119,31 @@ export function getTradeHistory(): Promise<TradeRecord[]> {
 
 export function getStationGallery(stationId: string): Promise<GalleryEntry[]> {
   return apiGet(`/api/trades/gallery/${encodeURIComponent(stationId)}`)
+}
+
+// ---- Notice board (server: routes/board.ts) ----
+
+export type BoardReply = { id: string; authorId: string; authorUsername: string; body: string; createdAt: string; isMe: boolean }
+export type BoardPost = BoardReply & { pinned: boolean; replies: BoardReply[] }
+export type Board = { canModerate: boolean; posts: BoardPost[] }
+
+export function getBoard(stationId: string): Promise<Board> {
+  return apiGet(`/api/board/${encodeURIComponent(stationId)}`)
+}
+
+export function postToBoard(stationId: string, body: string, parentId?: string): Promise<BoardReply> {
+  return apiPost(`/api/board/${encodeURIComponent(stationId)}`, { body, parentId })
+}
+
+export function deleteBoardPost(postId: string): Promise<{ deleted: boolean }> {
+  return request('DELETE', `/api/board/post/${encodeURIComponent(postId)}`)
+}
+
+export function pinBoardPost(postId: string, pinned: boolean): Promise<{ pinned: boolean }> {
+  return apiPost(`/api/board/post/${encodeURIComponent(postId)}/pin`, { pinned })
+}
+
+/** Reports a player to the moderators (server: routes/reports.ts); context says what and where. */
+export function reportPlayer(reportedPlayerId: string, reason: string, context: string): Promise<{ reportId: string }> {
+  return apiPost('/api/reports', { reportedPlayerId, reason, context })
 }
