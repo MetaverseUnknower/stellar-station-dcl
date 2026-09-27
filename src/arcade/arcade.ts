@@ -13,7 +13,7 @@ import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
 import { playInvaders, invadersHiScore } from './invaders/play'
 
-const ARCADE_ANGLE = 10.5 + 180 // build_station_models.py ARCADE_ANGLE, in scene degrees (from +X toward +Z)
+const ARCADE_ANGLE = 18.5 + 180 // build_station_models.py ARCADE_ANGLE, in scene degrees (from +X toward +Z)
 const ARCADE_DIST = 46
 const ARCADE_Z = 9 // the Recreation Deck
 const CABINET_R = 4.4 // out from the pod's centre (its floor is flat to 5.6 m; the wall is at ~6)

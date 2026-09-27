@@ -13,8 +13,8 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
   - Hub levels: two ring balconies (9 m, 17 m) and a lounge (25 m) are in the model; `src/hubLevels.ts` adds the
     Observation pods: two more pods off Balcony 2 (17 m, the Observation Deck; balcony 1 is the Recreation Deck) on the X axis,
     each with a second window in place of its engine, couches facing both windows, with corridors and DOCK
-    Arcade: a small pod (the kit at 0.4) off the Recreation Deck (balcony 1) at Blender 10.5 degrees, under an
-    observation pod (0.38 m clear), with an ARCADE sign and seven cabinets (`src/arcade/arcade.ts`;
+    Arcade: a small pod (the kit at 0.4) off the Recreation Deck (balcony 1) at Blender 18.5 degrees (across the hub
+    from Terra), under an observation pod, with an ARCADE sign and seven cabinets (`src/arcade/arcade.ts`;
     `tools/build_arcade_cabinet.py`), attract-mode screens. PETAL INVADERS is playable (`src/arcade/invaders/`: `game.ts` pure rules, `play.ts`
     controls/sounds/station high score synced per station, `hud.tsx` the screen; sounds from
     `tools/make_arcade_sounds.py`).

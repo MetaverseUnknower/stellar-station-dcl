@@ -31,7 +31,7 @@ UPPER_Z = 17.0                           # BALCONIES[1]
 # The arcade: a small pod (the kit at 0.4) off Balcony 1 (the Recreation Deck), on a plain stretch of hub wall between
 # an observation pod's axis and a docking pod. Small enough that its roof clears the observation pod's hull above it
 # (16.8 m up) and its sides the docking pod at 45 degrees.
-ARCADE_ANGLE, ARCADE_SCALE, ARCADE_DIST, ARCADE_Z = 10.5, 0.4, 46.0, 9.0
+ARCADE_ANGLE, ARCADE_SCALE, ARCADE_DIST, ARCADE_Z = 18.5, 0.4, 46.0, 9.0   # across the hub from Terra (201); a pillar starts at 22.25
 ARCADE_DOOR = (3.0, 3.0)
 # Terra, the Earth room: a bigger small pod (the kit at 0.6, 20 m across) off the Recreation Deck across the hub, on
 # the plain stretch of wall between the -X observation pod and the docking pod at 225. At 0.6 it's too tall to pass
@@ -106,10 +106,16 @@ def cut_door(coll, angle_deg, width, height, r_min=11.0, center=Vector((0, 0, 0)
         for co, no in ((center + side * (width / 2), side), (center - side * (width / 2), -side), (Vector((0, 0, top)), Vector((0, 0, 1))), (Vector((0, 0, floor)), Vector((0, 0, -1)))):
             geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
             bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no)
+        # Light strips on the wall stand proud of it, in front of the doorway's trim: clear them across the trim too.
+        half = width / 2 + (0.6 if ob.name.startswith('PureEM') else 0.0)
+        if half > width / 2:
+            for co, no in ((center + side * half, side), (center - side * half, -side)):
+                geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
+                bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no)
         doomed = []
         for f in bm.faces:
             c = f.calc_center_median() - center
-            if abs(c.dot(side)) < width / 2 and c.z + center.z < top and c.z + center.z > floor + 0.02 and c.dot(axis) > r_min:
+            if abs(c.dot(side)) < half and c.z + center.z < top + (0.6 if half > width / 2 else 0) and c.z + center.z > floor + 0.02 and c.dot(axis) > r_min:
                 doomed.append(f)
         bmesh.ops.delete(bm, geom=doomed, context='FACES')
         bm.to_mesh(ob.data)
