@@ -7,6 +7,7 @@
 import { engine, Entity, Transform, AudioStream } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
+import { startSoundtrack, setSoundtrackContext, setSoundtrackFade } from '../soundtrack'
 
 export const RELAY_RADIO_URL = 'https://relayradio.org/api/live/stream.mp3' // as rebel-radio's STREAM_URL
 const LOUNGE = 25 // metres above the deck (build_station_models.py LOUNGE)
@@ -34,7 +35,18 @@ export function loungeFade(): number {
   return t * t * (3 - 2 * t) // smoothstep
 }
 
+/** The game's soundtrack (soundtrack.ts, the ship's): the space-station theme, always (the player is docked), fading
+ *  out as the lounge's radio fades in, so upstairs only the club's music plays. */
+function startStationSoundtrack(): void {
+  setSoundtrackContext({ docked: true, system: null })
+  void startSoundtrack()
+  engine.addSystem(() => {
+    if (Transform.has(engine.PlayerEntity)) setSoundtrackFade(1 - loungeFade())
+  })
+}
+
 export function buildLoungeMusic(): void {
+  startStationSoundtrack()
   const base = () => Vector3.create(CENTER.x, FLOOR_Y + LOUNGE + SOURCE_ABOVE_FLOOR, CENTER.z)
   const at = (gain: number) => {
     const b = base()

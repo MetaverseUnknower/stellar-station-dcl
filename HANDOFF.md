@@ -31,7 +31,9 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     floor panel (click, or keys 1-4) while aboard, up/down call buttons at each landing, gates while the car is
     elsewhere. Collective dispatching in `controller.ts` (pure, tested); state synced per station under network ids
     hashed from the station id, so each station's players share their own lifts), the lounge's dance floor, and Relay Radio
-    (`src/lounge/music.ts`, fading in with height). Heights and the
+    (`src/lounge/music.ts`, fading in with height). The game's soundtrack (`src/soundtrack.ts`, copied from the ship
+    with one addition, `setSoundtrackFade`) plays the space-station theme everywhere else, fading out as the radio
+    fades in; the ship's music bar (NEXT / MUTE) is in `src/ui.tsx`. Heights and the
     lift radius must match `BALCONIES` / `LOUNGE` / `LIFT_R` in the build script.
   - `tools/build_station_models.py`: builds `station.glb` from
     `~/-MetaPetal/Daisy Class Assets/DaisyClass_Interior_Kit.blend` (read only, never saved): a 2x hub with four

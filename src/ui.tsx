@@ -9,6 +9,7 @@ import { ShipDialogs } from './shipDialogs'
 import { ComposePanel } from './board/compose'
 import { liftPanel } from './lift/lifts'
 import { InvadersScreen } from './arcade/invaders/hud'
+import { currentTrack, isMuted, toggleMuted, nextTrack } from './soundtrack'
 
 // stations/shipOverview.ts (copied from the ship) opens these from '../ui', as on the ship.
 export { openRefineryDialog, openPurchaseDialog, openRecallDialog } from './shipDialogs'
@@ -139,6 +140,30 @@ function LiftLegend() {
   )
 }
 
+/** The ship scene's music bar (galaxy-gardeners-dcl src/ui.tsx), copied unchanged: the track playing, NEXT, MUTE. */
+const MusicBar = () => {
+  const track = currentTrack()
+  if (!track) return null   // nothing to show until the playlist has loaded
+  const muted = isMuted()
+  const title = track.artist ? `${track.title} — ${track.artist}` : track.title
+  return (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { bottom: px(20), right: px(30) }, flexDirection: 'row', alignItems: 'center', padding: px(4) }}
+      uiBackground={{ color: Color4.create(0.02, 0.05, 0.12, 0.85) }}>
+      <Label value={muted ? '♪ MUTED' : `♪ ${title}`} fontSize={px(12)} color={Color4.create(0.45, 0.65, 0.75, 1)} uiTransform={{ margin: { left: px(8), right: px(8) } }} />
+      <UiEntity uiTransform={{ width: px(60), height: px(26), margin: { right: px(4) }, justifyContent: 'center', alignItems: 'center' }}
+        uiBackground={{ color: Color4.create(0.05, 0.12, 0.2, 1) }}
+        onMouseDown={() => { nextTrack() }}>
+        <Label value="NEXT" fontSize={px(12)} color={Color4.create(0, 0.9, 1, 1)} />
+      </UiEntity>
+      <UiEntity uiTransform={{ width: px(76), height: px(26), justifyContent: 'center', alignItems: 'center' }}
+        uiBackground={{ color: muted ? Color4.create(0.05, 0.12, 0.2, 1) : Color4.create(0, 0.9, 1, 1) }}
+        onMouseDown={() => { toggleMuted() }}>
+        <Label value={muted ? 'UNMUTE' : 'MUTE'} fontSize={px(12)} color={muted ? Color4.create(0, 0.9, 1, 1) : Color4.create(0.02, 0.05, 0.1, 1)} />
+      </UiEntity>
+    </UiEntity>
+  )
+}
+
 export function setupUi(): void {
   ReactEcsRenderer.setUiRenderer(() => (
     <UiEntity uiTransform={{ width: '100%', height: '100%' }}>
@@ -149,6 +174,7 @@ export function setupUi(): void {
       <ShipDialogs />
       <ComposePanel />
       <InvadersScreen />
+      <MusicBar />
     </UiEntity>
   ))
 }
