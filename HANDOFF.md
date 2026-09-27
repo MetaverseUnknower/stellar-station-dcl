@@ -14,8 +14,10 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     Upper pods: two more pods off Balcony 2 (17 m) on the X axis (empty lounges for now), with corridors and DOCK
     signs like the lower four. Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
     (`src/observation/galaxyHologram.ts`; `galaxyMap.ts`, `heatMap.ts`, `prefs.ts` copied unchanged). The
-    lifts (a physical platform in a vertical shaft on each end of the X axis: E / F to ride, call buttons on each
-    level, gates at the landings; lift state synced between players), the lounge's dance floor, and Relay Radio
+    lifts (`src/lift/`: a physical platform in a vertical shaft on each end of the X axis, run as elevators. A HUD
+    floor panel (click, or keys 1-4) while aboard, up/down call buttons at each landing, gates while the car is
+    elsewhere. Collective dispatching in `controller.ts` (pure, tested); state synced per station under network ids
+    hashed from the station id, so each station's players share their own lifts), the lounge's dance floor, and Relay Radio
     (`src/lounge/music.ts`, fading in with height). Heights and the
     lift radius must match `BALCONIES` / `LOUNGE` / `LIFT_R` in the build script.
   - `tools/build_station_models.py`: builds `station.glb` from

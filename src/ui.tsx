@@ -7,7 +7,7 @@ import { getGateState, returnToShip, isAdmin, getStations, pickStation } from '.
 import { getCrew } from './audience'
 import { ShipDialogs } from './shipDialogs'
 import { ComposePanel } from './board/compose'
-import { liftUnderPlayer } from './hubLevels'
+import { liftPanel } from './lift/lifts'
 
 // stations/shipOverview.ts (copied from the ship) opens these from '../ui', as on the ship.
 export { openRefineryDialog, openPurchaseDialog, openRecallDialog } from './shipDialogs'
@@ -15,6 +15,7 @@ export { openRefineryDialog, openPurchaseDialog, openRecallDialog } from './ship
 const PANEL = Color4.create(0.02, 0.06, 0.12, 0.85)
 const CYAN = Color4.create(0, 0.9, 1, 1)
 const DIM = Color4.create(0.6, 0.7, 0.8, 1)
+const AMBER = Color4.create(1, 0.75, 0.2, 1)
 const WARN = Color4.create(1, 0.55, 0.4, 1)
 
 function StatusBanner() {
@@ -113,17 +114,26 @@ function AdminPanel() {
   )
 }
 
-/** While standing on a lift: where it is and how to ride it. */
-function LiftHint() {
-  const lift = liftUnderPlayer()
+/** While standing on a lift: its floor panel. Click a floor, or press its number key. */
+function LiftLegend() {
+  const lift = liftPanel()
   if (!lift) return null
-  const keys = lift.moving ? 'MOVING…' : [lift.canUp ? 'E  ▲ UP' : '', lift.canDown ? 'F  ▼ DOWN' : ''].filter(Boolean).join('     ')
+  const status = lift.moving ? (lift.dir > 0 ? '▲  GOING UP' : '▼  GOING DOWN') : 'PICK A FLOOR  ·  KEYS 1-4'
   return (
-    <UiEntity uiTransform={{ positionType: 'absolute', position: { bottom: px(140) }, width: '100%', justifyContent: 'center' }}>
-      <UiEntity uiTransform={{ padding: { top: px(10), bottom: px(10), left: px(22), right: px(22) }, flexDirection: 'column', alignItems: 'center' }} uiBackground={{ color: PANEL }}>
-        <Label value={`LIFT  ·  ${lift.level}`} fontSize={px(18)} color={DIM} />
-        <Label value={keys} fontSize={px(24)} color={CYAN} />
-      </UiEntity>
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { right: px(24), top: '30%' }, width: px(300), flexDirection: 'column', padding: px(12) }} uiBackground={{ color: PANEL }}>
+      <Label value="LIFT" fontSize={px(16)} color={DIM} textAlign="middle-left" uiTransform={{ height: px(22) }} />
+      <Label value={status} fontSize={px(15)} color={CYAN} textAlign="middle-left" uiTransform={{ height: px(22), margin: { bottom: px(6) } }} />
+      {[...lift.floors].reverse().map((f) => (
+        <UiEntity
+          key={f.key}
+          uiTransform={{ height: px(38), margin: { top: px(4) }, padding: { left: px(8), right: px(8) }, alignItems: 'center', flexDirection: 'row' }}
+          uiBackground={{ color: f.here ? CYAN : f.picked ? AMBER : Color4.create(1, 1, 1, 0.08) }}
+          onMouseDown={f.press}
+        >
+          <Label value={f.key} fontSize={px(20)} color={f.here || f.picked ? Color4.Black() : CYAN} uiTransform={{ width: px(28) }} />
+          <Label value={f.name} fontSize={px(16)} color={f.here || f.picked ? Color4.Black() : DIM} textAlign="middle-left" />
+        </UiEntity>
+      ))}
     </UiEntity>
   )
 }
@@ -134,7 +144,7 @@ export function setupUi(): void {
       <StatusBanner />
       <CrewPanel />
       <AdminPanel />
-      <LiftHint />
+      <LiftLegend />
       <ShipDialogs />
       <ComposePanel />
     </UiEntity>
