@@ -1,29 +1,44 @@
-# Builds assets/models/terra.glb: the inside of Terra, the station's Earth room. A painted sky (clouds and a sun) on
-# a shell just inside the pod's hull hides the station entirely; a ring of rolling hills stands in front of it; the
-# floor is a lawn with a pond in the middle, trees round the edge, flowerbeds, grass tufts, a stepping-stone path from
+# Builds assets/models/terra.glb: the inside of Terra, the station's Earth room. MetaPetal's two Earth views
+# (assets/images/terra-bg-1/-2) wrap a shell just inside the pod's hull, hiding the station entirely, with a sky
+# overhead in their colours; the floor is a lawn with a pond in the middle, trees round the edge, flowerbeds, grass tufts, a stepping-stone path from
 # the door, and two park benches (src/terra/terra.ts seats players on them).
 #
 #   /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python tools/build_terra.py -- assets/models
 #
 # Built in the pod's own frame: its centre at the origin, the floor at z 0, the doorway toward -X (the hub). Sizes
 # come from raycasts of the built pod (build_station_models.py TERRA_*, kit at 0.6): the hull's inner radius by
-# height (HULL), flat floor out to 9 m, the ceiling at ~11 m. The textures are generated here, not loaded.
+# height (HULL), flat floor out to 9 m, the ceiling at ~11 m. The lawn and sky-cap textures are generated here.
 import bpy, bmesh, math, os, random, struct, sys, tempfile, zlib
 from mathutils import Vector, Matrix
 
 OUT = os.path.abspath(sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'assets/models')
-# The hull's inner radius by height, less 0.35 m: the sky shell's profile (z, r), closed at the top.
-SHELL = [(0.0, 8.95), (4.4, 8.95), (5.0, 8.9), (6.0, 8.6), (7.0, 8.1), (8.0, 7.6), (9.0, 6.75), (10.0, 5.6),
+# The hull's inner radius by height, less 0.35 m: the sky shell's profile (z, r), closed at the top. (Resampled
+# every 0.5 m below, so the views spread smoothly up it.)
+SHELL_POINTS = [(0.0, 8.95), (4.4, 8.95), (5.0, 8.9), (6.0, 8.6), (7.0, 8.1), (8.0, 7.6), (9.0, 6.75), (10.0, 5.6),
          (10.5, 4.6), (10.75, 2.5), (10.8, 0.0)]
+
+
+def _resample(points, step, upto):
+    out = []
+    z = 0.0
+    while z < upto:
+        for (z0, r0), (z1, r1) in zip(points, points[1:]):
+            if z0 <= z <= z1:
+                out.append((z, r0 + (r1 - r0) * (z - z0) / (z1 - z0)))
+                break
+        z = round(z + step, 3)
+    return out + [p for p in points if p[0] >= upto]
+
+
+SHELL = _resample(SHELL_POINTS, 0.5, 10.0)
 DOOR_HALF = math.radians(17)   # the doorway's half-width round the shell (door 4 m wide at ~9 m, with margin)
 DOOR_TOP = 4.0                 # the shell is open below this in the doorway's sector
-HILLS_R, HILLS_TOP = 8.7, 3.4
 LAWN_R = 9.1
 POND_R = 2.3
 LAWN_Z = 0.06   # the lawn's height over the deck: well clear of it, or the deck flickers through at a distance
 SEG = 96
 rng = random.Random(11)
-BENCHES = [(4.0, 90), (4.0, 270)]   # (r, degrees) round the pod; src/terra/terra.ts seats players on them
+BENCHES = [(4.8, 90), (4.8, 270)]   # (r, degrees) round the pod, facing out at the windows; src/terra/terra.ts seats players on them
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene.collection
@@ -66,71 +81,66 @@ def lerp3(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
 
-def sky_texture():
-    """u round the room, v up the shell (0 = floor, 1 = top): a gradient from a hazy horizon to deep blue, soft
-    clouds in the middle band, and a sun."""
-    w, h = 512, 256
-    octaves = [value_noise(100 + i, 4 * 2 ** i) for i in range(4)]
-    horizon, mid, top = (0.82, 0.9, 0.97), (0.5, 0.72, 0.95), (0.28, 0.5, 0.9)
-    sun_u, sun_v = 0.3, 0.72
-    rows = []
-    for j in range(h):
-        v = 1 - j / (h - 1)
-        base = lerp3(horizon, mid, min(1, v / 0.45)) if v < 0.45 else lerp3(mid, top, (v - 0.45) / 0.55)
-        row = []
-        for i in range(w):
-            u = i / w
-            c = base
-            band = max(0.0, 1 - abs(v - 0.55) / 0.3)   # clouds between ~0.25 and ~0.85
-            n = fbm(octaves, u, v * 0.5)
-            cloud = max(0.0, (n - 0.52) * 3.2) * band
-            c = lerp3(c, (1, 1, 1), min(1, cloud))
-            du = min(abs(u - sun_u), 1 - abs(u - sun_u)) * 2.2   # the shell is wider than tall
-            d = math.hypot(du, v - sun_v)
-            if d < 0.035:
-                c = (1, 0.98, 0.9)
-            elif d < 0.16:
-                c = lerp3(c, (1, 0.96, 0.8), (1 - (d - 0.035) / 0.125) ** 2 * 0.8)
-            row.append(c)
-        rows.append(row)
-    path = os.path.join(TMP, 'terra_sky.png')
-    write_png(path, w, h, rows)
-    return path
+IMAGES = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'images')
+PANORAMA = ('terra-bg-1.jpg', 'terra-bg-2.jpg')   # MetaPetal's Earth views, each wrapped half round the room
+CROP = (0.03, 0.9)             # rows kept, from the top: below 0.9 are the images' own frame and dais
+TEX_W, TEX_H = 2048, 1024
+SEAM = 160                     # columns blended at each join, so the two halves meet without an edge
 
 
-def hills_texture():
-    """u round the room (twice round the texture), v up the band: three ranges of hills, far and hazy blue to near
-    and green, transparent above them."""
-    w, h = 1024, 128
-    ranges = [  # (base height, amplitude, frequencies, colour)
-        (0.52, 0.2, (2, 5, 11), (0.55, 0.68, 0.8)),  # peaks stay under the band's top (max ~0.72)
-        (0.42, 0.2, (3, 7, 13), (0.36, 0.58, 0.45)),
-        (0.2, 0.16, (4, 9, 17), (0.25, 0.5, 0.25)),
-    ]
-    phases = [[rng.random() * 6.28 for _ in range(3)] for _ in ranges]
-    heights = []
-    for k, (base, amp, freqs, _) in enumerate(ranges):
-        col = []
-        for i in range(w):
-            u = i / w
-            y = base + amp * sum(math.sin(2 * math.pi * f * u + phases[k][n]) / (n + 1) for n, f in enumerate(freqs)) / 1.8
-            col.append(y)
-        heights.append(col)
-    rows = []
-    for j in range(h):
-        v = 1 - j / (h - 1)
-        row = []
-        for i in range(w):
-            px = (0, 0, 0, 0)
-            for k in range(len(ranges)):   # far to near: nearer ranges paint over
-                if v <= heights[k][i]:
-                    shade = 0.85 + 0.15 * (v / max(heights[k][i], 0.01))
-                    c = ranges[k][3]
-                    px = (c[0] * shade, c[1] * shade, c[2] * shade, 1)
-            row.append(px)
-        rows.append(row)
-    path = os.path.join(TMP, 'terra_hills.png')
-    write_png(path, w, h, rows, alpha=True)
+def panorama_textures():
+    """The two views, cropped and scaled to TEX_W x TEX_H, their side edges blended toward a colour shared with the
+    neighbouring half (per row), so the joins don't show. Returns the two files and the sky colour at their top."""
+    import numpy as np
+    halves = []
+    for name in PANORAMA:
+        img = bpy.data.images.load(os.path.join(IMAGES, name))
+        w, h = img.size
+        px = np.empty(w * h * 4, dtype=np.float32)
+        img.pixels.foreach_get(px)
+        px = px.reshape(h, w, 4)[::-1]   # Blender stores rows bottom-up; flip to top-down
+        rows = px[int(CROP[0] * h):int(CROP[1] * h)]
+        # Resample to TEX_W x TEX_H (nearest-of-bilinear is plenty for a backdrop).
+        ys = np.linspace(0, rows.shape[0] - 1, TEX_H)
+        xs = np.linspace(0, rows.shape[1] - 1, TEX_W)
+        y0, x0 = np.floor(ys).astype(int), np.floor(xs).astype(int)
+        y1, x1 = np.minimum(y0 + 1, rows.shape[0] - 1), np.minimum(x0 + 1, rows.shape[1] - 1)
+        fy, fx = (ys - y0)[:, None, None], (xs - x0)[None, :, None]
+        top = rows[y0][:, x0] * (1 - fx) + rows[y0][:, x1] * fx
+        bot = rows[y1][:, x0] * (1 - fx) + rows[y1][:, x1] * fx
+        halves.append(top * (1 - fy) + bot * fy)
+    a, b = halves
+    # Join 1: a's right edge meets b's left; join 2: b's right meets a's left. Each side eases to the rows' mean.
+    ramp = (np.linspace(0, 1, SEAM) ** 2)[None, :, None]
+    for left, right in ((a, b), (b, a)):
+        meet = (left[:, -24:].mean(axis=1, keepdims=True) + right[:, :24].mean(axis=1, keepdims=True)) / 2
+        left[:, -SEAM:] = left[:, -SEAM:] * (1 - ramp) + meet * ramp
+        right[:, :SEAM] = right[:, :SEAM] * (1 - ramp[:, ::-1]) + meet * ramp[:, ::-1]
+    # The top: fade into the sky cap's colour (the mean of both tops), so the ceiling has no edge where they meet.
+    sky4 = (a[:6].mean(axis=(0, 1)) + b[:6].mean(axis=(0, 1))) / 2
+    fade = int(TEX_H * 0.18)
+    top_ramp = (np.linspace(1, 0, fade) ** 1.6)[:, None, None]
+    for half in halves:
+        half[:fade] = half[:fade] * (1 - top_ramp) + sky4[None, None, :] * top_ramp
+    paths = []
+    for k, half in enumerate(halves):
+        out = bpy.data.images.new(f'terra_view{k + 1}', TEX_W, TEX_H)
+        out.pixels.foreach_set(np.ascontiguousarray(half[::-1], dtype=np.float32).ravel())
+        path = os.path.join(TMP, f'terra_view{k + 1}.jpg')
+        out.filepath_raw = path
+        out.file_format = 'JPEG'
+        bpy.context.scene.render.image_settings.quality = 88
+        out.save()
+        paths.append(path)
+    return paths, tuple(float(c) for c in sky4[:3])
+
+
+def sky_cap_texture(horizon):
+    """The ceiling above the views: from the views' own sky colour at their top edge to a deeper blue overhead."""
+    zenith = (horizon[0] * 0.55, horizon[1] * 0.7, min(1.0, horizon[2] * 0.95))
+    rows = [[lerp3(zenith, horizon, j / 63)] * 8 for j in range(64)]   # top row = zenith
+    path = os.path.join(TMP, 'terra_skycap.png')
+    write_png(path, 8, 64, rows)
     return path
 
 
@@ -182,8 +192,9 @@ def material(name, rgb=(1, 1, 1), metallic=0.0, roughness=0.8, image=None, emit=
     return m
 
 
-SKY = material('TerraSky', image=sky_texture(), emit=1.0, roughness=1)
-HILLS = material('TerraHills', image=hills_texture(), emit=0.8, roughness=1, clip=True)
+VIEW_FILES, VIEW_SKY = panorama_textures()
+VIEWS = [material(f'TerraView{k + 1}', image=f, emit=1.0, roughness=1) for k, f in enumerate(VIEW_FILES)]
+SKY_CAP = material('TerraSkyCap', image=sky_cap_texture(VIEW_SKY), emit=1.0, roughness=1)
 GRASS = material('Lawn', image=grass_texture(), roughness=0.95)
 BARK = material('Bark', (0.3, 0.19, 0.11), roughness=0.9)
 LEAVES = [material(f'Leaves{i}', c, roughness=0.85) for i, c in enumerate([(0.2, 0.5, 0.18), (0.28, 0.58, 0.2), (0.16, 0.42, 0.2)])]
@@ -231,8 +242,8 @@ def revolve(name, profile, mat, uv_v, skip=lambda a, z: False, inward=True):
         for n in range(len(profile) - 1):
             if skip(a, (profile[n][0] + profile[n + 1][0]) / 2):
                 continue
-            quad = (rings[k][n], rings[k + 1][n], rings[k + 1][n + 1], rings[k][n + 1])
-            if not inward:
+            quad = (rings[k][n], rings[k + 1][n], rings[k + 1][n + 1], rings[k][n + 1])   # this way round faces out
+            if inward:
                 quad = quad[::-1]
             try:
                 f = bm.faces.new(quad)
@@ -282,11 +293,35 @@ def polar(r, deg):
 
 # ---- the room ----------------------------------------------------------------------------------------------------
 
-# Sky and hills. The sky's UV v runs up its height; the hills go round twice.
-revolve('Sky', SHELL, SKY, lambda z: z / SHELL[-1][0], skip=lambda a, z: in_door(a) and z < DOOR_TOP)
-hills = revolve('Hills', [(0.0, HILLS_R), (HILLS_TOP, HILLS_R)], HILLS, lambda z: z / HILLS_TOP, skip=lambda a, z: in_door(a, 0.02))
-for loop_face in hills.data.uv_layers.active.data:
-    loop_face.uv[0] *= 2
+# The backdrop. The views wrap the shell's walls up to VIEW_TOP, each half round the room (the first from 180 to 0
+# through 90, the second on round through 270; their joins behind the doorway and the trees opposite it), their
+# rows spread by distance up the shell. Above, the sky cap closes the ceiling.
+VIEW_TOP = 9.0
+walls = [p for p in SHELL if p[0] <= VIEW_TOP]
+cap = [p for p in SHELL if p[0] >= VIEW_TOP]
+run = [0.0]
+for (z0, r0), (z1, r1) in zip(walls, walls[1:]):
+    run.append(run[-1] + math.hypot(z1 - z0, r1 - r0))
+run_at = {z: d / run[-1] for (z, _), d in zip(walls, run)}
+for k, mat in enumerate(VIEWS):
+    ob = revolve(f'View{k + 1}', walls, mat, lambda z: run_at[round(z, 3)] if round(z, 3) in run_at else z / VIEW_TOP,
+                 skip=lambda a, z, k=k: (in_door(a) and z < DOOR_TOP) or ((math.degrees(a) % 360) < 180) != (k == 0))
+    # u: seen from inside, an image runs left to right as the angle falls; each half spans 180 degrees.
+    me = ob.data
+    for poly in me.polygons:
+        for li in poly.loop_indices:
+            v = me.vertices[me.loops[li].vertex_index].co
+            ang = math.degrees(math.atan2(v.y, v.x)) % 360
+            if k == 0:
+                u = (180 - ang) / 180 if ang <= 180.001 else 0.0
+            else:
+                u = (360 - ang) / 180 if ang >= 179.999 else 1.0
+                if ang < 1e-3:
+                    u = 0.0
+            if k == 0 and ang < 1e-3:
+                u = 1.0
+            me.uv_layers.active.data[li].uv = (max(0.0, min(1.0, u)), me.uv_layers.active.data[li].uv[1])
+revolve('SkyCap', cap, SKY_CAP, lambda z: (z - VIEW_TOP) / (cap[-1][0] - VIEW_TOP))
 
 # The lawn, LAWN_Z over the deck, and a pond sunk into it (drawn on top: the lawn has a hole for it).
 bm = bmesh.new()
@@ -321,8 +356,9 @@ for k, x in enumerate([-8.3, -7.3, -6.3, -5.3, -4.3, -3.3]):
 link('SteppingStones', bm, STONE)
 
 # Trees round the edge: leafy ones and a couple of pines, clear of the path and the benches.
-trees = [(6.6, 25, 'leafy', 1.0), (6.9, 75, 'pine', 1.0), (6.4, 118, 'leafy', 0.85), (6.8, 245, 'leafy', 0.95),
-         (6.6, 290, 'pine', 0.9), (6.9, 330, 'leafy', 1.1), (5.2, 0, 'leafy', 0.8)]
+# (Clear of the windows at 90 and 270, +-32 degrees, and the door at 180.)
+trees = [(6.6, 18, 'leafy', 1.0), (6.9, 48, 'pine', 1.0), (6.4, 138, 'leafy', 0.85), (6.8, 222, 'leafy', 0.95),
+         (6.6, 312, 'pine', 0.9), (6.9, 342, 'leafy', 1.1), (5.0, 0, 'leafy', 0.8)]
 bark, pine, colliders = bmesh.new(), bmesh.new(), bmesh.new()
 leaves = [bmesh.new() for _ in LEAVES]
 for r, deg, kind, s in trees:
@@ -373,10 +409,11 @@ for n in range(260):
         cone(bm, (x + rng.uniform(-0.08, 0.08), y + rng.uniform(-0.08, 0.08), LAWN_Z - 0.02), 0.05, 0.0, rng.uniform(0.18, 0.32), seg=3)
 link('GrassTufts', bm, TUFT)
 
-# Park benches either side of the pond, facing it: wooden slats on iron legs. Seat 0.45 m up, 1.6 m wide.
+# Park benches either side of the pond, facing out at the windows' views: wooden slats on iron legs. Seat 0.45 m up,
+# 1.6 m wide.
 wood, iron, benchcol = bmesh.new(), bmesh.new(), bmesh.new()
 for r, deg in BENCHES:
-    # Build facing +X (toward the pond from -X), then turn to face the centre.
+    # Build facing +X, then turn to face out from the centre.
     parts_w, parts_i = bmesh.new(), bmesh.new()
     for k in range(3):
         box(parts_w, (-0.25 + k * 0.17, -0.8, 0.43), (-0.1 + k * 0.17, 0.8, 0.47))
@@ -386,7 +423,7 @@ for r, deg in BENCHES:
         box(parts_i, (-0.3, y - 0.03, 0), (-0.26, y + 0.03, 0.95))
         box(parts_i, (0.05, y - 0.03, 0), (0.09, y + 0.03, 0.43))
         box(parts_i, (-0.3, y - 0.03, 0.4), (0.09, y + 0.03, 0.43))
-    turn = Matrix.Translation((*polar(r, deg), 0)) @ Matrix.Rotation(math.radians(deg + 180), 4, 'Z')
+    turn = Matrix.Translation((*polar(r, deg), 0)) @ Matrix.Rotation(math.radians(deg), 4, 'Z')
     for part, into in ((parts_w, wood), (parts_i, iron)):
         part.transform(turn)
         me = bpy.data.meshes.new('tmp')
@@ -411,6 +448,9 @@ for ob in bpy.data.objects:
 # The explorer draws only front faces: check the flat ground pieces face up (a Blender render shows both sides, so
 # a downward lawn looks fine here and invisible in-world).
 for ob in bpy.data.objects:
+    if ob.type == 'MESH' and ob.name in ('View1', 'View2', 'SkyCap'):
+        out = sum(1 for p in ob.data.polygons if p.normal.dot(Vector((p.center.x, p.center.y, 0))) > 0 and p.center.xy.length > 1)
+        print('FACING', ob.name, 'OUT' if out else 'in', out, '/', len(ob.data.polygons))
     if ob.type == 'MESH' and ob.name in ('Lawn', 'Pond', 'LilyPads', 'SteppingStones'):
         down = sum(1 for p in ob.data.polygons if p.normal.z < 0)
         print('FACING', ob.name, 'down' if down else 'up', down, '/', len(ob.data.polygons))
