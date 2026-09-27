@@ -42,7 +42,7 @@ WELL_R = 1.8
 LIFT_PLATFORM_R = 1.5   # src/hubLevels.ts PLATFORM_RADIUS: the lift platform's disc
 LANDING_HALF = 1.5      # landings are 3 m wide
 LIFT_GAP_DEG = math.degrees(math.atan(LANDING_HALF / (20.0 + 0.15)))   # the balcony rail's gap is the landing's width
-LOUNGE_BENCHES = (60, 90, 120, 240, 270, 300)
+LOUNGE_BENCHES = (90, 120, 240, 270, 300)   # 60 (scene 240, under the SPACE BAR sign) is the bar's
 
 DEMO = bpy.data.collections['Daisy Class Interior Demo']
 
