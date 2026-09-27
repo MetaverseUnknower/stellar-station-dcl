@@ -22,6 +22,7 @@ import { buildArcade } from './arcade/arcade'
 import { setupInvaders } from './arcade/invaders/play'
 import { buildTerra } from './terra/terra'
 import { buildLab } from './lab/lab'
+import { buildAirlocks } from './airlock'
 
 export const CENTER = Vector3.create(128, 0, 128)
 export const FLOOR_Y = 40 // same deck height as the ship scene, so the skybox frames it the same way
@@ -29,7 +30,8 @@ export const FLOOR_Y = 40 // same deck height as the ship scene, so the skybox f
 // The four pods sit on the hub's diagonals, POD_DISTANCE out (tools/build_station_models.py). The diagonals are
 // the same whichever way the explorer converts the model's axes, so these positions hold either way.
 const POD_DISTANCE = 65.2
-const SPAWN_IN_FROM_CENTER = 8 // between the pod's projector dais and its door, toward the hub
+const SPAWN_FROM_CENTER = 8.5 // across the pod from its airlock (on the window side), clear of the system map
+const MAP_ABOVE_FLOOR = 2.1 // shipServices.ts: the system map's centre over the projector
 const POD_DIRECTIONS = [
   [1, 1],
   [-1, 1],
@@ -77,10 +79,15 @@ export function hubDesk(deg: number): { position: Vector3; yaw: number } {
   }
 }
 
+/** Where a player arrives in their pod: across from its airlock (the hatch is 90 degrees clockwise from the pod's
+ *  outward direction, seen from above; see airlock.ts), looking over the system map at it. */
 export function podSpawn(index: number): { position: Vector3; cameraTarget: Vector3 } {
+  const c = podCenter(index)
+  const out = podOutward(index)
+  const hatch = Vector3.create(out.z, 0, -out.x)
   return {
-    position: podPoint(index, POD_DISTANCE - SPAWN_IN_FROM_CENTER, FLOOR_Y),
-    cameraTarget: podPoint(index, POD_DISTANCE, FLOOR_Y + 1) // the pod's projector
+    position: Vector3.create(c.x - hatch.x * SPAWN_FROM_CENTER, FLOOR_Y, c.z - hatch.z * SPAWN_FROM_CENTER),
+    cameraTarget: Vector3.create(c.x, FLOOR_Y + MAP_ABOVE_FLOOR, c.z) // the system map, the airlock behind it
   }
 }
 
@@ -113,6 +120,7 @@ export function buildStation(): void {
   setupInvaders()
   buildTerra()
   buildLab()
+  buildAirlocks()
 
   // scene.json spawns everyone in the holding box. They're released into their pod once the gate clears them
   // (in preview straight away: nobody there is docked, and a preview sign-in can hang) and sent back to the box if

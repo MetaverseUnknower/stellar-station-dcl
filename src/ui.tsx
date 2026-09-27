@@ -8,6 +8,7 @@ import { getCrew } from './audience'
 import { ShipDialogs } from './shipDialogs'
 import { ComposePanel } from './board/compose'
 import { liftPanel } from './lift/lifts'
+import { standingAtAirlock } from './airlock'
 import { InvadersScreen } from './arcade/invaders/hud'
 import { currentTrack, isMuted, toggleMuted, nextTrack } from './soundtrack'
 import { radioDisplay, radioGenre, inTheClub } from './lounge/radioNow'
@@ -74,13 +75,16 @@ function CrewPanel() {
           textAlign="middle-left"
         />
       ))}
-      <UiEntity
-        uiTransform={{ margin: { top: px(12) }, padding: px(10), justifyContent: 'center' }}
-        uiBackground={{ color: CYAN }}
-        onMouseDown={() => returnToShip('Heading back to your ship.')}
-      >
-        <Label value="RETURN TO SHIP" fontSize={px(18)} color={Color4.Black()} />
-      </UiEntity>
+      {/* Admins only: everyone else goes home by an airlock (airlock.ts). */}
+      {isAdmin() && (
+        <UiEntity
+          uiTransform={{ margin: { top: px(12) }, padding: px(10), justifyContent: 'center' }}
+          uiBackground={{ color: CYAN }}
+          onMouseDown={() => returnToShip('Heading back to your ship.')}
+        >
+          <Label value="RETURN TO SHIP" fontSize={px(18)} color={Color4.Black()} />
+        </UiEntity>
+      )}
     </UiEntity>
   )
 }
@@ -193,6 +197,21 @@ const RadioBar = () => {
 /** The music bar: the soundtrack's (the ship's own bar) on the station, Relay Radio's in the club. */
 const StationMusicBar = () => (inTheClub() ? <RadioBar /> : <MusicBar />)
 
+/** At an airlock: the way home. */
+function AirlockPrompt() {
+  if (!standingAtAirlock() || getGateState().kind !== 'aboard') return null
+  return (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { bottom: px(140) }, width: '100%', justifyContent: 'center' }}>
+      <UiEntity uiTransform={{ padding: { top: px(12), bottom: px(12), left: px(22), right: px(22) }, flexDirection: 'row', alignItems: 'center' }} uiBackground={{ color: PANEL }}>
+        <UiEntity uiTransform={{ width: px(40), height: px(40), justifyContent: 'center', alignItems: 'center', margin: { right: px(14) } }} uiBackground={{ color: CYAN }}>
+          <Label value="E" fontSize={px(24)} color={Color4.Black()} />
+        </UiEntity>
+        <Label value="Return to your ship" fontSize={px(24)} color={CYAN} />
+      </UiEntity>
+    </UiEntity>
+  )
+}
+
 export function setupUi(): void {
   ReactEcsRenderer.setUiRenderer(() => (
     <UiEntity uiTransform={{ width: '100%', height: '100%' }}>
@@ -200,6 +219,7 @@ export function setupUi(): void {
       <CrewPanel />
       <AdminPanel />
       <LiftLegend />
+      <AirlockPrompt />
       <ShipDialogs />
       <ComposePanel />
       <InvadersScreen />
