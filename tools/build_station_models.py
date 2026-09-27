@@ -79,7 +79,8 @@ def name_colliders(coll):
 
 def cut_door(coll, angle_deg, width, height, r_min=11.0, center=Vector((0, 0, 0)), floor=FLOOR_Z):
     """Remove hull geometry in a width x height doorway facing angle_deg from center, by slicing along the
-    door's side and top planes and deleting the faces between them."""
+    door's side, top and floor planes and deleting the faces between them. (The floor slice matters for doors
+    off an upper level: without it, a wall face straddling the floor line goes whole, leaving a hole below.)"""
     a = math.radians(angle_deg)
     axis = Vector((math.cos(a), math.sin(a), 0))
     side = Vector((-math.sin(a), math.cos(a), 0))
@@ -87,7 +88,7 @@ def cut_door(coll, angle_deg, width, height, r_min=11.0, center=Vector((0, 0, 0)
     for ob in coll.objects:
         bm = bmesh.new()
         bm.from_mesh(ob.data)
-        for co, no in ((center + side * (width / 2), side), (center - side * (width / 2), -side), (Vector((0, 0, top)), Vector((0, 0, 1)))):
+        for co, no in ((center + side * (width / 2), side), (center - side * (width / 2), -side), (Vector((0, 0, top)), Vector((0, 0, 1))), (Vector((0, 0, floor)), Vector((0, 0, -1)))):
             geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
             bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no)
         doomed = []

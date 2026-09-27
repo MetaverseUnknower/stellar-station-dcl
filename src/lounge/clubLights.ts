@@ -202,6 +202,7 @@ const RIG_DROP = 2.5 // how far the whole rig comes down over a phrase
 const TUBES = 24
 const TUBE_LENGTH = 2.2
 const TUBE_RIPPLE = 0.9 // how far each tube rises and falls on its own
+const PHRASE_SECONDS = (16 * 60) / 124
 
 /** A ring of glowing tubes round the ball: each rises and falls a little out of step with its neighbours, so waves
  *  ripple round it, while the whole rig comes down and goes back up over each 16-beat phrase. */
@@ -245,18 +246,21 @@ function buildChandelier(): (dt: number, level: number) => void {
     dimIn = 0.18
   })
   let t = 0
+  let energy = 0 // the beat level, eased: the raw level spikes on every hit, which made the tubes jolt
   return (dt, level) => {
     t += dt
+    energy += (level - energy) * Math.min(1, dt * 1.5)
     if (dimIn >= 0) {
       dimIn -= dt
       if (dimIn < 0) paint(beatCount(), 1.2)
     }
-    // Down and back up over a 16-beat phrase (at the clock's 124 BPM, ~7.7 s), smoothly.
-    const phrase = ((beatCount() % 16) + (t % 0.484) / 0.484) / 16
+    // Down and back up over a 16-beat phrase at 124 BPM (~7.7 s), on its own smooth clock: tying it to the beat
+    // count made it jump whenever a beat landed off the clock's count.
+    const phrase = (t / PHRASE_SECONDS) % 1
     const drop = RIG_DROP * (0.5 - 0.5 * Math.cos(phrase * Math.PI * 2))
     Transform.getMutable(ring).position = Vector3.create(CENTER.x, FLOOR_Y + LOUNGE + RING_TOP - drop, CENTER.z)
     tubes.forEach((tube, i) => {
-      const ripple = TUBE_RIPPLE * (0.5 + 0.5 * Math.sin(t * 1.4 + (i / TUBES) * Math.PI * 4)) * (0.7 + 0.3 * level)
+      const ripple = TUBE_RIPPLE * (0.5 + 0.5 * Math.sin(t * 1.4 + (i / TUBES) * Math.PI * 4)) * (0.7 + 0.3 * energy)
       Transform.getMutable(tube).position.y = -TUBE_LENGTH / 2 - ripple
     })
   }
