@@ -5,7 +5,27 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
 
 - **World:** `stellarstation.dcl.eth` (set in `scene.json` → `worldConfiguration.name`)
 - **Size:** 16 × 16 parcels (256 m square), the same as the ship scene. Spawn at the centre, (128, 0, 128).
-- **State:** scaffold only. `src/index.ts` places a placeholder deck; everything else is to be built.
+- **State:** gating, audience filter, transfers and a first station layout are built.
+  - `src/station.ts`: places `assets/models/station/station.glb` (deck at y 40, like the ship) inside the ship's
+    skybox. Everyone spawns in a sealed black holding box under the hub (`scene.json`), and is moved into one of the four
+    pods, fixed per wallet (`podForWallet`), once the gate clears them. A refused player stays in (or is returned
+    to) the box while the gate sends them back to the ship. Anyone who falls through the hull goes back to their pod.
+  - Hub levels: two ring balconies (9 m, 17 m) and a lounge (25 m) are in the model; `src/hubLevels.ts` adds the
+    lift pads (cyan up, magenta down, on both ends of the X axis) and the lounge's dance floor. Heights and the
+    lift radius must match `BALCONIES` / `LOUNGE` / `LIFT_R` in the build script.
+  - `tools/build_station_models.py`: builds `station.glb` from
+    `~/-MetaPetal/Daisy Class Assets/DaisyClass_Interior_Kit.blend` (read only, never saved): a 2x hub with four
+    diagonal doors, a pod on each diagonal, corridors between them, benches in the hub. The whole layout is baked
+    into one model around the hub centre, so it doesn't depend on how the explorer converts glTF axes. Rerun it
+    after changing the kit or the layout constants at the top of the script (command in its header).
+  - `src/gate.ts`: signs in, checks `/api/stations/status`, sends non-docked players to `galaxygardeners.dcl.eth`, re-checks every 30 s.
+    Admins (`players.is_admin`) always get in and get an admin panel to switch to any station (server:
+    `isAdmin` on `/status`, admin-only `GET /api/stations/list`, and wallets on `/docked` for admins).
+  - `src/audience.ts`: one scene-wide `AvatarModifierArea` hiding every avatar but the wallets docked at the player's
+    station (refreshed every 10 s). Needs the server's `walletAddress` on `/docked` (branch
+    `feature/station-wallets`); without it, players see only themselves.
+  - `src/ui.tsx`: status banner, docked crew list, RETURN TO SHIP. Voice chat is disabled in `scene.json`.
+  - Ship: BOARD STATION on the nav console's station card while docked (`boardStation` in `src/docking.ts`).
 
 ## Requirements (from the product owner)
 
@@ -42,7 +62,7 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
   `AvatarModifierArea` covering the whole scene with `HIDE_AVATARS` and `excludeIds` set to the wallets docked
   at the player's station (refreshed as players dock and undock). Proximity voice and world text chat are
   **not** filtered by this; decide whether to accept that or disable voice in `scene.json`.
-- **Transfers.** `changeRealm` to `stellarstation.dcl.eth` from the ship (and to `metapetal.dcl.eth` back).
+- **Transfers.** `changeRealm` to `stellarstation.dcl.eth` from the ship (and to `galaxygardeners.dcl.eth` back).
   The explorer asks the player to confirm. The station scene learns which station from `/api/stations/status`,
   so nothing needs to travel in the URL.
 

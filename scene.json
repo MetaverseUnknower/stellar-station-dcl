@@ -277,7 +277,7 @@
   },
   "spawnPoints": [
     {
-      "name": "Arrival",
+      "name": "Holding",
       "default": true,
       "position": {
         "x": [
@@ -285,8 +285,8 @@
           129
         ],
         "y": [
-          0,
-          0
+          1.1,
+          1.1
         ],
         "z": [
           127,
@@ -295,8 +295,8 @@
       },
       "cameraTarget": {
         "x": 128,
-        "y": 1,
-        "z": 140
+        "y": 2.6,
+        "z": 132
       }
     }
   ],
@@ -311,8 +311,8 @@
     "localhost"
   ],
   "featureToggles": {
-    "voiceChat": "enabled",
-    "nearbyVoiceChat": "enabled"
+    "voiceChat": "disabled",
+    "nearbyVoiceChat": "disabled"
   },
   "creator": "0x7e567DEaBFFCeCEea48dA456EBb9Ef84d159374C",
   "skyboxConfig": {
