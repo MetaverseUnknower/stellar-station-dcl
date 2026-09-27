@@ -3,7 +3,7 @@
 // river across the far side running off into the views, flowerbeds and two benches on the bank. Here: the room
 // placed in its pod, seats on the benches (seating.ts), a grove of trees different at every station (trees.ts), the
 // river flowing and the views alive (holo.ts), a warm light for the sun, a pond-side ambience
-// (assets/audio/terra_ambience.mp3, tools/make_terra_ambience.py) that fades in as you walk in, and butterflies.
+// (assets/audio/terra_ambience.ogg, tools/make_terra_ambience.py) that fades in as you walk in, and butterflies.
 //
 // Model to scene: terra.glb is built in the pod's frame with +X pointing out from the hub (toward the river), which
 // the explorer turns to scene -X (angle 180) unturned; a yaw carries scene angle A to A - yaw. Angles round the pod
@@ -106,7 +106,7 @@ export function buildTerra(): void {
   // The riverside's sounds, filling the room and fading out through the door.
   const ambience = engine.addEntity()
   Transform.create(ambience, { position: Vector3.create(c.x, c.y + 3, c.z) })
-  AudioSource.create(ambience, { audioClipUrl: 'assets/audio/terra_ambience.mp3', loop: true, playing: true, volume: 0, global: true })
+  AudioSource.create(ambience, { audioClipUrl: 'assets/audio/terra_ambience.ogg', loop: true, playing: true, volume: 0, global: true })
   let heard = -1
   engine.addSystem(() => {
     const me = Transform.getOrNull(engine.PlayerEntity)

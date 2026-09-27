@@ -1,6 +1,6 @@
-# Synthesises Terra's ambience into assets/audio/terra_ambience.mp3: a small pond on a still day. Leaves rustling
+# Synthesises Terra's ambience into assets/audio/terra_ambience.ogg: a small pond on a still day. Leaves rustling
 # softly in gusts (airy, high noise, not a rumble, which reads as surf), a trickle of running water with the odd
-# droplet plink, and now and then a bird's chirps or trill. 30 s, looping seamlessly. Needs ffmpeg for the mp3.
+# droplet plink, and now and then a bird's chirps or trill. 30 s, looping seamlessly. Needs ffmpeg (for the OGG).
 #
 #   python3 tools/make_terra_ambience.py
 import math, os, random, struct, subprocess, tempfile, wave
@@ -48,16 +48,18 @@ for i in range(N):
     leaves.append(lp * 0.045 * gust[i] ** 2)
 looped(leaves)
 
-# Trickle: noise in a narrow band round 1.5-3 kHz, bubbling (its level flickering quickly), fairly quiet.
-b1 = b2 = 0.0
-bubble = smooth_random(28, 0.0, 1.0)
+# Trickle: noise in a soft band round 1-2 kHz, gently rising and falling (a smooth murmur; a fast, hard-edged
+# flicker here read as digital crackle in-world), fairly quiet.
+b1 = b2 = b3 = 0.0
+murmur = smooth_random(6, 0.45, 1.0)
 swell = smooth_random(0.3, 0.6, 1.0)
 trickle = []
 for i in range(N):
     x = rng.uniform(-1, 1)
-    b1 = b1 * 0.75 + x * 0.25
-    b2 = b2 * 0.92 + b1 * 0.08
-    trickle.append((b1 - b2) * 0.22 * bubble[i] ** 3 * swell[i])
+    b1 = b1 * 0.8 + x * 0.2
+    b2 = b2 * 0.94 + b1 * 0.06
+    b3 = b3 * 0.6 + (b1 - b2) * 0.4   # and its harshest top smoothed off
+    trickle.append(b3 * 0.3 * murmur[i] * swell[i])
 looped(trickle)
 
 for i in range(N):
@@ -73,10 +75,12 @@ def tone(f0, f1, dur, amp, decay=None):
     n = int(dur * RATE)
     ph = 0.0
     res = []
+    attack = int(0.006 * RATE)   # every sound fades in over 6 ms: starting at full level clicks
     for k in range(n):
         p = k / n
         ph += 2 * math.pi * (f0 + (f1 - f0) * p) / RATE
         env = math.exp(-k / RATE / decay) if decay else math.sin(math.pi * p) ** 1.5
+        env *= min(1.0, k / attack) * min(1.0, (n - k) / attack)
         res.append(math.sin(ph) * env * amp)
     return res
 
@@ -85,8 +89,8 @@ def tone(f0, f1, dur, amp, decay=None):
 t = 0.3
 while t < SECONDS:
     f = rng.uniform(900, 1700)
-    add(int(t * RATE), tone(f, f * 1.6, 0.09, rng.uniform(0.05, 0.12), decay=0.025))
-    t += rng.uniform(0.6, 2.2)
+    add(int(t * RATE), tone(f, f * 1.4, 0.12, rng.uniform(0.03, 0.07), decay=0.035))
+    t += rng.uniform(1.2, 3.5)
 
 # Birds: now and then a few chirps or a short trill, some way off.
 t = 1.5
@@ -111,6 +115,7 @@ with wave.open(wav, 'wb') as w:
     w.setsampwidth(2)
     w.setframerate(RATE)
     w.writeframes(b''.join(struct.pack('<h', int(x / peak * 0.8 * 32767)) for x in out))
-dest = os.path.join(os.path.dirname(__file__), '..', 'assets', 'audio', 'terra_ambience.mp3')
-subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav, '-b:a', '64k', dest], check=True)
+# OGG, not MP3: an MP3's padding at each end would click at every loop.
+dest = os.path.join(os.path.dirname(__file__), '..', 'assets', 'audio', 'terra_ambience.ogg')
+subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav, '-c:a', 'vorbis', '-strict', '-2', '-ac', '2', '-q:a', '4', dest], check=True)
 print('wrote', os.path.abspath(dest), os.path.getsize(dest) // 1024, 'KB')
