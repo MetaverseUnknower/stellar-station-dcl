@@ -1,5 +1,6 @@
-# Synthesises Terra's ambience into assets/audio/terra_ambience.mp3: a soft breeze with birdsong (quick chirps,
-# trills and, now and then, a distant two-note call), 30 s, looping seamlessly. Needs ffmpeg for the mp3.
+# Synthesises Terra's ambience into assets/audio/terra_ambience.mp3: a small pond on a still day. Leaves rustling
+# softly in gusts (airy, high noise, not a rumble, which reads as surf), a trickle of running water with the odd
+# droplet plink, and now and then a bird's chirps or trill. 30 s, looping seamlessly. Needs ffmpeg for the mp3.
 #
 #   python3 tools/make_terra_ambience.py
 import math, os, random, struct, subprocess, tempfile, wave
@@ -10,75 +11,97 @@ N = RATE * SECONDS
 rng = random.Random(21)
 out = [0.0] * N
 
-# Breeze: brown-ish noise through a slow swell, wrapped round so the loop's ends meet.
-b = 0.0
-breeze = []
+
+def smooth_random(rate_hz, lo, hi):
+    """A slowly wandering level between lo and hi, changing about rate_hz times a second (and wrapping to loop)."""
+    knots = [rng.uniform(lo, hi) for _ in range(int(SECONDS * rate_hz))]
+    n = len(knots)
+    res = []
+    for i in range(N):
+        x = i / N * n
+        k = int(x)
+        f = x - k
+        f = f * f * (3 - 2 * f)
+        res.append(knots[k % n] + (knots[(k + 1) % n] - knots[k % n]) * f)
+    return res
+
+
+def looped(layer):
+    """Crossfade a layer's end into its start, so it loops without a seam."""
+    fade = RATE // 2
+    for i in range(fade):
+        k = i / fade
+        layer[i] = layer[i] * k + layer[N - fade + i] * (1 - k)
+    return layer
+
+
+# Leaves: white noise, high-passed (an airy hiss, no low end), in soft irregular gusts.
+low = 0.0
+lp = 0.0
+gust = smooth_random(0.5, 0.05, 1.0)
+leaves = []
 for i in range(N):
-    b = b * 0.995 + rng.uniform(-1, 1) * 0.05
-    breeze.append(b)
-mean = sum(breeze) / N
+    x = rng.uniform(-1, 1)
+    low = low * 0.97 + x * 0.03          # the low part, taken away
+    hp = x - low
+    lp = lp * 0.55 + hp * 0.45           # and the harshest top off
+    leaves.append(lp * 0.045 * gust[i] ** 2)
+looped(leaves)
+
+# Trickle: noise in a narrow band round 1.5-3 kHz, bubbling (its level flickering quickly), fairly quiet.
+b1 = b2 = 0.0
+bubble = smooth_random(28, 0.0, 1.0)
+swell = smooth_random(0.3, 0.6, 1.0)
+trickle = []
 for i in range(N):
-    t = i / RATE
-    swell = 0.55 + 0.45 * math.sin(2 * math.pi * t / SECONDS * 2) * math.sin(2 * math.pi * t / SECONDS * 3 + 1)
-    out[i] += (breeze[i] - mean) * 0.9 * swell
-fade = RATE // 2   # crossfade the breeze's end into its start
-for i in range(fade):
-    k = i / fade
-    out[i] = out[i] * k + out[N - fade + i] * (1 - k)
+    x = rng.uniform(-1, 1)
+    b1 = b1 * 0.75 + x * 0.25
+    b2 = b2 * 0.92 + b1 * 0.08
+    trickle.append((b1 - b2) * 0.22 * bubble[i] ** 3 * swell[i])
+looped(trickle)
+
+for i in range(N):
+    out[i] = leaves[i] + trickle[i]
 
 
 def add(start, samples):
     for k, s in enumerate(samples):
-        out[(start + k) % N] += s   # wraps: a call near the end finishes at the start
+        out[(start + k) % N] += s   # wraps: a sound near the end finishes at the start
 
 
-def chirp(f0, f1, dur, amp, vibrato=0.0):
+def tone(f0, f1, dur, amp, decay=None):
     n = int(dur * RATE)
     ph = 0.0
     res = []
     for k in range(n):
         p = k / n
-        f = f0 + (f1 - f0) * p + vibrato * math.sin(2 * math.pi * 30 * k / RATE)
-        ph += 2 * math.pi * f / RATE
-        env = math.sin(math.pi * p) ** 1.5
+        ph += 2 * math.pi * (f0 + (f1 - f0) * p) / RATE
+        env = math.exp(-k / RATE / decay) if decay else math.sin(math.pi * p) ** 1.5
         res.append(math.sin(ph) * env * amp)
     return res
 
 
-def trill(base, count, amp):
-    res = []
-    for c in range(count):
-        res += chirp(base * 1.15, base * 0.9, 0.045, amp) + [0.0] * int(0.02 * RATE)
-    return res
+# Droplets: little rising plinks off the water.
+t = 0.3
+while t < SECONDS:
+    f = rng.uniform(900, 1700)
+    add(int(t * RATE), tone(f, f * 1.6, 0.09, rng.uniform(0.05, 0.12), decay=0.025))
+    t += rng.uniform(0.6, 2.2)
 
-
-def gap(seconds):
-    return [0.0] * int(seconds * RATE)
-
-
-t = 0.5
-last_call = -99.0   # the two-note call is the most noticeable sound, so it's rare: at most one per CALL_GAP seconds
-CALL_GAP = 12.0
-while t < SECONDS - 0.5:
-    kind = rng.random()
-    amp = rng.uniform(0.08, 0.2)
-    base = rng.uniform(2600, 4200)
-    if kind >= 0.95 and t - last_call < CALL_GAP:
-        kind = rng.uniform(0, 0.95)   # too soon for another call: chirps or a trill instead
-    if kind < 0.55:   # a few quick chirps
-        s = []
-        for _ in range(rng.randint(2, 5)):
-            s += chirp(base, base * rng.uniform(1.2, 1.6), rng.uniform(0.05, 0.09), amp) + gap(rng.uniform(0.05, 0.12))
-    elif kind < 0.95:  # a trill
-        s = trill(base, rng.randint(6, 14), amp * 0.8)
-    else:              # a distant two-note call
-        last_call = t
-        f = rng.uniform(1500, 2100)
-        s = chirp(f * 1.25, f * 1.2, 0.28, amp * 0.5, vibrato=20) + gap(0.08) + chirp(f, f * 0.97, 0.38, amp * 0.5, vibrato=20)
+# Birds: now and then a few chirps or a short trill, some way off.
+t = 1.5
+while t < SECONDS - 1:
+    base = rng.uniform(2800, 4200)
+    amp = rng.uniform(0.04, 0.09)
+    s = []
+    if rng.random() < 0.6:
+        for _ in range(rng.randint(2, 4)):
+            s += tone(base, base * rng.uniform(1.2, 1.5), rng.uniform(0.05, 0.08), amp) + [0.0] * int(rng.uniform(0.06, 0.14) * RATE)
+    else:
+        for _ in range(rng.randint(5, 9)):
+            s += tone(base * 1.1, base * 0.9, 0.04, amp * 0.8) + [0.0] * int(0.025 * RATE)
     add(int(t * RATE), s)
-    if kind >= 0.95:
-        print('call at', round(t, 1), 's')
-    t += rng.uniform(0.8, 2.6)
+    t += rng.uniform(3.5, 7.5)
 
 peak = max(abs(x) for x in out)
 tmp = tempfile.mkdtemp()
