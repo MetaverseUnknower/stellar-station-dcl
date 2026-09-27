@@ -18,6 +18,7 @@ import { showNotification, updateNotification } from './shipDialogs'
 import { onGateChanged, getGateState } from './gate'
 import * as api from './api'
 import { renderSystemView, systemViewAnimationSystem, getSystemRoot, getSystemAutoScale } from './systemView'
+import { markStation, welcomeSign } from './stationMarker'
 import { podCenter, podOutward, podForWallet, FLOOR_Y } from './station'
 
 const PODS = 4
@@ -32,6 +33,7 @@ const IN_POD = 17 // metres from a pod's centre that count as being in it (its w
 // The ship's 3D system map (systemView.ts, copied unchanged) floats over the pod's projector, as over the ship's.
 const MAP_ABOVE_FLOOR = 2.1 // the ship's SYSTEM_CENTER is 2.1 m above its deck
 const MAP_SCALE = 0.75 // of the ship's size: keeps it within ~6 m of the projector, clear of the spawn and desks
+const SIGN_ABOVE_FLOOR = 5.4 // the welcome sign, over the map
 
 type Placement = { position: Vector3; yaw: number }
 
@@ -85,6 +87,8 @@ export function buildShipServices(): void {
 
   // One system map, like the one pair of live desks: shown over the projector of the pod you're in.
   let mapRendered = false
+  let sign: Entity | null = null
+  let stationOrbit: ((dt: number) => void) | null = null
   const placeSystemMap = () => {
     const root = getSystemRoot()
     if (!live || !root) return
@@ -93,7 +97,9 @@ export function buildShipServices(): void {
     t.position = Vector3.create(c.x, FLOOR_Y + MAP_ABOVE_FLOOR, c.z)
     const s = getSystemAutoScale() * MAP_SCALE
     t.scale = Vector3.create(s, s, s)
+    if (sign) Transform.getMutable(sign).position = Vector3.create(c.x, FLOOR_Y + SIGN_ABOVE_FLOOR, c.z)
   }
+  engine.addSystem((dt) => stationOrbit?.(dt))
   const showSystemMap = async () => {
     if (mapRendered) return
     mapRendered = true
@@ -101,6 +107,10 @@ export function buildShipServices(): void {
       const me = await api.getPlayerMe()
       if (me?.current_system_id) {
         await renderSystemView(me.current_system_id)
+        const root = getSystemRoot()
+        const detail = await api.getSystemDetail(me.current_system_id) // cached from renderSystemView
+        if (root) stationOrbit = markStation(root, detail)
+        sign = welcomeSign(detail)
         placeSystemMap()
       }
     } catch (err) {
