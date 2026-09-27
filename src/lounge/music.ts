@@ -23,6 +23,17 @@ export function loungeSpeaker(): Entity | null {
   return speakerEntity
 }
 
+/** How far into the lounge the player is, 0 (below balcony 2, or outside the hub) to 1 (on the lounge floor),
+ *  smoothed. The music and the club lights fade with it. */
+export function loungeFade(): number {
+  const player = Transform.getOrNull(engine.PlayerEntity)
+  if (!player) return 0
+  const inHub = Math.hypot(player.position.x - CENTER.x, player.position.z - CENTER.z) < 34
+  const h = player.position.y - FLOOR_Y
+  const t = inHub ? Math.max(0, Math.min(1, (h - FADE_FROM) / (FADE_TO - FADE_FROM))) : 0
+  return t * t * (3 - 2 * t) // smoothstep
+}
+
 export function buildLoungeMusic(): void {
   const base = () => Vector3.create(CENTER.x, FLOOR_Y + LOUNGE + SOURCE_ABOVE_FLOOR, CENTER.z)
   const at = (gain: number) => {
@@ -43,12 +54,8 @@ export function buildLoungeMusic(): void {
 
   let shown = -1
   engine.addSystem(() => {
-    const player = Transform.getOrNull(engine.PlayerEntity)
-    if (!player) return
-    const inHub = Math.hypot(player.position.x - CENTER.x, player.position.z - CENTER.z) < 34
-    const h = player.position.y - FLOOR_Y
-    const t = inHub ? Math.max(0, Math.min(1, (h - FADE_FROM) / (FADE_TO - FADE_FROM))) : 0
-    const gain = t * t * (3 - 2 * t) // smoothstep
+    if (!Transform.has(engine.PlayerEntity)) return
+    const gain = loungeFade()
     if (Math.abs(gain - shown) < 0.01 && !(gain === 0 && shown !== 0) && !(gain === 1 && shown !== 1)) return
     shown = gain
     Transform.getMutable(speaker).position = at(gain)

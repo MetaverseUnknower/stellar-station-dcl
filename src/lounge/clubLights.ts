@@ -8,6 +8,7 @@ import {
 } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
+import { loungeFade } from './music'
 import { beatLevel, onBeat, beatCount } from './beatClock'
 
 const LOUNGE = 25 // build_station_models.py LOUNGE
@@ -83,7 +84,14 @@ export function buildClubLights(): void {
     }
     // Brightness follows the beat; beams re-coloured only when the level moves noticeably (material writes).
     const q = Math.round(level * 10) / 10
-    for (const s of spots) LightSource.getMutable(s.light).intensity = 3000 + 12000 * level
+    // Lights shine through floors, so they fade with the music as the player climbs to the lounge, and are off
+    // below it: otherwise they'd wash over the balconies and the hub floor underneath.
+    const fade = loungeFade()
+    for (const s of spots) {
+      const light = LightSource.getMutable(s.light)
+      light.intensity = (3000 + 12000 * level) * fade
+      light.active = fade > 0
+    }
     if (q !== shown) {
       shown = q
       for (const s of spots) {

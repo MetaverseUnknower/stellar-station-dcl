@@ -1,7 +1,10 @@
-// Sittable couches: rebel-radio's lounge couch (couch.glb, The Silt's own model) and its seat layout, reused as-is:
-// seating.ts is copied from rebel-radio unchanged, and the numbers and seat maths in placeCouch are rebel-radio's
-// buildCouch (src/lounge.ts), which took them from The Silt's venue.ts, tested against this model at this scale.
-// Placeholders until space-themed couch models arrive; swap the GLB (and re-check the seat offsets) then.
+// Sittable couches: a space-lounge couch (couch.glb) with rebel-radio's seat layout and seating.ts (copied from
+// rebel-radio unchanged). The seat maths in placeCouch is rebel-radio's buildCouch (src/lounge.ts).
+//
+// The model is Y-up at real size (3.9 m wide, cushion tops 0.61 m up, facing +Z, origin on the floor), so it stands
+// as it is: no turn to stand it up and no scaling, unlike rebel-radio's Z-up couch (-90 degrees on X, 0.6 scale).
+// The seat offsets keep that couch's tested relation to its cushions: the player's position 0.48 m below the cushion
+// top and 0.1 m past its front edge, the orb 0.17 m over the cushion.
 //
 // Where they go: four round the lounge's dance floor, facing it; and two in each upper pod, facing its window.
 import { engine, Transform, GltfContainer, ColliderLayer } from '@dcl/sdk/ecs'
@@ -9,14 +12,12 @@ import { Vector3, Quaternion } from '@dcl/sdk/math'
 import { addSeat } from '../seating'
 import { CENTER, FLOOR_Y } from '../station'
 
-// rebel-radio's lounge.ts, unchanged:
-const COUCH_SCALE = 0.6
-const COUCH_HALF_W = 2.52
-const COUCH_SEAT_SPACING = 1.25
-const COUCH_ORB_FORWARD = 0.3
-const COUCH_ORB_RISE = 0.85
-const COUCH_SEAT_FORWARD = 0.7
-const COUCH_SEAT_RISE = 0.2
+const COUCH_HALF_W = 1.94
+const COUCH_SEAT_SPACING = 0.89 // the model's three seat cushions
+const COUCH_ORB_FORWARD = 0.1
+const COUCH_ORB_RISE = 0.78
+const COUCH_SEAT_FORWARD = 0.59
+const COUCH_SEAT_RISE = 0.13
 const COUCH_LOOK_AHEAD = 4.0
 const COUCH_LOOK_RISE = 1.5
 const COUCH_BODY_CUSHION_INDEX = 1
@@ -28,8 +29,7 @@ function placeCouch(spec: CouchSpec): void {
   const couch = engine.addEntity()
   Transform.create(couch, {
     position: Vector3.create(spec.cx, spec.floorY, spec.cz),
-    scale: Vector3.create(COUCH_SCALE, COUCH_SCALE, COUCH_SCALE),
-    rotation: Quaternion.fromEulerDegrees(-90, spec.yaw, 0)
+    rotation: Quaternion.fromEulerDegrees(0, spec.yaw, 0)
   })
   GltfContainer.create(couch, {
     src: 'assets/models/couch.glb',
