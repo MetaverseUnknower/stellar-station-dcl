@@ -98,4 +98,9 @@ write('thrust', render(0.16, lambda t, p: (0.8 * noise[int(t * RATE / 3) % RATE]
 write('land', render(0.7, lambda t, p: square([523, 659, 784, 1047, 1319][min(4, int(p * 5))], t, 0.3) * (1 - 0.3 * p)), 0.35)
 # Low fuel: two warning beeps.
 write('lowfuel', render(0.4, lambda t, p: (square(880, t, 0.5) if (p < 0.35 or 0.5 < p < 0.85) else 0.0) * 0.8), 0.3)
+# VOID RACER:
+# Engine: a short buzzing note (played every few segments on the throttle, so it purrs as you go).
+write('engine', render(0.14, lambda t, p: square(95 + 25 * math.sin(t * 2 * math.pi * 30), t, 0.4) * math.sin(math.pi * p)), 0.28)
+# Checkpoint: a quick bright double fanfare.
+write('checkpoint', render(0.55, lambda t, p: square([784, 988, 1175, 1568, 1175, 1568][min(5, int(p * 6))], t, 0.3) * (1 - 0.3 * p)), 0.35)
 print('wrote', sorted(os.listdir(OUT)))
