@@ -102,8 +102,9 @@ function Overlay() {
   const s = breaker()
   const hi = breakerHiScore()
   const blink = Math.floor(Date.now() / 500) % 2 === 0
-  const layer = (children: any[]) => (
-    <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(W * U), height: px(H * U) }}>{children}</UiEntity>
+  // Dimmed behind the title and game-over text, so it reads over the field; clear for quick in-game messages.
+  const layer = (children: any[], dim = true) => (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(W * U), height: px(H * U) }} uiBackground={dim ? { color: Color4.create(0.01, 0.0, 0.04, 0.78) } : undefined}>{children}</UiEntity>
   )
   if (s.phase === 'title') {
     return layer([
@@ -131,8 +132,8 @@ function Overlay() {
       blink ? label('o4', 'E / SPACE  PLAY AGAIN     F  LEAVE', 0, 17, W, 20, CYAN) : null
     ].filter(Boolean))
   }
-  if (s.phase === 'cleared') return layer([label('c1', `LEVEL ${s.level} CLEARED`, 0, 11, W, 32, CYAN)])
-  if (s.balls.length === 1 && s.balls[0].stuck && s.phase === 'playing') return layer([label('l1', 'E / SPACE  TO  LAUNCH', 0, 17.5, W, 18, DIM)])
+  if (s.phase === 'cleared') return layer([label('c1', `LEVEL ${s.level} CLEARED`, 0, 11, W, 32, CYAN)], false)
+  if (s.balls.length === 1 && s.balls[0].stuck && s.phase === 'playing') return layer([label('l1', 'E / SPACE  TO  LAUNCH', 0, 17.5, W, 18, DIM)], false)
   return null
 }
 

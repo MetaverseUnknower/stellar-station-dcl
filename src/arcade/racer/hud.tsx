@@ -106,8 +106,9 @@ function Overlay() {
   const s = racer()
   const hi = racerHiScore()
   const blink = Math.floor(Date.now() / 500) % 2 === 0
-  const layer = (children: any[]) => (
-    <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(FW), height: px(FH) }}>{children}</UiEntity>
+  // Dimmed behind the title and game-over text, so it reads over the field; clear for quick in-game messages.
+  const layer = (children: any[], dim = true) => (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(FW), height: px(FH) }} uiBackground={dim ? { color: Color4.create(0.01, 0.0, 0.04, 0.78) } : undefined}>{children}</UiEntity>
   )
   if (s.phase === 'title') {
     return layer([
@@ -129,7 +130,7 @@ function Overlay() {
       blink ? label('o4', 'E / SPACE  RACE AGAIN     F  LEAVE', 230, 18, CYAN) : null
     ].filter(Boolean))
   }
-  if (s.flash && s.flashTime > 0) return layer([label('f1', s.flash, 60, s.flash === 'CHECKPOINT!' ? 34 : 22, s.flash === 'CHECKPOINT!' ? AMBER : CYAN)])
+  if (s.flash && s.flashTime > 0) return layer([label('f1', s.flash, 60, s.flash === 'CHECKPOINT!' ? 34 : 22, s.flash === 'CHECKPOINT!' ? AMBER : CYAN)], false)
   return null
 }
 

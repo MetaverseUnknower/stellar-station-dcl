@@ -102,7 +102,7 @@ function Overlay() {
   const hi = invadersHiScore()
   if (s.phase === 'title') {
     return (
-      <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(W * U), height: px(H * U) }}>
+      <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(W * U), height: px(H * U) }} uiBackground={{ color: Color4.create(0.01, 0.0, 0.04, 0.78) }}>
         {text('t1', 'PETAL INVADERS', 0, 3, 46, PINK)}
         {text('t2', 'Defend the station garden', 0, 5.6, 18, DIM)}
         {[...alien('d0', 6.5, 9, 0, 0), ...alien('d1', 6.5, 11, 1, 0), ...alien('d2', 6.5, 13, 3, 0)]}
@@ -119,7 +119,7 @@ function Overlay() {
   if (s.phase === 'over') {
     const best = s.score > 0 && s.score >= hi.score
     return (
-      <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(W * U), height: px(H * U) }}>
+      <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(W * U), height: px(H * U) }} uiBackground={{ color: Color4.create(0.01, 0.0, 0.04, 0.78) }}>
         {text('o1', 'GAME OVER', 0, 8, 46, PINK)}
         {text('o2', `SCORE  ${s.score}`, 0, 11, 26, WHITE)}
         {best ? text('o3', 'NEW STATION HIGH SCORE!', 0, 13, 22, AMBER) : null}

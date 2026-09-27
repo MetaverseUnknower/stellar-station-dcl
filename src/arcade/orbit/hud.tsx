@@ -112,8 +112,9 @@ function Overlay() {
   const s = orbit()
   const hi = orbitHiScore()
   const blink = Math.floor(Date.now() / 500) % 2 === 0
-  const layer = (children: any[]) => (
-    <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(S * U), height: px(S * U) }}>{children}</UiEntity>
+  // Dimmed behind the title and game-over text, so it reads over the field; clear for quick in-game messages.
+  const layer = (children: any[], dim = true) => (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { left: 0, top: 0 }, width: px(S * U), height: px(S * U) }} uiBackground={dim ? { color: Color4.create(0.01, 0.0, 0.04, 0.78) } : undefined}>{children}</UiEntity>
   )
   if (s.phase === 'title') {
     return layer([
@@ -135,7 +136,7 @@ function Overlay() {
       blink ? label('o4', 'E / SPACE  PLAY AGAIN     F  LEAVE', 19, 18, CYAN) : null
     ].filter(Boolean))
   }
-  if (s.phase === 'between') return layer([label('w1', `WAVE ${s.wave} HELD`, 3.5, 30, CYAN)])
+  if (s.phase === 'between') return layer([label('w1', `WAVE ${s.wave} HELD`, 3.5, 30, CYAN)], false)
   return null
 }
 
