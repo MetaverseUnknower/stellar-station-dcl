@@ -1,5 +1,5 @@
 # Synthesises Terra's ambience into assets/audio/terra_ambience.mp3: a soft breeze with birdsong (quick chirps,
-# trills and a distant two-note call), 30 s, looping seamlessly. Needs ffmpeg for the mp3.
+# trills and, now and then, a distant two-note call), 30 s, looping seamlessly. Needs ffmpeg for the mp3.
 #
 #   python3 tools/make_terra_ambience.py
 import math, os, random, struct, subprocess, tempfile, wave
@@ -57,20 +57,27 @@ def gap(seconds):
 
 
 t = 0.5
+last_call = -99.0   # the two-note call is the most noticeable sound, so it's rare: at most one per CALL_GAP seconds
+CALL_GAP = 12.0
 while t < SECONDS - 0.5:
     kind = rng.random()
     amp = rng.uniform(0.08, 0.2)
     base = rng.uniform(2600, 4200)
-    if kind < 0.45:   # a few quick chirps
+    if kind >= 0.95 and t - last_call < CALL_GAP:
+        kind = rng.uniform(0, 0.95)   # too soon for another call: chirps or a trill instead
+    if kind < 0.55:   # a few quick chirps
         s = []
         for _ in range(rng.randint(2, 5)):
             s += chirp(base, base * rng.uniform(1.2, 1.6), rng.uniform(0.05, 0.09), amp) + gap(rng.uniform(0.05, 0.12))
-    elif kind < 0.75:  # a trill
+    elif kind < 0.95:  # a trill
         s = trill(base, rng.randint(6, 14), amp * 0.8)
     else:              # a distant two-note call
+        last_call = t
         f = rng.uniform(1500, 2100)
         s = chirp(f * 1.25, f * 1.2, 0.28, amp * 0.5, vibrato=20) + gap(0.08) + chirp(f, f * 0.97, 0.38, amp * 0.5, vibrato=20)
     add(int(t * RATE), s)
+    if kind >= 0.95:
+        print('call at', round(t, 1), 's')
     t += rng.uniform(0.8, 2.6)
 
 peak = max(abs(x) for x in out)
