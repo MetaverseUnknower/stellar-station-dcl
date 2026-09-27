@@ -14,7 +14,7 @@ def square(f, t, duty=0.5):
     return 1.0 if (t * f) % 1 < duty else -1.0
 
 
-def write(name, samples, volume=0.5):
+def write(name, samples, volume=0.5, fmt='mp3'):
     """An MP3 (the explorer didn't play the 8-bit WAVs this first wrote; MP3 is what the ship's fanfares use), via a
     16-bit WAV and ffmpeg."""
     os.makedirs(OUT, exist_ok=True)
@@ -24,7 +24,8 @@ def write(name, samples, volume=0.5):
         w.setsampwidth(2)
         w.setframerate(RATE)
         w.writeframes(b''.join(struct.pack('<h', max(-32767, min(32767, int(32767 * volume * s)))) for s in samples))
-    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav, '-b:a', '96k', os.path.join(OUT, f'{name}.mp3')], check=True)
+    codec = ['-c:a', 'vorbis', '-strict', '-2', '-ac', '2', '-q:a', '5'] if fmt == 'ogg' else ['-b:a', '96k']   # ffmpeg's own Vorbis encoder (experimental; wants stereo)
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav, *codec, os.path.join(OUT, f'{name}.{fmt}')], check=True)
 
 
 def render(seconds, fn):
@@ -99,8 +100,15 @@ write('land', render(0.7, lambda t, p: square([523, 659, 784, 1047, 1319][min(4,
 # Low fuel: two warning beeps.
 write('lowfuel', render(0.4, lambda t, p: (square(880, t, 0.5) if (p < 0.35 or 0.5 < p < 0.85) else 0.0) * 0.8), 0.3)
 # VOID RACER:
-# Engine: a short buzzing note (played every few segments on the throttle, so it purrs as you go).
-write('engine', render(0.14, lambda t, p: square(95 + 25 * math.sin(t * 2 * math.pi * 30), t, 0.4) * math.sin(math.pi * p)), 0.28)
+# Engine: a seamless four-second loop of a steady hum (whole cycles of every partial, so it loops without a click),
+# played continuously while racing, its pitch raised with the speed (racer/play.ts). OGG, not MP3: an MP3's padding
+# at each end would click on every loop.
+def engine(t, p):
+    f = 110   # 110 Hz and its harmonics: 110 whole cycles a second, so the loop joins
+    saw = sum(((t * f * k) % 1 - 0.5) / k for k in (1, 2, 3))
+    growl = 0.25 * math.sin(2 * math.pi * 55 * t)
+    return saw * 0.8 + growl
+write('engine', render(4.0, engine), 0.3, fmt='ogg')
 # Checkpoint: a quick bright double fanfare.
 write('checkpoint', render(0.55, lambda t, p: square([784, 988, 1175, 1568, 1175, 1568][min(5, int(p * 6))], t, 0.3) * (1 - 0.3 * p)), 0.35)
 print('wrote', sorted(os.listdir(OUT)))

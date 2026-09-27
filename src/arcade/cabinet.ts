@@ -36,6 +36,9 @@ export type CabinetGame = {
   /** The score of the game in progress or just ended; and whether it has ended (then it's offered as a record). */
   score(): number
   over(): boolean
+  /** A continuous sound, if the game has one (an engine): a looping clip, and its pitch and volume now; null for
+   *  silence. Read every frame. */
+  hum?(): { clip: string; pitch: number; volume: number } | null
 }
 
 let active: CabinetGame | null = null
@@ -59,6 +62,7 @@ export function play(game: CabinetGame, front: Vector3, screen: Vector3): void {
 
 export function leave(): void {
   if (!active) return
+  setHum(null)
   offer(active)
   active = null
   standAt = null
@@ -127,6 +131,33 @@ function sound(clip: string): void {
   AudioSource.createOrReplace(speaker, { audioClipUrl: `assets/audio/arcade/${clip}.mp3`, playing: true, loop: false, volume: SOUND_VOLUME, global: true })
 }
 
+let humSpeaker: Entity | null = null
+let humClip: string | null = null
+
+/** Keep the game's continuous sound playing, at its pitch and volume (null: silent). */
+function setHum(h: { clip: string; pitch: number; volume: number } | null): void {
+  if (!h) {
+    if (humSpeaker && AudioSource.has(humSpeaker)) AudioSource.getMutable(humSpeaker).playing = false
+    humClip = null
+    return
+  }
+  if (!humSpeaker) {
+    humSpeaker = engine.addEntity()
+    Transform.create(humSpeaker, { parent: engine.PlayerEntity })
+  }
+  if (humClip !== h.clip) {
+    humClip = h.clip
+    // A clip named with its extension is taken as it is (the engine's loop is an OGG, which loops without a gap).
+    const file = h.clip.includes('.') ? h.clip : `${h.clip}.mp3`
+    AudioSource.createOrReplace(humSpeaker, { audioClipUrl: `assets/audio/arcade/${file}`, playing: true, loop: true, volume: h.volume, pitch: h.pitch, global: true })
+    return
+  }
+  const a = AudioSource.getMutable(humSpeaker)
+  if (!a.playing) a.playing = true
+  if (Math.abs((a.pitch ?? 1) - h.pitch) > 0.01) a.pitch = h.pitch
+  if (Math.abs((a.volume ?? 1) - h.volume) > 0.01) a.volume = h.volume
+}
+
 // ---- running -------------------------------------------------------------------------------------------------------
 
 export function setupCabinets(): void {
@@ -162,6 +193,7 @@ export function setupCabinets(): void {
       act: held(InputAction.IA_PRIMARY, InputAction.IA_JUMP), actPressed: pressed(InputAction.IA_PRIMARY, InputAction.IA_JUMP)
     }
     for (const clip of active.tick(keys, dt)) sound(clip)
+    setHum(active.hum ? active.hum() : null)
     if (active.over()) offer(active)
     else submitted = false
   })
