@@ -4,7 +4,7 @@
 import { engine, Transform, AvatarModifierArea, AvatarModifierType } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
 import { getPlayer } from '@dcl/sdk/players'
-import { getDockedPlayers, DockedPlayer } from './api'
+import { getDockedPlayers, DockedPlayer } from './stationApi'
 import { getGateState, onGateChanged } from './gate'
 
 const REFRESH_SECONDS = 10

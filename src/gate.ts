@@ -7,7 +7,7 @@ import { engine } from '@dcl/sdk/ecs'
 import { changeRealm } from '~system/RestrictedActions'
 import { getRealm } from '~system/Runtime'
 import { authenticate } from './auth'
-import { getStationStatus, listStations, StationSummary } from './api'
+import { getStationStatus, listStations, StationSummary } from './stationApi'
 
 export const SHIP_WORLD = 'galaxygardeners.dcl.eth'
 const RECHECK_SECONDS = 30
@@ -23,12 +23,15 @@ let state: GateState = { kind: 'checking' }
 let preview = false
 const listeners: ((s: GateState) => void)[] = []
 let admin = false
+let shipDocked = false
 let stations: StationSummary[] = []
 let adminPick: string | null = null
 
 export function getGateState(): GateState { return state }
 export function isPreview(): boolean { return preview }
 export function isAdmin(): boolean { return admin }
+/** The player's ship is docked (an admin can be aboard without it). */
+export function isShipDocked(): boolean { return shipDocked }
 export function getStations(): StationSummary[] { return stations }
 
 /** Admin only: switch to another station's audience. */
@@ -58,6 +61,7 @@ export function returnToShip(message: string): void {
 async function check(): Promise<void> {
   try {
     const status = await getStationStatus()
+    shipDocked = status.isDocked
     if (status.isAdmin) {
       admin = true
       if (!stations.length) stations = await listStations().catch(() => [])

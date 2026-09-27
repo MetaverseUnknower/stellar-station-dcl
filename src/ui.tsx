@@ -5,6 +5,10 @@ import { Color4 } from '@dcl/sdk/math'
 import { px } from './uiScale'
 import { getGateState, returnToShip, isAdmin, getStations, pickStation } from './gate'
 import { getCrew } from './audience'
+import { ShipDialogs } from './shipDialogs'
+
+// stations/shipOverview.ts (copied from the ship) opens these from '../ui', as on the ship.
+export { openRefineryDialog, openPurchaseDialog, openRecallDialog } from './shipDialogs'
 
 const PANEL = Color4.create(0.02, 0.06, 0.12, 0.85)
 const CYAN = Color4.create(0, 0.9, 1, 1)
@@ -113,6 +117,7 @@ export function setupUi(): void {
       <StatusBanner />
       <CrewPanel />
       <AdminPanel />
+      <ShipDialogs />
     </UiEntity>
   ))
 }

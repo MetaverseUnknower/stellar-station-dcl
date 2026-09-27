@@ -7,6 +7,7 @@ import { movePlayerTo } from '~system/RestrictedActions'
 import { getPlayer } from '@dcl/sdk/players'
 import { getGateState, onGateChanged, isPreview } from './gate'
 import { buildHubLevels } from './hubLevels'
+import { buildShipServices } from './shipServices'
 
 export const CENTER = Vector3.create(128, 0, 128)
 export const FLOOR_Y = 40 // same deck height as the ship scene, so the skybox frames it the same way
@@ -38,6 +39,15 @@ export function podForWallet(wallet: string): number {
   return h % POD_DIRECTIONS.length
 }
 
+/** A pod's centre on the deck, and the unit direction from the hub out through it. */
+export function podCenter(index: number): Vector3 {
+  return podPoint(index, POD_DISTANCE, FLOOR_Y)
+}
+export function podOutward(index: number): Vector3 {
+  const [dx, dz] = POD_DIRECTIONS[index]
+  return Vector3.create(dx / Math.SQRT2, 0, dz / Math.SQRT2)
+}
+
 export function podSpawn(index: number): { position: Vector3; cameraTarget: Vector3 } {
   return {
     position: podPoint(index, POD_DISTANCE - SPAWN_IN_FROM_CENTER, FLOOR_Y),
@@ -59,6 +69,7 @@ export function buildStation(): void {
 
   buildHoldingBox()
   buildHubLevels()
+  buildShipServices()
 
   // scene.json spawns everyone in the holding box. They're released into their pod once the gate clears them
   // (in preview, once the check has run, since nobody there is docked) and sent back to the box if the gate
