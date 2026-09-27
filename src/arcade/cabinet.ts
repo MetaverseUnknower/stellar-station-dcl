@@ -31,7 +31,7 @@ export type CabinetGame = {
   id: string // for its high score table ('invaders', 'garden', ...)
   /** A fresh session (the title screen). */
   begin(): void
-  /** Advance; returns the sound clips (file names under assets/audio/arcade, without .wav) to play. */
+  /** Advance; returns the sound clips (file names under assets/audio/arcade, without .mp3) to play. */
   tick(keys: Keys, dt: number): string[]
   /** The score of the game in progress or just ended; and whether it has ended (then it's offered as a record). */
   score(): number
@@ -115,10 +115,16 @@ const speakers: Entity[] = []
 let nextSpeaker = 0
 
 function sound(clip: string): void {
-  if (speakers.length === 0) for (let i = 0; i < 6; i++) speakers.push(engine.addEntity())
+  if (speakers.length === 0) {
+    for (let i = 0; i < 6; i++) {
+      const e = engine.addEntity()
+      Transform.create(e, { parent: engine.PlayerEntity }) // with the player (they're global, but give them a place)
+      speakers.push(e)
+    }
+  }
   // A few speakers in turn, so one sound doesn't cut off another; replacing the component restarts a clip.
   const speaker = speakers[nextSpeaker++ % speakers.length]
-  AudioSource.createOrReplace(speaker, { audioClipUrl: `assets/audio/arcade/${clip}.wav`, playing: true, loop: false, volume: SOUND_VOLUME, global: true })
+  AudioSource.createOrReplace(speaker, { audioClipUrl: `assets/audio/arcade/${clip}.mp3`, playing: true, loop: false, volume: SOUND_VOLUME, global: true })
 }
 
 // ---- running -------------------------------------------------------------------------------------------------------

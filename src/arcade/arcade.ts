@@ -109,7 +109,16 @@ export function buildArcade(): void {
 
     const title = engine.addEntity()
     Transform.create(title, { parent: cabinet, position: MARQUEE_CENTRE, rotation: FACE_FRONT })
-    TextShape.create(title, { text: TITLES[i], fontSize: 0.85, textColor: Color4.create(0.15, 0.02, 0.2, 1) })
+    // Sized to the marquee (0.7 m across): long titles shrink to fit rather than run off its ends.
+    TextShape.create(title, {
+      text: TITLES[i],
+      fontSize: Math.min(0.85, (0.85 * 11) / TITLES[i].length),
+      fontAutoSize: true,
+      width: 0.62,
+      height: 0.16,
+      textWrapping: false,
+      textColor: Color4.create(0.15, 0.02, 0.2, 1)
+    })
 
     return { screen, coin, phase: i * 1.3, title: TITLES[i] }
   })

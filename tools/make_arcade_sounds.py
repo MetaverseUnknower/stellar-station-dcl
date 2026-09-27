@@ -1,12 +1,13 @@
-# Synthesises PETAL INVADERS' chiptune sound effects into assets/audio/arcade/*.wav (8-bit mono, 22 kHz): square and
-# noise voices with simple envelopes, the way the old cabinets made them.
+# Synthesises the arcade games' chiptune sound effects into assets/audio/arcade/*.mp3 (mono, 22 kHz; needs ffmpeg):
+# square and noise voices with simple envelopes, the way the old cabinets made them.
 #
 #   python3 tools/make_arcade_sounds.py
-import math, os, random, struct, wave
+import math, os, random, struct, subprocess, tempfile, wave
 
 RATE = 22050
 OUT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'audio', 'arcade')
 rng = random.Random(9)
+TMP = tempfile.mkdtemp()
 
 
 def square(f, t, duty=0.5):
@@ -14,12 +15,16 @@ def square(f, t, duty=0.5):
 
 
 def write(name, samples, volume=0.5):
+    """An MP3 (the explorer didn't play the 8-bit WAVs this first wrote; MP3 is what the ship's fanfares use), via a
+    16-bit WAV and ffmpeg."""
     os.makedirs(OUT, exist_ok=True)
-    with wave.open(os.path.join(OUT, f'{name}.wav'), 'wb') as w:
+    wav = os.path.join(TMP, f'{name}.wav')
+    with wave.open(wav, 'wb') as w:
         w.setnchannels(1)
-        w.setsampwidth(1)
+        w.setsampwidth(2)
         w.setframerate(RATE)
-        w.writeframes(bytes(max(0, min(255, int(128 + 127 * volume * s))) for s in samples))
+        w.writeframes(b''.join(struct.pack('<h', max(-32767, min(32767, int(32767 * volume * s)))) for s in samples))
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav, '-b:a', '96k', os.path.join(OUT, f'{name}.mp3')], check=True)
 
 
 def render(seconds, fn):
