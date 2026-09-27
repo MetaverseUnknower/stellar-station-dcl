@@ -377,10 +377,12 @@ def build_corridor(deg, hub_tree, pod_tree, base=0.0, pod_dist=POD_DISTANCE, pod
             ('PodOut', f.pod_outer, -1, (o_in, o_out), True)):
         coll.objects.link(trim(f'CorridorTrim{name}', f, surface, toward_viewer, *loops, frame_mat, closed))
 
-    # Colliders: floor slab and the two side walls (the ceiling is out of reach).
+    # Colliders: floor slab, the two side walls, and a ceiling slab over the whole width (with a jump and a glide the
+    # ceiling is in reach, and without it players got out through the chamfers onto the outside of the station).
     coll.objects.link(run('CorridorFloor_collider', [(-w, -0.3), (w, -0.3), (w, 0.02), (-w, 0.02)], True, None, inward=False))
     for sgn in (-1, 1):
-        coll.objects.link(strip(f'CorridorWall{sgn}_collider', sgn * (w + 0.15), h / 2, 0.15, h / 2, None))
+        coll.objects.link(strip(f'CorridorWall{sgn}_collider', sgn * (w + 0.15), (h + 0.3) / 2, 0.15, (h + 0.3) / 2, None))
+    coll.objects.link(run('CorridorCeiling_collider', [(-w - 0.3, h - 0.02), (w + 0.3, h - 0.02), (w + 0.3, h + 0.3), (-w - 0.3, h + 0.3)], True, None, inward=False))
     name_colliders(coll)
     return coll
 
@@ -806,6 +808,39 @@ def sealed_door(name, angle, z, door, hub_wall, depth=0.6):
     return coll
 
 
+HUB_WINDOWS = ((50, 130), (230, 310))   # degrees: the hub's two big windows (+-Y), clear of the doorways at 45 / 135 ...
+
+
+def window_colliders(wall):
+    """The hub's window glass has no collision, and from the lounge a jump and a glide reached the top of the
+    windows and out. An invisible sheet 8 cm inside each window, from the floor to the top of the dome."""
+    coll = bpy.data.collections.new('WindowColliders')
+    bpy.context.scene.collection.children.link(coll)
+    for a0, a1 in HUB_WINDOWS:
+        bm = bmesh.new()
+        angles = [math.radians(a0 + (a1 - a0) * i / 40) for i in range(41)]
+        heights = [0.1 + 0.75 * k for k in range(60)]   # to 44 m: past the dome's top
+        grid = []
+        for z in heights:
+            row = []
+            for a in angles:
+                d = Vector((math.cos(a), math.sin(a), 0))
+                loc, _, _, _ = wall.tree.ray_cast(Vector((0, 0, z)) + d * 2, d, 60)
+                row.append(bm.verts.new((d * (loc.xy.length - 0.08)).to_3d() + Vector((0, 0, z))) if loc is not None else None)
+            grid.append(row)
+        for k in range(len(heights) - 1):
+            for i in range(len(angles) - 1):
+                quad = (grid[k][i], grid[k][i + 1], grid[k + 1][i + 1], grid[k + 1][i])
+                if all(v is not None for v in quad):
+                    bm.faces.new(quad)
+        me = bpy.data.meshes.new(f'HubWindow{a0}_collider')
+        bm.to_mesh(me)
+        bm.free()
+        coll.objects.link(bpy.data.objects.new(f'HubWindow{a0}_collider', me))
+    name_colliders(coll)
+    return coll
+
+
 def main():
     shrink_textures()
     parts = []
@@ -867,6 +902,7 @@ def main():
     parts += build_small_pod(hub_tree, hub_wall, LAB_ANGLE, LAB_SCALE, LAB_DIST, LAB_Z, LAB_DOOR, 'LAB', (0.7, 0.45, 1))
     parts.append(sealed_door('LabDoor', LAB_ANGLE, LAB_Z, LAB_DOOR, hub_wall))
     parts.append(build_hub_levels(hub, hub_wall))
+    parts.append(window_colliders(hub_wall))
     for a in HUB_DOORS:
         parts.append(dock_sign(f'DockSign{a}', a, hub_wall))
     for a in LOUNGE_BENCHES:
