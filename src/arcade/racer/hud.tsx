@@ -4,7 +4,7 @@
 import ReactEcs, { UiEntity, Label } from '@dcl/sdk/react-ecs'
 import { Color4 } from '@dcl/sdk/math'
 import { px } from '../../uiScale'
-import { view, Sprite } from './game'
+import { view, Sprite, ROWS } from './game'
 import { racer, isPlayingRacer, racerHiScore, racerBest, quitRacer } from './play'
 
 const FW = 640 // the screen, in pixels at 1080p
@@ -69,25 +69,22 @@ function Road() {
   out.push(rect('sun', sunX - 60, HORIZON * FH - 70, 120, 70, Color4.create(1, 0.3, 0.6, 1)))
   for (let k = 0; k < 4; k++) out.push(rect(`sunb${k}`, sunX - 60, HORIZON * FH - 55 + k * 13, 120, 3 + k, Color4.create(0.05 + k * 0.03, 0.01, 0.12 + k * 0.03, 1)))
   out.push(rect('void', 0, HORIZON * FH, FW, (1 - HORIZON) * FH, VOID_A))
-  // Road slices, far to near, each from its own y down to the next nearer one's.
+  // Road rows, horizon to bottom (view() gives each its place, centre and width).
   const yOf = (f: number) => HORIZON * FH + f * (1 - HORIZON) * FH
-  for (let i = v.slices.length - 1; i >= 0; i--) {
-    const sl = v.slices[i]
+  v.slices.forEach((sl, i) => {
     const top = yOf(sl.y)
-    const bottom = i > 0 ? yOf(v.slices[i - 1].y) : FH
-    const h = bottom - top + 1
-    if (h <= 0.3) continue
+    const h = sl.h * (1 - HORIZON) * FH + 1
     const cx = FW / 2 + sl.cx * FW
     const half = sl.half * FW
-    if (sl.stripe) out.push(rect(`v${i}`, 0, top, FW, h, VOID_B)) // the void's alternate bands (the rest is the base below)
+    if (sl.stripe) out.push(rect(`v${i}`, 0, top, FW, h, VOID_B)) // the void's alternate bands (the rest is the base)
     out.push(rect(`r${i}`, cx - half, top, half * 2, h, sl.stripe ? ROAD_A : ROAD_B))
     // Rumble strips and the centre line; a bright band across at the checkpoint.
     const rumble = Math.max(1, half * 0.08)
     out.push(rect(`ra${i}`, cx - half - rumble, top, rumble, h, sl.stripe ? PINK : CYAN))
     out.push(rect(`rb${i}`, cx + half, top, rumble, h, sl.stripe ? PINK : CYAN))
-    if (sl.stripe && i < 45) out.push(rect(`c${i}`, cx - rumble * 0.3, top, rumble * 0.6, h, Color4.create(1, 1, 1, 0.5)))
-    if (sl.checkpoint) out.push(rect(`cp${i}`, cx - half, top, half * 2, Math.max(2, h), AMBER))
-  }
+    if (sl.stripe && i > ROWS * 0.25) out.push(rect(`c${i}`, cx - rumble * 0.3, top, rumble * 0.6, h, Color4.create(1, 1, 1, 0.5)))
+    if (sl.checkpoint) out.push(rect(`cp${i}`, cx - half, top, half * 2, h, AMBER))
+  })
   // Things on the road, far to near.
   v.sprites.forEach((sp, i) => out.push(...sprite(`s${i}`, sp, FW / 2 + sp.x * FW, yOf(sp.y))))
   // The car: low and wide at the bottom, leaning into turns, shaking when hit.

@@ -22,7 +22,7 @@ const START_TIME = 45
 const CHECKPOINT_EVERY = 1150 // segments
 const CHECKPOINT_TIME = 21
 const RIVAL_SPEED = 34
-const DRAW = 90 // segments drawn ahead
+const DRAW = 90 // segments of road kept built ahead of the car
 
 export type Thing = { z: number; x: number; kind: 'debris' | 'rival' | 'orb'; passed: boolean; hit: boolean }
 export type Phase = 'title' | 'racing' | 'over'
@@ -176,49 +176,62 @@ export function step(s: State, input: Input, dt: number): Sound[] {
 
 // ---- the view ----------------------------------------------------------------------------------------------------
 
-/** One drawn slice of road: its screen height (0 horizon .. 1 bottom), centre and half-width (in screen widths from
- *  the middle), and which stripe it is (for the rumble strips' alternation). */
-export type Slice = { y: number; cx: number; half: number; stripe: boolean; checkpoint: boolean }
+/** One screen row of road, between the horizon and the bottom: where it is (fractions of the view below the horizon),
+ *  the road's centre and half-width there (in screen widths from the middle), and its stripe (for the rumble strips'
+ *  alternation, which scrolls with the distance). */
+export type Slice = { y: number; h: number; cx: number; half: number; stripe: boolean; checkpoint: boolean }
 /** Something on the road, on screen: its centre, its size (fraction of the screen width), what it is. */
 export type Sprite = { x: number; y: number; size: number; kind: Thing['kind'] }
 
-const CAMERA_HEIGHT = 1.4
-const DEPTH = 0.9 // field of view (bigger: flatter)
+export const ROWS = 64 // screen rows of road
+const FAR = 90 // segments to the horizon row
+const NEAR_HALF = 0.47 // the road's half-width at the bottom row, in screen widths
+// A row a fraction f of the way down from the horizon sees the road K / f segments ahead (f = 1 at the bottom).
+const K = FAR / ROWS
+const scaleAt = (dz: number) => (NEAR_HALF * K) / dz // screen widths per road unit (half the road is 1 unit)
 
-/** The road ahead as the camera sees it: slices from near to far, and the things on it, far to near. */
+/** The road ahead as the camera sees it, drawn by screen row (the classic way: each row looks a set distance down
+ *  the road, so the road lies flat and its stripes scroll smoothly), and the things on it, far to near. */
 export function view(s: State): { slices: Slice[]; sprites: Sprite[]; bend: number } {
-  const slices: Slice[] = []
+  // The road's sideways offset at each segment ahead, from the curves (its bend accumulates).
   const base = Math.floor(s.z)
   const frac = s.z - base
+  const offsets: number[] = [0]
   let dx = 0
   let xOff = 0
-  const project = (dz: number, x: number) => {
-    const scale = DEPTH / Math.max(0.05, dz)
-    return { y: Math.min(1, scale * CAMERA_HEIGHT * 0.5), scale }
-  }
-  const offsets: number[] = [] // the road's sideways offset at each drawn segment
-  for (let i = 0; i < DRAW; i++) {
-    const dz = i + 1 - frac
-    const p = project(dz, 0)
-    offsets.push(xOff)
-    slices.push({
-      y: p.y,
-      cx: (xOff - s.x) * p.scale * 0.5,
-      half: ROAD_HALF * p.scale * 0.5,
-      stripe: Math.floor((base + i) / 3) % 2 === 0,
-      checkpoint: Math.abs(base + i - s.checkpoint) < 1
-    })
-    dx += curveAt(s, base + i) * 1.0
+  for (let i = 0; i <= FAR + 2; i++) {
+    const c = curveAt(s, base + i)
+    dx += c * (i === 0 ? 1 - frac : 1)
     xOff += dx
+    offsets.push(xOff)
+  }
+  const offsetAt = (dz: number) => {
+    const f = Math.max(0, Math.min(FAR + 1, dz + frac))
+    const i = Math.floor(f)
+    return offsets[i] + (offsets[i + 1] - offsets[i]) * (f - i)
+  }
+  const slices: Slice[] = []
+  for (let r = 0; r < ROWS; r++) {
+    const f = (r + 0.5) / ROWS // this row's middle, 0 at the horizon, 1 at the bottom
+    const dz = K / f
+    const scale = scaleAt(dz)
+    const at = s.z + dz
+    slices.push({
+      y: r / ROWS,
+      h: 1 / ROWS,
+      cx: (offsetAt(dz) - s.x) * scale,
+      half: ROAD_HALF * scale,
+      stripe: Math.floor(at / 3) % 2 === 0,
+      checkpoint: Math.abs(at - s.checkpoint) < dz * 0.08 + 0.5
+    })
   }
   const sprites: Sprite[] = []
   for (const t of s.things) {
     if (t.hit) continue
     const dz = t.z - s.z
-    if (dz < 0.3 || dz >= DRAW - 1) continue
-    const p = project(dz, t.x)
-    const off = offsets[Math.min(DRAW - 1, Math.max(0, Math.floor(dz)))]
-    sprites.push({ x: (off + t.x - s.x) * p.scale * 0.5, y: p.y, size: p.scale * (t.kind === 'orb' ? 0.14 : 0.28), kind: t.kind })
+    if (dz < K || dz >= FAR) continue
+    const scale = scaleAt(dz)
+    sprites.push({ x: (offsetAt(dz) + t.x - s.x) * scale, y: K / dz, size: scale * (t.kind === 'orb' ? 0.3 : 0.6), kind: t.kind })
   }
   sprites.sort((a, b) => a.y - b.y) // far first
   return { slices, sprites, bend: curveAt(s, s.z) }
