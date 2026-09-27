@@ -48,6 +48,12 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
   - Hall of Records (hub floor, `src/records/`): galaxy leaderboards on a desk (rankings with category tabs; your
     standing below). Server: `routes/leaderboards.ts`,
     materialized view `leaderboard_stats` refreshed every 10 min (`052_leaderboards.sql`).
+  - Lounge club: `src/lounge/` — Relay Radio (`music.ts`), a beat clock (`beatClock.ts`: AudioAnalysis on the
+    stream when it reports bands, else rebel-radio's 124 BPM clock; `beat.ts` copied from rebel-radio), four moving
+    spotlights with beams and a mirror ball (`clubLights.ts`), the dance floor stepping on the beat.
+  - Couches (`src/lounge/couches.ts`): rebel-radio's couch.glb and seat layout, with `seating.ts` copied unchanged
+    (`descent.ts` is its stand-in): four in the lounge, two in each upper pod facing its window. Placeholders until
+    the space couches arrive.
   - Features plan (trading, message boards, leaderboards): `docs/station-features-plan.md` (all four parts built).
   - Ship: BOARD STATION on the nav console's station card while docked (`boardStation` in `src/docking.ts`).
 

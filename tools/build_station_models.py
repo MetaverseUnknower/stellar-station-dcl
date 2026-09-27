@@ -712,8 +712,6 @@ def main():
     parts.append(build_hub_levels(hub, hub_wall))
     for a in HUB_DOORS:
         parts.append(dock_sign(f'DockSign{a}', a, hub_wall))
-    for a in UPPER_PODS:
-        parts.append(dock_sign(f'UpperDockSign{a}', a, hub_wall, base=UPPER_Z))
     for a in LOUNGE_BENCHES:
         # Bench backs against the lounge wall (the model sits on the 1x wall, 15.4 m out).
         wall_r = hub_wall.radius(math.radians(a), LOUNGE + 0.5)

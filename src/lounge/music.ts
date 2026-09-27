@@ -4,7 +4,7 @@
 //     and created later it never decoded;
 //   - the explorer may ignore volume writes, so the fade moves the (spatial) source away, and the volume is set too.
 // At zero the source sits FADE_LIFT above the lounge, past its hearing distance from anywhere in the station.
-import { engine, Transform, AudioStream } from '@dcl/sdk/ecs'
+import { engine, Entity, Transform, AudioStream } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
 
@@ -16,6 +16,12 @@ const FADE_LIFT = 45 // at zero the source is this far above its place: out of h
 const FADE_FROM = 19 // heights (above the deck) where the fade starts and completes: from above balcony 2 (17)
 const FADE_TO = 24.8 //   to standing on the lounge floor
 const VOLUME = 1.0
+
+let speakerEntity: Entity | null = null
+/** The lounge's stream entity (for the club lights' AudioAnalysis). */
+export function loungeSpeaker(): Entity | null {
+  return speakerEntity
+}
 
 export function buildLoungeMusic(): void {
   const base = () => Vector3.create(CENTER.x, FLOOR_Y + LOUNGE + SOURCE_ABOVE_FLOOR, CENTER.z)
@@ -33,6 +39,7 @@ export function buildLoungeMusic(): void {
     spatialMinDistance: 8,
     spatialMaxDistance: HEARING
   })
+  speakerEntity = speaker
 
   let shown = -1
   engine.addSystem(() => {

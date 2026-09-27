@@ -13,6 +13,7 @@ import {
 } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color4, Color3 } from '@dcl/sdk/math'
 import { syncEntity } from '@dcl/sdk/network'
+import { onBeat } from './lounge/beatClock'
 import { CENTER, FLOOR_Y } from './station'
 
 const LEVELS = [
@@ -228,7 +229,6 @@ const lerp = (a: Vector3, b: Vector3, t: number) => Vector3.create(a.x + (b.x - 
 const DANCE_INNER = 7
 const DANCE_OUTER = 13
 const TILE = 1.4
-const BEAT = 0.45 // seconds
 const PALETTE = [
   Color3.create(1, 0.1, 0.7),
   Color3.create(0.5, 0.1, 1),
@@ -258,19 +258,28 @@ function buildDanceFloor(): void {
     }
   }
 
-  let beat = 0
-  let timer = 0
-  engine.addSystem((dt) => {
-    timer -= dt
-    if (timer > 0) return
-    timer = BEAT
-    beat++
+  // On the lounge's beat (lounge/beatClock.ts): each beat steps the pattern and flashes the tiles, which then dim
+  // until the next one. Two material writes per tile per beat.
+  const paint = (beat: number, glow: number) => {
     // Alternate between rings rippling outward and a spinning pinwheel every 16 beats.
     const pinwheel = Math.floor(beat / 16) % 2 === 1
     for (const t of tiles) {
       const k = pinwheel ? Math.floor(((t.a + Math.PI) / (2 * Math.PI)) * 10) + beat : Math.floor(t.r / TILE) - beat
       const color = PALETTE[((k % PALETTE.length) + PALETTE.length) % PALETTE.length]
-      Material.setPbrMaterial(t.entity, { albedoColor: Color4.fromColor3(color, 1), emissiveColor: color, emissiveIntensity: 1.6 })
+      Material.setPbrMaterial(t.entity, { albedoColor: Color4.fromColor3(color, 1), emissiveColor: color, emissiveIntensity: glow })
     }
+  }
+  let current = 0
+  let dimIn = -1
+  paint(0, 1.2)
+  onBeat((beat) => {
+    current = beat
+    paint(beat, 2.8)
+    dimIn = 0.16
+  })
+  engine.addSystem((dt) => {
+    if (dimIn < 0) return
+    dimIn -= dt
+    if (dimIn < 0) paint(current, 1.1)
   })
 }
