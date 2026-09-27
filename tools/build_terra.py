@@ -34,11 +34,28 @@ SHELL = _resample(SHELL_POINTS, 0.5, 10.0)
 DOOR_HALF = math.radians(17)   # the doorway's half-width round the shell (door 4 m wide at ~9 m, with margin)
 DOOR_TOP = 4.0                 # the shell is open below this in the doorway's sector
 LAWN_R = 9.1
-POND_R = 2.3
+# The river: winding across the far side of the room (opposite the doorway, +X), its ends running into the views.
+# src/terra/terra.ts lays flowing ripples over it with the same shape (RIVER_* there must match).
+RIVER_X, RIVER_WANDER, RIVER_FREQ, RIVER_PHASE = 7.0, 0.45, 0.33, 0.4
+RIVER_HALF, RIVER_HALF_VARY = 2.7, 0.2   # wide: its far bank is past the room's edge, so it runs off into the views
+
+
+def river_x(y):
+    return RIVER_X + RIVER_WANDER * math.sin(y * RIVER_FREQ + RIVER_PHASE)
+
+
+def river_half(y):
+    return RIVER_HALF + RIVER_HALF_VARY * math.sin(y * 0.5)
+
+
+def in_river(x, y, margin=0.0):
+    return abs(x - river_x(y)) < river_half(y) + margin
+
+
 LAWN_Z = 0.06   # the lawn's height over the deck: well clear of it, or the deck flickers through at a distance
 SEG = 96
 rng = random.Random(11)
-BENCHES = [(4.3, 90), (4.3, 270)]   # (r, degrees) round the pod, facing the pond; src/terra/terra.ts seats players on them
+BENCHES = [(2.6, 2.2, 0.0), (2.6, -2.2, 0.0)]   # (x, y, facing degrees) on the near bank, facing the river; src/terra/terra.ts seats players on them
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene.collection
@@ -85,6 +102,7 @@ IMAGES = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets'
 PANORAMA = ('terra-bg-1.jpg', 'terra-bg-2.jpg')   # MetaPetal's Earth views, each wrapped half round the room
 CROP = (0.03, 0.9)             # rows kept, from the top: below 0.9 are the images' own frame and dais
 TEX_W, TEX_H = 2048, 1024
+HOLO_OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'images', 'terra')
 SEAM = 160                     # columns blended at each join, so the two halves meet without an edge
 
 
@@ -122,6 +140,15 @@ def panorama_textures():
     top_ramp = (np.linspace(1, 0, fade) ** 1.6)[:, None, None]
     for half in halves:
         half[:fade] = half[:fade] * (1 - top_ramp) + sky4[None, None, :] * top_ramp
+    # Half-size copies for the scene's glitches (src/terra/holo.ts shows slices of them over the views).
+    os.makedirs(HOLO_OUT, exist_ok=True)
+    for k, half in enumerate(halves):
+        small = half[::2, ::2]
+        img = bpy.data.images.new(f'terra_glitch{k + 1}', small.shape[1], small.shape[0])
+        img.pixels.foreach_set(np.ascontiguousarray(small[::-1], dtype=np.float32).ravel())
+        img.filepath_raw = os.path.join(HOLO_OUT, f'view{k + 1}.jpg')
+        img.file_format = 'JPEG'
+        img.save()
     paths = []
     for k, half in enumerate(halves):
         out = bpy.data.images.new(f'terra_view{k + 1}', TEX_W, TEX_H)
@@ -133,6 +160,56 @@ def panorama_textures():
         out.save()
         paths.append(path)
     return paths, tuple(float(c) for c in sky4[:3])
+
+
+def holo_textures():
+    """The scene's animated layers' textures (src/terra/holo.ts), into assets/images/terra/: falling-water streaks
+    (tiling up and down), soft cloud wisps (tiling round), and the scan line's glow."""
+    os.makedirs(HOLO_OUT, exist_ok=True)
+    r = random.Random(4)
+    # Water: bright streaks of varying width and brightness running down, broken up along their length.
+    w, h = 64, 256
+    cols = []
+    for x in range(w):
+        on = r.random() < 0.45
+        cols.append((on, r.uniform(0.35, 1.0), [value_noise(300 + x, 8)]))
+    rows = []
+    for y in range(h):
+        row = []
+        for x in range(w):
+            on, bright, (n,) = cols[x]
+            a = (bright * max(0.0, n(0.0, y / h) - 0.25) * 1.6) if on else 0.0
+            row.append((0.85, 0.93, 1.0, min(1.0, a)))
+        rows.append(row)
+    write_png(os.path.join(HOLO_OUT, 'water.png'), w, h, rows, alpha=True)
+    # Wisps: soft fbm clouds, thin, fading out at the top and bottom of the band.
+    w, h = 512, 128
+    octaves = [value_noise(400 + i, 4 * 2 ** i) for i in range(4)]
+    rows = []
+    for y in range(h):
+        edge = math.sin(math.pi * (y + 0.5) / h) ** 1.5
+        row = []
+        for x in range(w):
+            n = fbm(octaves, x / w, y / h)
+            row.append((1, 1, 1, max(0.0, (n - 0.5) * 2.2) * edge * 0.55))
+        rows.append(row)
+    write_png(os.path.join(HOLO_OUT, 'wisps.png'), w, h, rows, alpha=True)
+    # Ripples: light glints and soft bands on the water, tiling both ways, to flow along the river.
+    w, h = 128, 128
+    octaves = [value_noise(500 + i, 4 * 2 ** i) for i in range(3)]
+    rows = []
+    for y in range(h):
+        row = []
+        for x in range(w):
+            n = fbm(octaves, x / w, (y / h))
+            band = 0.5 + 0.5 * math.sin(2 * math.pi * (y / h * 3 + n * 1.5))
+            a = max(0.0, band - 0.72) * 2.2 + max(0.0, n - 0.68) * 1.5
+            row.append((0.85, 0.95, 1.0, min(0.7, a)))
+        rows.append(row)
+    write_png(os.path.join(HOLO_OUT, 'ripples.png'), w, h, rows, alpha=True)
+    # Scan: a thin line with a soft glow either side.
+    rows = [[(0.7, 1.0, 0.95, math.exp(-((j - 31.5) / 6) ** 2) * 0.8 + (0.15 if abs(j - 31.5) < 1.5 else 0))] * 4 for j in range(64)]
+    write_png(os.path.join(HOLO_OUT, 'scan.png'), 4, 64, rows, alpha=True)
 
 
 def sky_cap_texture(horizon):
@@ -193,6 +270,7 @@ def material(name, rgb=(1, 1, 1), metallic=0.0, roughness=0.8, image=None, emit=
 
 
 VIEW_FILES, VIEW_SKY = panorama_textures()
+holo_textures()
 VIEW_GLOW = 0.5   # enough to read as daylight; at 1 the views were glaring
 VIEWS = [material(f'TerraView{k + 1}', image=f, emit=VIEW_GLOW, roughness=1) for k, f in enumerate(VIEW_FILES)]
 SKY_CAP = material('TerraSkyCap', image=sky_cap_texture(VIEW_SKY), emit=VIEW_GLOW, roughness=1)
@@ -200,7 +278,8 @@ GRASS = material('Lawn', image=grass_texture(), roughness=0.95)
 BARK = material('Bark', (0.3, 0.19, 0.11), roughness=0.9)
 LEAVES = [material(f'Leaves{i}', c, roughness=0.85) for i, c in enumerate([(0.2, 0.5, 0.18), (0.28, 0.58, 0.2), (0.16, 0.42, 0.2)])]
 PINE = material('Pine', (0.12, 0.34, 0.2), roughness=0.85)
-WATER = material('Pond', (0.12, 0.35, 0.5), metallic=0.3, roughness=0.05)
+WATER = material('River', (0.1, 0.3, 0.38), metallic=0.3, roughness=0.05)
+REEDS = material('Reeds', (0.32, 0.45, 0.18), roughness=0.8)
 STONE = material('Stone', (0.55, 0.53, 0.5), roughness=0.9)
 PORTAL = material('PortalPanel', (0.07, 0.08, 0.1), metallic=0.6, roughness=0.35)
 PORTAL_GLOW = material('PortalGlow', (0.75, 1.0, 0.85), emit=2.0)
@@ -405,65 +484,75 @@ b_ = [bm.verts.new((PORTAL_FACE + 0.015, y, z)) for y, z in grown]
 ring_faces(bm, b_, a_, lambda c: Vector((1, 0, 0)))
 link('PortalGlow', bm, PORTAL_GLOW)
 
-# The lawn, LAWN_Z over the deck, and a pond sunk into it (drawn on top: the lawn has a hole for it).
+# The lawn, LAWN_Z over the deck.
 bm = bmesh.new()
 uv = bm.loops.layers.uv.new()
-outer = [bm.verts.new((LAWN_R * math.cos(2 * math.pi * i / SEG), LAWN_R * math.sin(2 * math.pi * i / SEG), LAWN_Z)) for i in range(SEG)]
-inner = [bm.verts.new((POND_R * math.cos(2 * math.pi * i / SEG), POND_R * math.sin(2 * math.pi * i / SEG), LAWN_Z)) for i in range(SEG)]
-for i in range(SEG):
-    j = (i + 1) % SEG
-    f = bm.faces.new((outer[i], outer[j], inner[j], inner[i]))   # anticlockwise from above: facing up (the explorer culls back faces)
-    for loop in f.loops:
-        loop[uv].uv = (loop.vert.co.x / 2.5, loop.vert.co.y / 2.5)
+rim = [bm.verts.new((LAWN_R * math.cos(2 * math.pi * i / SEG), LAWN_R * math.sin(2 * math.pi * i / SEG), LAWN_Z)) for i in range(SEG)]
+f = bm.faces.new(rim)   # anticlockwise from above: facing up (the explorer culls back faces)
+for loop in f.loops:
+    loop[uv].uv = (loop.vert.co.x / 2.5, loop.vert.co.y / 2.5)
 link('Lawn', bm, GRASS)
-disc('Pond', POND_R + 0.05, LAWN_Z - 0.01, WATER, n=64)
-bm = bmesh.new()
-for i in range(22):   # rocks round the pond's edge
-    a = 2 * math.pi * i / 22 + rng.uniform(-0.05, 0.05)
-    blob(bm, (math.cos(a) * (POND_R + 0.08), math.sin(a) * (POND_R + 0.08), LAWN_Z + 0.04), rng.uniform(0.18, 0.28), squash=0.45)
-link('PondRocks', bm, STONE)
-bm = bmesh.new()
-for x, y, r in ((0.8, 0.6, 0.35), (-0.5, 1.1, 0.28), (0.2, -1.2, 0.32), (-1.1, -0.4, 0.25)):
-    ret = bmesh.ops.create_circle(bm, cap_ends=True, radius=r, segments=12)
-    for v in ret['verts']:
-        v.co += Vector((x, y, LAWN_Z + 0.005))
-link('LilyPads', bm, LILY)
 
-# Stepping stones from the doorway (at -X) to the pond.
+# The river, just over the lawn, from wall to wall (clipped where it passes behind the views).
 bm = bmesh.new()
-for k, x in enumerate([-8.3, -7.3, -6.3, -5.3, -4.3, -3.3]):
+uv = bm.loops.layers.uv.new()
+prev = None
+y = -9.4
+while y <= 9.4:
+    x = river_x(y)
+    slope = RIVER_WANDER * RIVER_FREQ * math.cos(y * RIVER_FREQ + RIVER_PHASE)   # dx/dy
+    n = Vector((1, -slope, 0)).normalized()
+    hw = river_half(y)
+    left, right = Vector((x, y, 0)) - n * hw, Vector((x, y, 0)) + n * hw
+    pair = [bm.verts.new((p.x, p.y, LAWN_Z + 0.006)) if p.xy.length < LAWN_R else bm.verts.new((*(p.xy.normalized() * LAWN_R), LAWN_Z + 0.006)) for p in (left, right)]
+    if prev:
+        f = bm.faces.new((prev[0], prev[1], pair[1], pair[0]))
+        f.normal_update()
+        if f.normal.z < 0:
+            f.normal_flip()
+        for loop in f.loops:
+            loop[uv].uv = (loop.vert.co.x / 3, loop.vert.co.y / 3)
+    prev = pair
+    y += 0.25
+link('River', bm, WATER)
+
+# Rocks along both banks, a few in the stream, and reeds in clumps on the near bank (clear of the benches' view).
+bm = bmesh.new()
+y = -9.0
+while y <= 9.0:
+    for side in (-1, 1):
+        if rng.random() < 0.8:
+            x = river_x(y) + side * (river_half(y) + rng.uniform(-0.08, 0.1))
+            if math.hypot(x, y) < LAWN_R - 0.3:
+                blob(bm, (x, y + rng.uniform(-0.15, 0.15), LAWN_Z + 0.03), rng.uniform(0.13, 0.3), squash=0.5)
+    y += rng.uniform(0.35, 0.6)
+for _ in range(7):
+    y = rng.uniform(-6, 6)
+    blob(bm, (river_x(y) + rng.uniform(-0.6, 0.6), y, LAWN_Z + 0.02), rng.uniform(0.15, 0.25), squash=0.55)
+link('RiverRocks', bm, STONE)
+bm = bmesh.new()
+for _ in range(9):
+    y = rng.uniform(-7.5, 7.5)
+    if any(abs(y - by) < 1.6 for _, by, _ in BENCHES):
+        continue
+    x = river_x(y) - river_half(y) - rng.uniform(0.0, 0.35)
+    for k in range(rng.randint(6, 11)):
+        cone(bm, (x + rng.uniform(-0.2, 0.2), y + rng.uniform(-0.3, 0.3), LAWN_Z - 0.02), 0.02, 0.0, rng.uniform(0.5, 1.0), seg=3)
+link('Reeds', bm, REEDS)
+
+# Stepping stones from the doorway (at -X) to the benches on the bank.
+bm = bmesh.new()
+for k in range(10):
+    x = -8.2 + k * 1.0
     ret = bmesh.ops.create_circle(bm, cap_ends=True, radius=0.38 + rng.uniform(-0.04, 0.04), segments=10)
     for v in ret['verts']:
         v.co += Vector((x, (0.25 if k % 2 else -0.25), LAWN_Z + 0.015))
 link('SteppingStones', bm, STONE)
 
-# Trees round the edge: leafy ones and a couple of pines, clear of the path and the benches.
-# (Clear of the windows at 90 and 270, +-32 degrees, and the door at 180.)
-trees = [(6.6, 18, 'leafy', 1.0), (6.9, 48, 'pine', 1.0), (6.4, 138, 'leafy', 0.85), (6.8, 222, 'leafy', 0.95),
-         (6.6, 312, 'pine', 0.9), (6.9, 342, 'leafy', 1.1), (5.0, 0, 'leafy', 0.8)]
-bark, pine, colliders = bmesh.new(), bmesh.new(), bmesh.new()
-leaves = [bmesh.new() for _ in LEAVES]
-for r, deg, kind, s in trees:
-    x, y = polar(r, deg)
-    # Crowns stay under the sky shell: at 6-7 m out it's ~8 m up.
-    if kind == 'leafy':
-        cone(bark, (x, y, 0), 0.22 * s, 0.14 * s, 3.2 * s)
-        for n in range(4):
-            off = (rng.uniform(-0.7, 0.7) * s, rng.uniform(-0.7, 0.7) * s, (3.4 + rng.uniform(-0.3, 0.8)) * s)
-            blob(leaves[rng.randrange(len(leaves))], (x + off[0], y + off[1], off[2]), rng.uniform(1.0, 1.4) * s, squash=0.85)
-    else:
-        cone(bark, (x, y, 0), 0.18 * s, 0.1 * s, 1.2 * s)
-        for n, (z, rr) in enumerate([(0.9, 1.5), (2.2, 1.2), (3.4, 0.9), (4.4, 0.6)]):
-            cone(pine, (x, y, z * s), rr * s, 0.05, 1.6 * s)
-    box(colliders, (x - 0.3 * s, y - 0.3 * s, 0), (x + 0.3 * s, y + 0.3 * s, 2.5))
-link('TreeTrunks', bark, BARK)
-link('PineNeedles', pine, PINE)
-for i, bm in enumerate(leaves):
-    link(f'TreeLeaves{i}', bm, LEAVES[i])
-link('TreeTrunks_collider', colliders, BARK)
+# (Trees are placed by the scene, differently at each station: src/terra/trees.ts, tools/build_terra_trees.py.)
 
 # Flowerbeds: clusters of blossoms in drifts between the trees.
-beds = [(4.6, 50), (4.9, 150), (4.7, 210), (4.5, 310), (7.4, 100), (7.5, 265)]
+beds = [(4.8, 62), (4.9, 150), (4.7, 210), (4.8, 298), (7.4, 100), (7.5, 265)]   # clear of the river and the benches
 blossoms = [bmesh.new() for _ in FLOWERS]
 for r, deg in beds:
     cx, cy = polar(r, deg)
@@ -478,23 +567,23 @@ for r, deg in beds:   # leafy mounds under the blossoms
     blob(bm, (cx, cy, LAWN_Z - 0.03), 1.0, squash=0.22, subdiv=2)
 link('BedFoliage', bm, LEAVES[1])
 
-# Grass tufts scattered over the lawn (off the path, the pond and the beds).
+# Grass tufts scattered over the lawn (off the path, the river and round the benches).
 bm = bmesh.new()
-for n in range(260):
-    r, a = rng.uniform(POND_R + 0.5, LAWN_R - 0.4), rng.uniform(0, 2 * math.pi)
+for n in range(300):
+    r, a = rng.uniform(0.5, LAWN_R - 0.4), rng.uniform(0, 2 * math.pi)
     x, y = r * math.cos(a), r * math.sin(a)
-    if x < -2.8 and abs(y) < 0.9:
+    if (x < 2.4 and abs(y) < 0.9) or in_river(x, y, 0.35):
         continue
-    if any(math.hypot(x - bx, y - by) < 1.4 for bx, by in (polar(br, bd) for br, bd in BENCHES)):
+    if any(math.hypot(x - bx, y - by) < 1.4 for bx, by, _ in BENCHES):
         continue   # clear round the benches, where players sit
     for k in range(3):
         cone(bm, (x + rng.uniform(-0.08, 0.08), y + rng.uniform(-0.08, 0.08), LAWN_Z - 0.02), 0.05, 0.0, rng.uniform(0.18, 0.32), seg=3)
 link('GrassTufts', bm, TUFT)
 
-# Park benches either side of the pond, facing it: wooden slats on iron legs. Seat 0.45 m up, 1.6 m wide.
+# Park benches on the near bank, facing the river: wooden slats on iron legs. Seat 0.45 m up, 1.6 m wide.
 wood, iron, benchcol = bmesh.new(), bmesh.new(), bmesh.new()
-for r, deg in BENCHES:
-    # Build facing +X, then turn to face the centre.
+for bx, by, facing in BENCHES:
+    # Build facing +X, then turn to face `facing`.
     parts_w, parts_i = bmesh.new(), bmesh.new()
     for k in range(3):
         box(parts_w, (-0.25 + k * 0.17, -0.8, 0.43), (-0.1 + k * 0.17, 0.8, 0.47))
@@ -504,7 +593,7 @@ for r, deg in BENCHES:
         box(parts_i, (-0.3, y - 0.03, 0), (-0.26, y + 0.03, 0.95))
         box(parts_i, (0.05, y - 0.03, 0), (0.09, y + 0.03, 0.43))
         box(parts_i, (-0.3, y - 0.03, 0.4), (0.09, y + 0.03, 0.43))
-    turn = Matrix.Translation((*polar(r, deg), 0)) @ Matrix.Rotation(math.radians(deg + 180), 4, 'Z')
+    turn = Matrix.Translation((bx, by, 0)) @ Matrix.Rotation(math.radians(facing), 4, 'Z')
     for part, into in ((parts_w, wood), (parts_i, iron)):
         part.transform(turn)
         me = bpy.data.meshes.new('tmp')
@@ -532,7 +621,7 @@ for ob in bpy.data.objects:
     if ob.type == 'MESH' and ob.name in ('View1', 'View2', 'SkyCap'):
         out = sum(1 for p in ob.data.polygons if p.normal.dot(Vector((p.center.x, p.center.y, 0))) > 0 and p.center.xy.length > 1)
         print('FACING', ob.name, 'OUT' if out else 'in', out, '/', len(ob.data.polygons))
-    if ob.type == 'MESH' and ob.name in ('Lawn', 'Pond', 'LilyPads', 'SteppingStones'):
+    if ob.type == 'MESH' and ob.name in ('Lawn', 'River', 'SteppingStones'):
         down = sum(1 for p in ob.data.polygons if p.normal.z < 0)
         print('FACING', ob.name, 'down' if down else 'up', down, '/', len(ob.data.polygons))
 bpy.ops.object.select_all(action='SELECT')
