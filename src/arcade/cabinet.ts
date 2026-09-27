@@ -68,7 +68,7 @@ export function leave(): void {
 // ---- high scores ---------------------------------------------------------------------------------------------------
 
 const HiScore = engine.defineComponent('stellar::ArcadeHiScore', { game: Schemas.String, score: Schemas.Int, name: Schemas.String })
-const GAMES = ['invaders', 'garden', 'breaker'] // each game's table has its own network id: keep this order, add at the end
+const GAMES = ['invaders', 'garden', 'breaker', 'comet'] // each game's table has its own network id: keep this order, add at the end
 const tables = new Map<string, Entity>()
 
 function syncId(stationId: string, game: string): number {

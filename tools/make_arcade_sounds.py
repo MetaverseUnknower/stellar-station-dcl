@@ -76,4 +76,19 @@ write('tick', render(0.04, lambda t, p: square(1200, t, 0.5) * (1 - p)), 0.25)
 write('power', render(0.45, lambda t, p: square(500 + 900 * p + 80 * math.sin(t * 2 * math.pi * 18), t, 0.35) * (1 - 0.5 * p)), 0.3)
 # Launch: a quick rising zip.
 write('launch', render(0.12, lambda t, p: square(400 + 800 * p, t, 0.25) * (1 - p)), 0.3)
+# COMET RUN:
+# Stardust: a tiny bright ping.
+write('dust', render(0.07, lambda t, p: square(1760, t, 0.3) * (1 - p)), 0.25)
+# Near miss: a quick swept whoosh of noise, high to low.
+lp = [0.0]
+def whoosh(t, p):
+    lp[0] = lp[0] * (0.2 + 0.7 * p) + noise[int(t * RATE) % RATE] * (0.8 - 0.7 * p)
+    return lp[0] * math.sin(math.pi * p)
+write('whoosh', render(0.3, whoosh), 0.6)
+# Shield picked up: a shimmering chime.
+write('shield', render(0.5, lambda t, p: (square(1047, t, 0.5) * 0.5 + square(1568, t, 0.25) * 0.5) * (1 - p) ** 0.7), 0.25)
+# Shield breaking: a clang.
+write('block', render(0.3, lambda t, p: (square(220, t, 0.5) * 0.5 + square(233, t, 0.5) * 0.5) * (1 - p) ** 1.5), 0.4)
+# Boost: a rising roar.
+write('boost', render(0.4, lambda t, p: (0.5 * noise[int(t * RATE) % RATE] + 0.5 * square(120 + 300 * p, t, 0.5)) * (0.4 + 0.6 * math.sin(math.pi * p))), 0.35)
 print('wrote', sorted(os.listdir(OUT)))
