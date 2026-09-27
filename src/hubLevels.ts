@@ -91,13 +91,15 @@ function route(side: number, from: number, to: number, start: Vector3): Vector3[
 // players see the rider glide without it.
 const PLATFORM_RADIUS = 1.2
 const PLATFORM_THICKNESS = 0.08
-const PARKED = Vector3.create(CENTER.x, 20, CENTER.z) // under the hub (its hull bottoms out near y 30), out of sight
+// Under the hub (its hull bottoms out near y 30), out of sight. A function, not a constant: this module is loaded
+// while station.ts (which imports it) is still starting, before CENTER exists.
+const parked = () => Vector3.create(CENTER.x, 20, CENTER.z)
 let platform: Entity | null = null
 
 function platformEntity(): Entity {
   if (platform) return platform
   platform = engine.addEntity()
-  Transform.create(platform, { position: PARKED, scale: Vector3.create(PLATFORM_RADIUS * 2, PLATFORM_THICKNESS, PLATFORM_RADIUS * 2) })
+  Transform.create(platform, { position: parked(), scale: Vector3.create(PLATFORM_RADIUS * 2, PLATFORM_THICKNESS, PLATFORM_RADIUS * 2) })
   MeshRenderer.setCylinder(platform)
   Material.setPbrMaterial(platform, { albedoColor: Color4.create(0, 0.6, 0.8, 1), emissiveColor: UP, emissiveIntensity: 1.6, metallic: 0.6, roughness: 0.3 })
   return platform
@@ -116,7 +118,7 @@ function ride(path: Vector3[], done: () => void): void {
       engine.removeSystem(system)
       // Let the rider step off, then park the platform.
       Tween.deleteFrom(disc)
-      Transform.getMutable(disc).position = PARKED
+      Transform.getMutable(disc).position = parked()
       done()
       return
     }
