@@ -193,14 +193,17 @@ def material(name, rgb=(1, 1, 1), metallic=0.0, roughness=0.8, image=None, emit=
 
 
 VIEW_FILES, VIEW_SKY = panorama_textures()
-VIEWS = [material(f'TerraView{k + 1}', image=f, emit=1.0, roughness=1) for k, f in enumerate(VIEW_FILES)]
-SKY_CAP = material('TerraSkyCap', image=sky_cap_texture(VIEW_SKY), emit=1.0, roughness=1)
+VIEW_GLOW = 0.5   # enough to read as daylight; at 1 the views were glaring
+VIEWS = [material(f'TerraView{k + 1}', image=f, emit=VIEW_GLOW, roughness=1) for k, f in enumerate(VIEW_FILES)]
+SKY_CAP = material('TerraSkyCap', image=sky_cap_texture(VIEW_SKY), emit=VIEW_GLOW, roughness=1)
 GRASS = material('Lawn', image=grass_texture(), roughness=0.95)
 BARK = material('Bark', (0.3, 0.19, 0.11), roughness=0.9)
 LEAVES = [material(f'Leaves{i}', c, roughness=0.85) for i, c in enumerate([(0.2, 0.5, 0.18), (0.28, 0.58, 0.2), (0.16, 0.42, 0.2)])]
 PINE = material('Pine', (0.12, 0.34, 0.2), roughness=0.85)
 WATER = material('Pond', (0.12, 0.35, 0.5), metallic=0.3, roughness=0.05)
 STONE = material('Stone', (0.55, 0.53, 0.5), roughness=0.9)
+PORTAL = material('PortalPanel', (0.07, 0.08, 0.1), metallic=0.6, roughness=0.35)
+PORTAL_GLOW = material('PortalGlow', (0.75, 1.0, 0.85), emit=2.0)
 LILY = material('LilyPad', (0.22, 0.5, 0.2), roughness=0.6)
 WOOD = material('BenchWood', (0.5, 0.32, 0.17), roughness=0.6)
 IRON = material('BenchIron', (0.08, 0.08, 0.08), metallic=0.8, roughness=0.4)
@@ -322,6 +325,29 @@ for k, mat in enumerate(VIEWS):
                 u = 1.0
             me.uv_layers.active.data[li].uv = (max(0.0, min(1.0, u)), me.uv_layers.active.data[li].uv[1])
 revolve('SkyCap', cap, SKY_CAP, lambda z: (z - VIEW_TOP) / (cap[-1][0] - VIEW_TOP))
+
+# The doorway's portal: where the views open for the corridor, a dark panel stands just in front of them with the
+# doorway through it, edged with a soft glow, and deep jambs, a header and a sill run back to the corridor, so no
+# pod wall shows round it. (The doorway is toward -X; the corridor is TERRA_DOOR, 4 m wide and 3.6 m tall.)
+PORTAL_FACE = -8.3             # the panel's front: in front of the views (they're 8.4 m out 3.2 m to the side)
+PORTAL_BACK = -9.8             # the jambs reach back past the pod's wall to the corridor's end
+OPEN_W, OPEN_H = 2.0, 3.6      # half-width and height of the opening (the corridor's)
+PANEL_W, PANEL_H = 3.2, 4.5    # half-width and height of the panel (over the views' opening, 2.9 x 4 m)
+bm = bmesh.new()
+box(bm, (PORTAL_FACE - 0.1, -PANEL_W, 0), (PORTAL_FACE, -OPEN_W, PANEL_H))        # left of the opening
+box(bm, (PORTAL_FACE - 0.1, OPEN_W, 0), (PORTAL_FACE, PANEL_W, PANEL_H))          # right
+box(bm, (PORTAL_FACE - 0.1, -OPEN_W, OPEN_H), (PORTAL_FACE, OPEN_W, PANEL_H))     # over it
+box(bm, (PORTAL_BACK, -OPEN_W - 0.1, 0), (PORTAL_FACE, -OPEN_W, OPEN_H))          # jambs
+box(bm, (PORTAL_BACK, OPEN_W, 0), (PORTAL_FACE, OPEN_W + 0.1, OPEN_H))
+box(bm, (PORTAL_BACK, -OPEN_W - 0.1, OPEN_H), (PORTAL_FACE, OPEN_W + 0.1, OPEN_H + 0.1))   # header
+box(bm, (PORTAL_BACK, -OPEN_W, 0), (PORTAL_FACE, OPEN_W, LAWN_Z + 0.01))            # sill
+link('Portal', bm, PORTAL)
+bm = bmesh.new()
+g = 0.05
+box(bm, (PORTAL_FACE, -OPEN_W - g, 0), (PORTAL_FACE + 0.02, -OPEN_W, OPEN_H + g))
+box(bm, (PORTAL_FACE, OPEN_W, 0), (PORTAL_FACE + 0.02, OPEN_W + g, OPEN_H + g))
+box(bm, (PORTAL_FACE, -OPEN_W - g, OPEN_H), (PORTAL_FACE + 0.02, OPEN_W + g, OPEN_H + g))
+link('PortalGlow', bm, PORTAL_GLOW)
 
 # The lawn, LAWN_Z over the deck, and a pond sunk into it (drawn on top: the lawn has a hole for it).
 bm = bmesh.new()
