@@ -147,3 +147,13 @@ export function pinBoardPost(postId: string, pinned: boolean): Promise<{ pinned:
 export function reportPlayer(reportedPlayerId: string, reason: string, context: string): Promise<{ reportId: string }> {
   return apiPost('/api/reports', { reportedPlayerId, reason, context })
 }
+
+// ---- Leaderboards (server: routes/leaderboards.ts) ----
+
+export type LeaderboardEntry = { rank: number; playerId: string; username: string; value: number; isMe: boolean }
+export type LeaderboardCategory = { key: string; label: string; top: LeaderboardEntry[]; me: { rank: number; value: number } | null }
+export type Leaderboards = { galaxyId: string; refreshedAt: string | null; categories: LeaderboardCategory[] }
+
+export function getLeaderboards(): Promise<Leaderboards> {
+  return apiGet('/api/leaderboards')
+}
