@@ -131,8 +131,9 @@ const FLOW_LAYERS = [
 ]
 const ROOM_EDGE = 9.2 // no further out than this (past it the planes would poke through the hull)
 
-/** Ripples flowing downstream (toward -y) over the river: flat strips along its winding line, their textures
- *  scrolling, in two layers at different scales and speeds. */
+/** Ripples flowing over the river: flat strips along its winding line, their textures scrolling 90 degrees
+ *  counter-clockwise (seen from above) from the line's downstream heading, in two layers at different scales and
+ *  speeds. */
 function buildRiverFlow(): void {
   for (const layer of FLOW_LAYERS) {
     for (let y = 8.4; y > -8.4; y -= 1.4) {
@@ -150,7 +151,11 @@ function buildRiverFlow(): void {
         rotation: Quaternion.multiply(Quaternion.fromEulerDegrees(0, yawTo(heading(down)), 0), Quaternion.fromEulerDegrees(90, 0, 0)),
         scale: Vector3.create(width, 1.6, 1)
       })
-      const face = [0, 0, width / layer.metresPerTile, 0, width / layer.metresPerTile, 1.6 / layer.metresPerTile, 0, 1.6 / layer.metresPerTile]
+      // The ripples' texture turned a quarter round, its v running to the strip's left (seen from above): so the
+      // flow below runs 90 degrees counter-clockwise from the strip's length, with the ripples' crests across it.
+      const w = width / layer.metresPerTile
+      const l = 1.6 / layer.metresPerTile
+      const face = [0, w, 0, 0, l, 0, l, w] // corners bottom-left, bottom-right, top-right, top-left: (u, v)
       MeshRenderer.setPlane(e, [...face, ...face])
       const tex = Material.Texture.Common({ src: 'assets/images/terra/ripples.png', wrapMode: TextureWrapMode.TWM_REPEAT })
       Material.setPbrMaterial(e, {
@@ -162,7 +167,7 @@ function buildRiverFlow(): void {
         transparencyMode: MaterialTransparencyMode.MTM_ALPHA_BLEND,
         castShadows: false
       })
-      Tween.setTextureMoveContinuous(e, Vector2.create(0, -1), layer.speed) // offset down: the ripples run downstream
+      Tween.setTextureMoveContinuous(e, Vector2.create(0, -1), layer.speed) // the ripples run toward the strip's left
     }
   }
 }
