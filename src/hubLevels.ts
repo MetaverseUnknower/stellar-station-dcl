@@ -2,7 +2,7 @@
 // dance floor. The floors themselves are in station.glb (tools/build_station_models.py: BALCONIES, LOUNGE, LIFT_R).
 // Lifts run on both ends of the X axis and the dance floor is a ring round the centre, so, like the rest of the
 // layout, none of this depends on which way the explorer converts the model's axes.
-import { engine, Entity, Transform, MeshRenderer, Material, TextShape, Billboard, BillboardMode } from '@dcl/sdk/ecs'
+import { engine, Entity, Transform, MeshRenderer, Material, TextShape, Billboard, BillboardMode, Tween, EasingFunction } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color4, Color3 } from '@dcl/sdk/math'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { CENTER, FLOOR_Y } from './station'
@@ -86,7 +86,27 @@ function route(side: number, from: number, to: number, start: Vector3): Vector3[
   ]
 }
 
+// The lift's platform: a glowing disc that carries the rider, moving with each leg of the ride under their feet
+// (movePlayerTo places the feet), and parked out of sight between rides. It's local to each player's scene, so other
+// players see the rider glide without it.
+const PLATFORM_RADIUS = 1.2
+const PLATFORM_THICKNESS = 0.08
+const PARKED = Vector3.create(CENTER.x, 20, CENTER.z) // under the hub (its hull bottoms out near y 30), out of sight
+let platform: Entity | null = null
+
+function platformEntity(): Entity {
+  if (platform) return platform
+  platform = engine.addEntity()
+  Transform.create(platform, { position: PARKED, scale: Vector3.create(PLATFORM_RADIUS * 2, PLATFORM_THICKNESS, PLATFORM_RADIUS * 2) })
+  MeshRenderer.setCylinder(platform)
+  Material.setPbrMaterial(platform, { albedoColor: Color4.create(0, 0.6, 0.8, 1), emissiveColor: UP, emissiveIntensity: 1.6, metallic: 0.6, roughness: 0.3 })
+  return platform
+}
+
+const underFeet = (feet: Vector3) => Vector3.create(feet.x, feet.y - PLATFORM_THICKNESS / 2 - 0.02, feet.z)
+
 function ride(path: Vector3[], done: () => void): void {
+  const disc = platformEntity()
   let leg = 0
   let wait = 0
   const system = (dt: number) => {
@@ -94,12 +114,16 @@ function ride(path: Vector3[], done: () => void): void {
     if (wait > 0) return
     if (leg >= path.length) {
       engine.removeSystem(system)
+      // Let the rider step off, then park the platform.
+      Tween.deleteFrom(disc)
+      Transform.getMutable(disc).position = PARKED
       done()
       return
     }
     const from = leg === 0 ? Transform.get(engine.PlayerEntity).position : path[leg - 1]
     const duration = Math.max(0.3, Vector3.distance(from, path[leg]) / SPEED)
     void movePlayerTo({ newRelativePosition: path[leg], duration })
+    Tween.setMove(disc, underFeet(from), underFeet(path[leg]), duration * 1000, EasingFunction.EF_LINEAR)
     wait = duration
     leg++
   }

@@ -1,4 +1,4 @@
-// Notice Board wing: this station's bulletin board, on the ship's desk framework (stations.ts), in pod 2.
+// Notice Board (hub floor): this station's bulletin board, on the ship's desk framework (stations.ts).
 // Top screen: the posts (pinned first). Low screen: the selected post in full with its replies, and REPLY, DELETE,
 // PIN (moderators) and REPORT. Posts and replies are typed in the HUD (compose.tsx). The server keeps the board
 // (routes/board.ts): docked players only, 500 characters, 30 days unless pinned, one level of replies.
@@ -10,12 +10,10 @@ import { createStation, ViewDefinition, StationContext, Screens } from '../stati
 import { Bag, clearBag, clickable, text, frame, header, button, fitSize, CYAN, MAGENTA, MAGENTA3, WHITE, DIM, MUTED } from '../stations/draw'
 import { showNotification } from '../shipDialogs'
 import { onGateChanged } from '../gate'
-import { podCenter, podOutward } from '../station'
+import { hubDesk, HUB_DESK_ANGLES } from '../station'
 import { openCompose } from './compose'
 import { shortDate } from '../trading/tradeText'
 
-export const NOTICE_BOARD_POD = 2
-const FROM_POD_CENTER = 6.5 // like the other wings: the pod's outer side, facing back toward the door
 const POLL_SECONDS = 20
 const LEFT = TextAlignMode.TAM_MIDDLE_LEFT
 const RIGHT = TextAlignMode.TAM_MIDDLE_RIGHT
@@ -252,13 +250,9 @@ function makeBoardView(): ViewDefinition {
 }
 
 export function buildNoticeBoard(): void {
-  const out = podOutward(NOTICE_BOARD_POD)
-  const center = podCenter(NOTICE_BOARD_POD)
   const desk = createStation({
     id: 'board',
-    position: Vector3.create(center.x + out.x * FROM_POD_CENTER, center.y, center.z + out.z * FROM_POD_CENTER),
-    // A desk's front faces (sin yaw, cos yaw) (see the ship's placements); face back toward the hub.
-    yaw: (Math.atan2(-out.x, -out.z) * 180) / Math.PI,
+    ...hubDesk(HUB_DESK_ANGLES.noticeBoard),
     views: [makeBoardView()],
     notify: showNotification
   })

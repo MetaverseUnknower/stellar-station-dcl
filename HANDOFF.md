@@ -25,18 +25,20 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     station (refreshed every 10 s). Needs the server's `walletAddress` on `/docked` (branch
     `feature/station-wallets`); without it, players see only themselves.
   - `src/ui.tsx`: status banner, docked crew list, RETURN TO SHIP. Voice chat is disabled in `scene.json`.
-  - Ship Services (pod 0, `src/shipServices.ts`): the ship's two desks, set up as in the ship: the ship desk
-    (Overview, Ship Systems, Pod Operations) and Flora Collections (Summary, Catalog, Vault, Inventory), copied unchanged from `galaxy-gardeners-dcl` (`stations.ts`, `stations/*`, `api.ts`, `countdown.ts`, `sfx.ts`,
+  - Ship Services (every pod, `src/shipServices.ts`): the ship's two desks, set up as in the ship: the ship desk
+    (Overview, Ship Systems, Pod Operations) and Flora Collections (Summary, Catalog, Vault, Inventory). Every pod has
+    the desk models; the one live pair moves to the pod the player is in (the copied code refreshes desks by id).
+    Copied unchanged from `galaxy-gardeners-dcl` (`stations.ts`, `stations/*`, `api.ts`, `countdown.ts`, `sfx.ts`,
     `payments.ts`, `types.ts`, `topViewHide.ts`, and assets). Keep them identical: re-copy rather than edit. Stand-ins
     for ship-only systems: `docking.ts`, `cabinDim.ts`, `soundtrack.ts`, `systemView.ts`; the desk's HUD dialogs are
     lifted verbatim into `shipDialogs.tsx`. The station's own server calls are in `stationApi.ts`.
-  - Trading Post (pod 1, `src/trading/`): BOARD (this station's offers; accept, choosing which of your specimens
+  - Trading Post (hub floor, `src/trading/`): BOARD (this station's offers; accept, choosing which of your specimens
     fill requests; cancel your own), POST OFFER, MY TRADES (open offers, history), GALLERY. Server: `routes/trades.ts`,
     with the trade logic in Postgres functions (`050_atomic_trades.sql`). Polls the board every 15 s while viewed.
-  - Notice Board (pod 2, `src/board/`): the station's posts (pinned first) and replies, with reply, delete (own, or
+  - Notice Board (hub floor, `src/board/`): the station's posts (pinned first) and replies, with reply, delete (own, or
     moderators), pin (moderators) and report. Typed in a HUD box (`compose.tsx`). Server: `routes/board.ts`,
     table `station_posts` (`051_station_posts.sql`). Polls every 20 s while viewed.
-  - Hall of Records (pod 3, `src/records/`): galaxy leaderboards on a desk (rankings with category tabs; your
+  - Hall of Records (hub floor, `src/records/`): galaxy leaderboards on a desk (rankings with category tabs; your
     standing below) and on a double-sided board turning above the hub's projector. Server: `routes/leaderboards.ts`,
     materialized view `leaderboard_stats` refreshed every 10 min (`052_leaderboards.sql`).
   - Features plan (trading, message boards, leaderboards): `docs/station-features-plan.md` (all four parts built).

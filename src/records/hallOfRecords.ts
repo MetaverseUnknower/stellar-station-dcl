@@ -1,4 +1,4 @@
-// Galaxy leaderboards, in two places: the Hall of Records wing (pod 3; a desk with the rankings on top and your
+// Galaxy leaderboards, in two places: the Hall of Records desk on the hub floor (the rankings on top and your
 // standing below) and a double-sided board turning above the hub's projector. Both show one category at a time and
 // cycle through them; on the desk, picking a category holds it for a while. Server: routes/leaderboards.ts (a
 // materialized view refreshed every 10 minutes, ranked within your galaxy).
@@ -9,10 +9,8 @@ import { createStation, ViewDefinition, StationContext, Screens } from '../stati
 import { Bag, clearBag, text, frame, header, button, fitSize, CYAN, MAGENTA, MAGENTA3, WHITE, DIM, MUTED } from '../stations/draw'
 import { showNotification } from '../shipDialogs'
 import { onGateChanged } from '../gate'
-import { CENTER, FLOOR_Y, podCenter, podOutward } from '../station'
+import { CENTER, FLOOR_Y, hubDesk, HUB_DESK_ANGLES } from '../station'
 
-export const HALL_OF_RECORDS_POD = 3
-const FROM_POD_CENTER = 6.5
 const REFRESH_SECONDS = 60
 const CYCLE_SECONDS = 10
 const HOLD_SECONDS = 45 // after picking a category on the desk
@@ -166,13 +164,9 @@ function buildHubBoard(): void {
 }
 
 export function buildHallOfRecords(): void {
-  const out = podOutward(HALL_OF_RECORDS_POD)
-  const center = podCenter(HALL_OF_RECORDS_POD)
   const desk = createStation({
     id: 'records',
-    position: Vector3.create(center.x + out.x * FROM_POD_CENTER, center.y, center.z + out.z * FROM_POD_CENTER),
-    // A desk's front faces (sin yaw, cos yaw) (see the ship's placements); face back toward the hub.
-    yaw: (Math.atan2(-out.x, -out.z) * 180) / Math.PI,
+    ...hubDesk(HUB_DESK_ANGLES.hallOfRecords),
     views: [makeRecordsView()],
     notify: showNotification
   })

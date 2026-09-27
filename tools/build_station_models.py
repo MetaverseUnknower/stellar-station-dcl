@@ -148,6 +148,14 @@ def box_uv(bm, scale=0.25):
                 loop[uv].uv = (p.x * scale, p.z * scale)
 
 
+def orient(face, outward):
+    """Point a face along `outward` (away from the solid it bounds). Colliders need this: the explorer's character
+    controller treats a floor whose faces point down as being inside it, and won't walk on it."""
+    face.normal_update()
+    if face.normal.dot(outward) < 0:
+        face.normal_flip()
+
+
 def mesh_object(name, bm, mat=None):
     box_uv(bm)
     me = bpy.data.meshes.new(name)
@@ -310,7 +318,7 @@ def build_corridor(deg, hub_tree, pod_tree):
         coll.objects.link(trim(f'CorridorTrim{name}', f, surface, toward_viewer, *loops, frame_mat, closed))
 
     # Colliders: floor slab and the two side walls (the ceiling is out of reach).
-    coll.objects.link(run('CorridorFloor_collider', [(-w, -0.3), (w, -0.3), (w, 0.02), (-w, 0.02)], True, None))
+    coll.objects.link(run('CorridorFloor_collider', [(-w, -0.3), (w, -0.3), (w, 0.02), (-w, 0.02)], True, None, inward=False))
     for sgn in (-1, 1):
         coll.objects.link(strip(f'CorridorWall{sgn}_collider', sgn * (w + 0.15), h / 2, 0.15, h / 2, None))
     name_colliders(coll)
@@ -405,15 +413,18 @@ def slab_mesh(name, wall, z, r_in, mat, wells, n, radial):
         def in_well(vs):
             c = sum((v.co for v in vs), Vector()) / len(vs)
             return any((c.xy - Vector(w)).length < WELL_R + 0.2 for w in wells)
+        up, down = Vector((0, 0, 1)), Vector((0, 0, -1))
         for i in range(n):
             a = (i + 1) % n
+            mid = (thetas[i] + (thetas[a] if a else 2 * math.pi)) / 2
+            radial = Vector((math.cos(mid), math.sin(mid), 0))
             for j in range(k):
                 q = [top[i][j], top[a][j], top[a][j + 1], top[i][j + 1]]
                 if not in_well(q):
-                    bm.faces.new(q)
-                    bm.faces.new([bot[i][j + 1], bot[a][j + 1], bot[a][j], bot[i][j]])
-            bm.faces.new([top[i][0], bot[i][0], bot[a][0], top[a][0]])        # inner edge
-            bm.faces.new([top[a][k], bot[a][k], bot[i][k], top[i][k]])        # against the wall
+                    orient(bm.faces.new(q), up)
+                    orient(bm.faces.new([bot[i][j + 1], bot[a][j + 1], bot[a][j], bot[i][j]]), down)
+            orient(bm.faces.new([top[i][0], bot[i][0], bot[a][0], top[a][0]]), -radial)   # inner edge, facing the atrium
+            orient(bm.faces.new([top[a][k], bot[a][k], bot[i][k], top[i][k]]), radial)    # against the wall
         bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=0.0001)
         return mesh_object(name, bm, mat)
     return build(True)
@@ -429,6 +440,7 @@ def ring_band(name, radius, z0, z1, mat, center=(0, 0), gap=None, n=None, depth=
         t0, t1 = 2 * math.pi * i / n, 2 * math.pi * (i + 1) / n
         if gap and gap((t0 + t1) / 2):
             continue
+        first = len(bm.faces)
         for r in ((radius,) if not depth else (radius - depth / 2, radius + depth / 2)):
             p = [(cx + math.cos(t) * r, cy + math.sin(t) * r) for t in (t0, t1)]
             bm.faces.new([bm.verts.new((p[0][0], p[0][1], z0)), bm.verts.new((p[1][0], p[1][1], z0)),
@@ -442,6 +454,12 @@ def ring_band(name, radius, z0, z1, mat, center=(0, 0), gap=None, n=None, depth=
                 p = [(cx + math.cos(t) * r, cy + math.sin(t) * r) for t in (t0, t1) for r in (ri, ro)]
                 bm.faces.new([bm.verts.new((p[0][0], p[0][1], z)), bm.verts.new((p[1][0], p[1][1], z)),
                               bm.verts.new((p[3][0], p[3][1], z)), bm.verts.new((p[2][0], p[2][1], z))])
+            # Each segment is a small closed block: point its faces away from its middle.
+            tm = (t0 + t1) / 2
+            middle = Vector((cx + math.cos(tm) * radius, cy + math.sin(tm) * radius, (z0 + z1) / 2))
+            bm.faces.ensure_lookup_table()
+            for f in bm.faces[first:]:
+                orient(f, f.calc_center_median() - middle)
     return mesh_object(name, bm, mat)
 
 
@@ -528,9 +546,17 @@ def main():
     shrink_textures()
     parts = []
 
-    # No benches (they'd be 2x; 1x ones are added below) and no wall rails, which read as oversized bars at 2x.
-    hub = bake(lambda o: not o.name.startswith(('Bench', 'PureEM_Bench', 'Railing', 'Wall Rail')))
+    # No benches (they'd be 2x; 1x ones are added below), no wall rails (oversized bars at 2x), and no engine: its
+    # round hatch is ~36 m across at 2x. A second window, turned half round, fills the engine's opening instead.
+    hub = bake(lambda o: not o.name.startswith(('Bench', 'PureEM_Bench', 'Railing', 'Wall Rail', 'Engine', 'PureEM_Engine')))
     transform(hub, placed(0, 0, HUB_SCALE))
+    second_window = bake(lambda o: o.name.startswith(('Window', 'Glass_Window')))
+    transform(second_window, placed(180, 0, HUB_SCALE))
+    for ob in list(second_window.objects):
+        second_window.objects.unlink(ob)
+        hub.objects.link(ob)
+    bpy.data.collections.remove(second_window)
+    name_colliders(hub)   # the copy's collider names would clash (and gain .001) otherwise
     # Uncut, so corridor ends can be fitted to the hull across the doorway.
     hub_tree = (hull_bvh(hub), hull_bvh(hub, ('Wall 0', 'RivetWall', 'Ground')))
     for a in HUB_DOORS:

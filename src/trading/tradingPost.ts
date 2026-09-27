@@ -1,4 +1,4 @@
-// Trading Post wing: this station's specimen and resource market, on the ship's desk framework (stations.ts).
+// Trading Post (hub floor): this station's specimen and resource market, on the ship's desk framework (stations.ts).
 // Tabs: BOARD (offers here; accept or cancel), POST OFFER, MY TRADES (your offers and history), GALLERY (species
 // traded here). The server does the trading (routes/trades.ts; accept_trade etc. in 050_atomic_trades.sql): posting
 // and accepting need docking at this station, and a trade can't overfill either side's cargo hold or vault.
@@ -12,14 +12,12 @@ import { Bag, clearBag, clickable, text, frame, header, button, listRow, image, 
 import { cargoUsed, titleCase } from '../stations/data'
 import { showNotification } from '../shipDialogs'
 import { onGateChanged } from '../gate'
-import { podCenter, podOutward } from '../station'
+import { hubDesk, HUB_DESK_ANGLES } from '../station'
 import {
   Specimen, RARITY_ORDER, RESOURCE_TYPES, resourceName, requestText, offerText, listText, summaryText,
   matchesRequest, daysLeft, shortDate
 } from './tradeText'
 
-export const TRADING_POST_POD = 1
-const FROM_POD_CENTER = 6.5 // like Ship Services: the pod's outer side, facing back toward the door
 const POLL_SECONDS = 15
 const LEFT = TextAlignMode.TAM_MIDDLE_LEFT
 const RIGHT = TextAlignMode.TAM_MIDDLE_RIGHT
@@ -661,13 +659,9 @@ function makeGalleryView(): ViewDefinition {
 // the desk
 // =====================================================================================================
 export function buildTradingPost(): void {
-  const out = podOutward(TRADING_POST_POD)
-  const center = podCenter(TRADING_POST_POD)
   const desk = createStation({
     id: 'trade',
-    position: Vector3.create(center.x + out.x * FROM_POD_CENTER, center.y, center.z + out.z * FROM_POD_CENTER),
-    // A desk's front faces (sin yaw, cos yaw) (see the ship's placements); face back toward the hub.
-    yaw: (Math.atan2(-out.x, -out.z) * 180) / Math.PI,
+    ...hubDesk(HUB_DESK_ANGLES.tradingPost),
     views: [makeBoardView(), makePostView(), makeMineView(), makeGalleryView()],
     notify: showNotification
   })

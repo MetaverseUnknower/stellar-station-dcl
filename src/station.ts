@@ -51,6 +51,21 @@ export function podOutward(index: number): Vector3 {
   return Vector3.create(dx / Math.SQRT2, 0, dz / Math.SQRT2)
 }
 
+// Hub desks: a ring round the projector, facing out. Clear of the lift lanes (+-X), the doorways (diagonals) and the
+// window and engine alcoves (+-Z) at the wall; 11 m out keeps them outside the projector dais and under the board.
+export const HUB_DESK_RADIUS = 11
+export const HUB_DESK_ANGLES = { tradingPost: 90, noticeBoard: 210, hallOfRecords: 330 } // degrees from +X toward +Z
+
+/** A desk on the hub floor at `deg`, its front (sin yaw, cos yaw) facing out toward the wall. */
+export function hubDesk(deg: number): { position: Vector3; yaw: number } {
+  const a = (deg * Math.PI) / 180
+  const out = Vector3.create(Math.cos(a), 0, Math.sin(a))
+  return {
+    position: Vector3.create(CENTER.x + out.x * HUB_DESK_RADIUS, FLOOR_Y, CENTER.z + out.z * HUB_DESK_RADIUS),
+    yaw: (Math.atan2(out.x, out.z) * 180) / Math.PI
+  }
+}
+
 export function podSpawn(index: number): { position: Vector3; cameraTarget: Vector3 } {
   return {
     position: podPoint(index, POD_DISTANCE - SPAWN_IN_FROM_CENTER, FLOOR_Y),
