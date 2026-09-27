@@ -6,7 +6,8 @@
 // The seat offsets keep that couch's tested relation to its cushions: the player's position 0.48 m below the cushion
 // top and 0.1 m past its front edge, the orb 0.17 m over the cushion.
 //
-// Where they go: four round the lounge's dance floor, facing it; and two in each upper pod, facing its window.
+// Where they go: four round the lounge's dance floor, facing it; and in each observation pod (the upper two), a
+// pair facing each of its two windows.
 import { engine, Transform, GltfContainer, ColliderLayer } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
 import { addSeat } from '../seating'
@@ -76,21 +77,24 @@ export function buildCouches(): void {
     const z = CENTER.z + Math.sin(a) * LOUNGE_COUCH_R
     placeCouch({ cx: x, cz: z, yaw: yawFacing(CENTER.x - x, CENTER.z - z), floorY: FLOOR_Y + LOUNGE })
   }
-  // Upper pods (on +-X): their window is 90 degrees counter-clockwise (seen from above) from the pod's outward
-  // direction, as for every pod (the explorer turns the kit's axes half round; see shipServices.ts).
+  // Observation pods (the upper two, on +-X): a pair of couches facing each window. The kit's window is 90 degrees
+  // counter-clockwise (seen from above) from the pod's outward direction, as for every pod (the explorer turns the
+  // kit's axes half round; see shipServices.ts); the second window, where the engine was, is opposite it.
   for (const side of [1, -1]) {
     const cx = CENTER.x + side * POD_DISTANCE
     const cz = CENTER.z
-    const window = Vector3.create(0, 0, side) // outward (side, 0) turned 90 degrees counter-clockwise from above
-    const across = Vector3.create(window.z, 0, -window.x)
-    for (const k of [-1, 1]) {
-      const lateral = k * (COUCH_HALF_W + 0.3)
-      placeCouch({
-        cx: cx + window.x * POD_COUCH_OUT + across.x * lateral,
-        cz: cz + window.z * POD_COUCH_OUT + across.z * lateral,
-        yaw: yawFacing(window.x, window.z),
-        floorY: FLOOR_Y + UPPER
-      })
+    for (const w of [1, -1]) {
+      const window = Vector3.create(0, 0, side * w)
+      const across = Vector3.create(window.z, 0, -window.x)
+      for (const k of [-1, 1]) {
+        const lateral = k * (COUCH_HALF_W + 0.3)
+        placeCouch({
+          cx: cx + window.x * POD_COUCH_OUT + across.x * lateral,
+          cz: cz + window.z * POD_COUCH_OUT + across.z * lateral,
+          yaw: yawFacing(window.x, window.z),
+          floorY: FLOOR_Y + UPPER
+        })
+      }
     }
   }
 }

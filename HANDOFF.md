@@ -11,7 +11,8 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     pods, fixed per wallet (`podForWallet`), once the gate clears them. A refused player stays in (or is returned
     to) the box while the gate sends them back to the ship. Anyone who falls through the hull goes back to their pod.
   - Hub levels: two ring balconies (9 m, 17 m) and a lounge (25 m) are in the model; `src/hubLevels.ts` adds the
-    Upper pods: two more pods off Balcony 2 (17 m) on the X axis (empty lounges for now), with corridors and DOCK
+    Observation pods: two more pods off Balcony 2 (17 m, the Observation Deck; balcony 1 is The Track) on the X axis,
+    each with a second window in place of its engine, couches facing both windows, with corridors and DOCK
     signs like the lower four. Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
     (`src/observation/galaxyHologram.ts`; `galaxyMap.ts`, `heatMap.ts`, `prefs.ts` copied unchanged). The
     lifts (`src/lift/`: a physical platform in a vertical shaft on each end of the X axis, run as elevators. A HUD
@@ -57,7 +58,7 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     (`spaceBarSign.ts`; `tools/build_space_bar_sign.py`) on the dome above the east lift. Below it, the bar (`src/lounge/spaceBar.ts`; `tools/build_space_bar.py`) with nine of The Silt's
     pedestal bar stools (cyan/magenta), sittable via `seating.ts`; the lounge bench at scene 240 was dropped for it.
   - Couches (`src/lounge/couches.ts`): rebel-radio's couch.glb and seat layout, with `seating.ts` copied unchanged
-    (`descent.ts` is its stand-in): four in the lounge, two in each upper pod facing its window. Placeholders until
+    (`descent.ts` is its stand-in): four in the lounge, a pair facing each window in both observation pods. Placeholders until
     the space couches arrive.
   - Features plan (trading, message boards, leaderboards): `docs/station-features-plan.md` (all four parts built).
   - Ship: BOARD STATION on the nav console's station card while docked (`boardStation` in `src/docking.ts`).

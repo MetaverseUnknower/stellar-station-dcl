@@ -26,7 +26,7 @@ CORRIDOR_LENGTH = 19.0
 TEXTURE_MAX = 1024
 INNER_WALL, HUB_OUTER, POD_OUTER = 15.4, 16.8, 16.8   # pod wall radii at floor height, 1x (fallbacks for raycasts)
 HUB_DOORS = (45, 135, 225, 315)          # clear of the window (+Y) and the engine (-Y)
-UPPER_PODS = (0, 180)                    # a second ring off Balcony 2, on the X axis (the hub wall is plain there)
+UPPER_PODS = (0, 180)                    # observation pods off Balcony 2, on the X axis (the hub wall is plain there)
 UPPER_Z = 17.0                           # BALCONIES[1]
 BENCH_ANGLES = (-20, 0, 20, 160, 180, 200)
 POD_DISTANCE = INNER_WALL * HUB_SCALE + CORRIDOR_LENGTH + INNER_WALL   # pod centre from hub centre
@@ -701,10 +701,20 @@ def main():
         parts.append(pod)
         parts.append(build_corridor(a, hub_tree, pod_tree))
 
-    # The upper ring: pods off Balcony 2, on the X axis where the hub wall is plain (the windows are on +-Y).
+    # The upper ring: pods off Balcony 2 (the Observation Deck), on the X axis where the hub wall is plain (the
+    # windows are on +-Y). Observation pods: no engine; a second window, turned half round, fills its opening, as in
+    # the hub.
     for a in UPPER_PODS:
-        pod = bake(lambda o: True)
-        transform(pod, Matrix.Translation((0, 0, UPPER_Z)) @ placed(a, POD_DISTANCE))
+        pod = bake(lambda o: not o.name.startswith(('Engine', 'PureEM_Engine')))
+        at = Matrix.Translation((0, 0, UPPER_Z)) @ placed(a, POD_DISTANCE)
+        transform(pod, at)
+        window = bake(lambda o: o.name.startswith(('Window', 'Glass_Window')))
+        transform(window, at @ Matrix.Rotation(math.pi, 4, 'Z'))
+        for ob in list(window.objects):
+            window.objects.unlink(ob)
+            pod.objects.link(ob)
+        bpy.data.collections.remove(window)
+        name_colliders(pod)
         pod_tree = (hull_bvh(pod), hull_bvh(pod, ('Wall 0', 'RivetWall', 'Ground')))
         cut_door(pod, a + 180, DOOR_W, DOOR_H, center=Vector((math.cos(math.radians(a)), math.sin(math.radians(a)), 0)) * POD_DISTANCE, floor=UPPER_Z)
         parts.append(pod)

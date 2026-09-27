@@ -22,8 +22,8 @@ import { Calls, Dir, has, withCall, serve, next } from './controller'
 
 export const FLOORS = [
   { name: 'HUB FLOOR', height: 0 },
-  { name: 'OBSERVATION DECK', height: 9 },
-  { name: 'UPPER DOCKS', height: 17 },
+  { name: 'THE TRACK', height: 9 },
+  { name: 'OBSERVATION DECK', height: 17 },
   { name: 'SPACE BAR LOUNGE', height: 25 }
 ]
 const LIFT_R = 17 // the shaft's centre: in the open atrium (balconies start at 20 m) and through the lounge's wells
