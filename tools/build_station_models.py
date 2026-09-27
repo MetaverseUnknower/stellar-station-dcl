@@ -38,6 +38,11 @@ ARCADE_DOOR = (3.0, 3.0)
 # under an observation pod, so it's placed to clear them sideways (27.4 m between centres, 26.9 needed).
 TERRA_ANGLE, TERRA_SCALE, TERRA_DIST, TERRA_Z = 201.0, 0.6, 46.5, 9.0
 TERRA_DOOR = (4.0, 3.6)
+# The breeding lab: off the Docks, on Terra's side, between the hub's benches at 160 and 180 and halfway between the
+# docking corridors at 135 and 225; under the -X observation pod (16.8 m up), so it can be Terra's size. Sealed for
+# now: its corridor is closed at the hub end by a door (src/lab/lab.ts says what's coming).
+LAB_ANGLE, LAB_SCALE, LAB_DIST, LAB_Z = 169.5, 0.6, 46.5, 0.0
+LAB_DOOR = (4.0, 3.6)
 BENCH_ANGLES = (-20, 0, 20, 160, 180, 200)
 POD_DISTANCE = INNER_WALL * HUB_SCALE + CORRIDOR_LENGTH + INNER_WALL   # pod centre from hub centre
 # Hub levels (src/station.ts HUB_LEVELS must match): two ring balconies open over the atrium, and a lounge with a
@@ -359,7 +364,8 @@ def build_corridor(deg, hub_tree, pod_tree, base=0.0, pod_dist=POD_DISTANCE, pod
     o_out = resample([(-w - t, -t), (-w - t, h + t), (w + t, h + t), (w + t, -t)], n, closed=True)
     frame_mat = panel_material('CorridorFrame', (0.13, 0.12, 0.32), 0.75, 0.4)
     for name, surface, toward_viewer, loops, closed in (
-            ('HubIn', lambda y, z: f.hub_inner(y, z, bumper=True), -1, (u_in, u_out), False),
+            # On the wall itself, passing behind the floor's bumper (climbing over it left shards at its foot).
+            ('HubIn', lambda y, z: f.hub_inner(y, z, bumper=False), -1, (u_in, u_out), False),
             ('PodIn', lambda y, z: f.pod_inner(y, z, bumper=True), 1, (u_in, u_out), False),
             ('HubOut', f.hub_outer, 1, (o_in, o_out), True),
             ('PodOut', f.pod_outer, -1, (o_in, o_out), True)):
@@ -756,6 +762,44 @@ def build_small_pod(hub_tree, hub_wall, angle, scale, dist, z, door, sign_text, 
     return [pod, corridor, sign]
 
 
+def sealed_door(name, angle, z, door, hub_wall, depth=0.6):
+    """A closed door just inside a corridor's hub end: two leaves in the corridor's own shape (build_corridor's
+    profile), meeting at a glowing seam, with a band of amber status light across them, and a collider."""
+    coll = bpy.data.collections.new(name)
+    bpy.context.scene.collection.children.link(coll)
+    a = math.radians(angle)
+    axis = Vector((math.cos(a), math.sin(a), 0))
+    side = Vector((-math.sin(a), math.cos(a), 0))
+    s0 = hub_wall.radius(a, z + door[1] / 2) + depth
+    w, h, c = door[0] / 2, door[1], min(0.9, door[0] / 5)
+    at = lambda s, y, zz: axis * s + side * y + Vector((0, 0, z + zz))
+    leaf_mat = panel_material('LabDoor', (0.12, 0.11, 0.2), 0.8, 0.35)
+    for sgn in (-1, 1):
+        # Each leaf: the half of the profile on its side, 1 cm short of the middle, 12 cm thick.
+        half = [(0.01, 0.0), (w, 0.0), (w, h - c), (w - c, h), (0.01, h)]
+        prof = [(sgn * y, zz) for y, zz in half]
+        bm = bmesh.new()
+        front = [bm.verts.new(at(s0, y, zz)) for y, zz in prof]
+        back = [bm.verts.new(at(s0 + 0.12, y, zz)) for y, zz in prof]
+        bm.faces.new(front)
+        bm.faces.new(back[::-1])
+        for i in range(len(prof)):
+            j = (i + 1) % len(prof)
+            bm.faces.new((front[i], front[j], back[j], back[i]))
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+        coll.objects.link(mesh_object(f'{name}Leaf{sgn}', bm, leaf_mat))
+    glow = glow_material('LabSeam', (0.7, 0.45, 1), 3)
+    amber = glow_material('LabStatus', (1, 0.6, 0.15), 2.5)
+    coll.objects.link(box(f'PureEM_{name}Seam', tuple(at(s0 - 0.02, -0.02, 0.05)), tuple(at(s0 - 0.005, 0.02, h - 0.05)), glow))
+    lo, hi = at(s0 - 0.02, -w + 0.1, 1.55), at(s0 - 0.005, w - 0.1, 1.65)
+    coll.objects.link(box(f'PureEM_{name}Band', tuple(Vector((min(lo.x, hi.x), min(lo.y, hi.y), lo.z))), tuple(Vector((max(lo.x, hi.x), max(lo.y, hi.y), hi.z))), amber))
+    lo, hi = at(s0, -w, 0), at(s0 + 0.12, w, h)
+    coll.objects.link(box(f'{name}_collider', tuple(Vector((min(lo.x, hi.x), min(lo.y, hi.y), lo.z))), tuple(Vector((max(lo.x, hi.x), max(lo.y, hi.y), hi.z)))))
+    name_colliders(coll)
+    print('SEALED', name, 'door face at', round(s0, 3), 'm out')
+    return coll
+
+
 def main():
     shrink_textures()
     parts = []
@@ -780,6 +824,7 @@ def main():
         cut_door(hub, a, DOOR_W, DOOR_H, r_min=11 * HUB_SCALE, floor=UPPER_Z)
     cut_door(hub, ARCADE_ANGLE, *ARCADE_DOOR, r_min=11 * HUB_SCALE, floor=ARCADE_Z)
     cut_door(hub, TERRA_ANGLE, *TERRA_DOOR, r_min=11 * HUB_SCALE, floor=TERRA_Z)
+    cut_door(hub, LAB_ANGLE, *LAB_DOOR, r_min=11 * HUB_SCALE, floor=LAB_Z)
     parts.append(hub)
 
     for a in HUB_DOORS:
@@ -813,6 +858,8 @@ def main():
 
     parts += build_small_pod(hub_tree, hub_wall, ARCADE_ANGLE, ARCADE_SCALE, ARCADE_DIST, ARCADE_Z, ARCADE_DOOR, 'ARCADE', (1, 0.2, 0.75))
     parts += build_small_pod(hub_tree, hub_wall, TERRA_ANGLE, TERRA_SCALE, TERRA_DIST, TERRA_Z, TERRA_DOOR, 'TERRA', (0.4, 1, 0.5))
+    parts += build_small_pod(hub_tree, hub_wall, LAB_ANGLE, LAB_SCALE, LAB_DIST, LAB_Z, LAB_DOOR, 'LAB', (0.7, 0.45, 1))
+    parts.append(sealed_door('LabDoor', LAB_ANGLE, LAB_Z, LAB_DOOR, hub_wall))
     parts.append(build_hub_levels(hub, hub_wall))
     for a in HUB_DOORS:
         parts.append(dock_sign(f'DockSign{a}', a, hub_wall))

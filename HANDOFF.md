@@ -22,6 +22,9 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     observation pod sideways), dressed as a park (`src/terra/terra.ts`; `tools/build_terra.py` builds terra.glb with
     generated sky/hills/grass textures; `tools/make_terra_ambience.py` the birdsong loop): sittable benches,
     butterflies, a warm light, ambience fading with distance.
+    Breeding lab: a 0.6-scale pod off the Docks at Blender 169.5 (between the hub benches, under the -X observation
+    pod), built but sealed by a door at the hub end (`sealed_door`), with a LAB sign and `src/lab/lab.ts`'s lettering.
+    To open it later: drop the `sealed_door` part and its lettering.
     signs like the lower four. Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
     (`src/observation/galaxyHologram.ts`; `galaxyMap.ts`, `heatMap.ts`, `prefs.ts` copied unchanged). The
     lifts (`src/lift/`: a physical platform in a vertical shaft on each end of the X axis, run as elevators. A HUD
