@@ -38,7 +38,7 @@ POND_R = 2.3
 LAWN_Z = 0.06   # the lawn's height over the deck: well clear of it, or the deck flickers through at a distance
 SEG = 96
 rng = random.Random(11)
-BENCHES = [(4.8, 90), (4.8, 270)]   # (r, degrees) round the pod, facing out at the windows; src/terra/terra.ts seats players on them
+BENCHES = [(4.3, 90), (4.3, 270)]   # (r, degrees) round the pod, facing the pond; src/terra/terra.ts seats players on them
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene.collection
@@ -326,27 +326,83 @@ for k, mat in enumerate(VIEWS):
             me.uv_layers.active.data[li].uv = (max(0.0, min(1.0, u)), me.uv_layers.active.data[li].uv[1])
 revolve('SkyCap', cap, SKY_CAP, lambda z: (z - VIEW_TOP) / (cap[-1][0] - VIEW_TOP))
 
-# The doorway's portal: where the views open for the corridor, a dark panel stands just in front of them with the
-# doorway through it, edged with a soft glow, and deep jambs, a header and a sill run back to the corridor, so no
-# pod wall shows round it. (The doorway is toward -X; the corridor is TERRA_DOOR, 4 m wide and 3.6 m tall.)
+# The doorway's portal: where the views open for the corridor, a dark panel stands just in front of them, and a
+# sleeve runs from it back into the corridor. The sleeve's opening is the corridor's own shape (build_station_models.py
+# build_corridor: TERRA_DOOR 4 x 3.6 m, 0.8 m chamfers), inset a little, and its walls are thick enough to enclose the
+# corridor's end, the pod's wall and the corridor's trim there, so nothing pokes through. Doorway toward -X.
 PORTAL_FACE = -8.3             # the panel's front: in front of the views (they're 8.4 m out 3.2 m to the side)
-PORTAL_BACK = -9.8             # the jambs reach back past the pod's wall to the corridor's end
-OPEN_W, OPEN_H = 2.0, 3.6      # half-width and height of the opening (the corridor's)
+PORTAL_BACK = -10.8            # the sleeve's far end: past the pod's wall (~9.5 m) and the corridor's trim on it
 PANEL_W, PANEL_H = 3.2, 4.5    # half-width and height of the panel (over the views' opening, 2.9 x 4 m)
+INNER = [(-1.9, 0.0), (-1.9, 2.75), (-1.15, 3.5), (1.15, 3.5), (1.9, 2.75), (1.9, 0.0)]   # the opening (y, z)
+OUTER = [(-2.7, 0.0), (-2.7, 4.35), (2.7, 4.35), (2.7, 0.0)]                             # the sleeve's outside
+
+
+def resample_open(points, n):
+    """n points evenly spaced along an open polyline."""
+    lengths = [math.dist(a, b) for a, b in zip(points, points[1:])]
+    total = sum(lengths)
+    out = []
+    for i in range(n):
+        d = total * i / (n - 1)
+        for (a, b), l in zip(zip(points, points[1:]), lengths):
+            if d <= l or (a, b) == (points[-2], points[-1]):
+                t = min(1.0, d / l) if l else 0
+                out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+                break
+            d -= l
+    return out
+
+
+def ring_faces(bm, loop_a, loop_b, facing):
+    """Quads between two matching loops, each turned to face along facing(centre) (the explorer draws front faces
+    only, and an open shape like this is where automatic normals guess wrong)."""
+    for i in range(len(loop_a) - 1):
+        f = bm.faces.new((loop_a[i], loop_a[i + 1], loop_b[i + 1], loop_b[i]))
+        f.normal_update()
+        if f.normal.dot(facing(f.calc_center_median())) < 0:
+            f.normal_flip()
+
+
+def toward_axis(c):   # into the opening, from its walls
+    return Vector((0, -c.y, 1.75 - c.z))
+
+
+def away_from_axis(c):
+    return -toward_axis(c)
+
+
+N = 48
+inner, outer = resample_open(INNER, N), resample_open(OUTER, N)
 bm = bmesh.new()
-box(bm, (PORTAL_FACE - 0.1, -PANEL_W, 0), (PORTAL_FACE, -OPEN_W, PANEL_H))        # left of the opening
-box(bm, (PORTAL_FACE - 0.1, OPEN_W, 0), (PORTAL_FACE, PANEL_W, PANEL_H))          # right
-box(bm, (PORTAL_FACE - 0.1, -OPEN_W, OPEN_H), (PORTAL_FACE, OPEN_W, PANEL_H))     # over it
-box(bm, (PORTAL_BACK, -OPEN_W - 0.1, 0), (PORTAL_FACE, -OPEN_W, OPEN_H))          # jambs
-box(bm, (PORTAL_BACK, OPEN_W, 0), (PORTAL_FACE, OPEN_W + 0.1, OPEN_H))
-box(bm, (PORTAL_BACK, -OPEN_W - 0.1, OPEN_H), (PORTAL_FACE, OPEN_W + 0.1, OPEN_H + 0.1))   # header
-box(bm, (PORTAL_BACK, -OPEN_W, 0), (PORTAL_FACE, OPEN_W, LAWN_Z + 0.01))            # sill
+# The sleeve: inner surface (facing the opening's axis), outer, and the far end's cap. Its near end is behind the panel.
+near = PORTAL_FACE - 0.05
+in_near = [bm.verts.new((near, y, z)) for y, z in inner]
+in_far = [bm.verts.new((PORTAL_BACK, y, z)) for y, z in inner]
+out_near = [bm.verts.new((near, y, z)) for y, z in outer]
+out_far = [bm.verts.new((PORTAL_BACK, y, z)) for y, z in outer]
+ring_faces(bm, in_near, in_far, toward_axis)
+ring_faces(bm, out_near, out_far, away_from_axis)
+ring_faces(bm, in_far, out_far, lambda c: Vector((-1, 0, 0)))   # seen from the corridor
+# The panel: its front between the opening and its own edge, and its sides.
+front_in = [bm.verts.new((PORTAL_FACE, y, z)) for y, z in inner]
+panel = resample_open([(-PANEL_W, 0.0), (-PANEL_W, PANEL_H), (PANEL_W, PANEL_H), (PANEL_W, 0.0)], N)
+front_out = [bm.verts.new((PORTAL_FACE, y, z)) for y, z in panel]
+ring_faces(bm, front_out, front_in, lambda c: Vector((1, 0, 0)))   # facing the room
+ring_faces(bm, front_in, in_near, toward_axis)   # the opening's lip, from the panel back to the sleeve
+back_out = [bm.verts.new((PORTAL_FACE - 0.12, y, z)) for y, z in panel]
+ring_faces(bm, back_out, front_out, away_from_axis)   # the panel's edge
 link('Portal', bm, PORTAL)
+# Sill: the floor through the sleeve, level with the lawn.
 bm = bmesh.new()
-g = 0.05
-box(bm, (PORTAL_FACE, -OPEN_W - g, 0), (PORTAL_FACE + 0.02, -OPEN_W, OPEN_H + g))
-box(bm, (PORTAL_FACE, OPEN_W, 0), (PORTAL_FACE + 0.02, OPEN_W + g, OPEN_H + g))
-box(bm, (PORTAL_FACE, -OPEN_W - g, OPEN_H), (PORTAL_FACE + 0.02, OPEN_W + g, OPEN_H + g))
+box(bm, (PORTAL_BACK, -1.9, 0), (PORTAL_FACE, 1.9, LAWN_Z + 0.01))
+link('PortalSill', bm, PORTAL)
+# A soft glow round the opening, on the panel's face.
+bm = bmesh.new()
+lip = resample_open(INNER, N)
+grown = resample_open([(y * 1.03 + (0.05 if y > 0 else -0.05), z + (0.05 if z > 3 else 0)) for y, z in INNER], N)
+a_ = [bm.verts.new((PORTAL_FACE + 0.015, y, z)) for y, z in lip]
+b_ = [bm.verts.new((PORTAL_FACE + 0.015, y, z)) for y, z in grown]
+ring_faces(bm, b_, a_, lambda c: Vector((1, 0, 0)))
 link('PortalGlow', bm, PORTAL_GLOW)
 
 # The lawn, LAWN_Z over the deck, and a pond sunk into it (drawn on top: the lawn has a hole for it).
@@ -435,11 +491,10 @@ for n in range(260):
         cone(bm, (x + rng.uniform(-0.08, 0.08), y + rng.uniform(-0.08, 0.08), LAWN_Z - 0.02), 0.05, 0.0, rng.uniform(0.18, 0.32), seg=3)
 link('GrassTufts', bm, TUFT)
 
-# Park benches either side of the pond, facing out at the windows' views: wooden slats on iron legs. Seat 0.45 m up,
-# 1.6 m wide.
+# Park benches either side of the pond, facing it: wooden slats on iron legs. Seat 0.45 m up, 1.6 m wide.
 wood, iron, benchcol = bmesh.new(), bmesh.new(), bmesh.new()
 for r, deg in BENCHES:
-    # Build facing +X, then turn to face out from the centre.
+    # Build facing +X, then turn to face the centre.
     parts_w, parts_i = bmesh.new(), bmesh.new()
     for k in range(3):
         box(parts_w, (-0.25 + k * 0.17, -0.8, 0.43), (-0.1 + k * 0.17, 0.8, 0.47))
@@ -449,7 +504,7 @@ for r, deg in BENCHES:
         box(parts_i, (-0.3, y - 0.03, 0), (-0.26, y + 0.03, 0.95))
         box(parts_i, (0.05, y - 0.03, 0), (0.09, y + 0.03, 0.43))
         box(parts_i, (-0.3, y - 0.03, 0.4), (0.09, y + 0.03, 0.43))
-    turn = Matrix.Translation((*polar(r, deg), 0)) @ Matrix.Rotation(math.radians(deg), 4, 'Z')
+    turn = Matrix.Translation((*polar(r, deg), 0)) @ Matrix.Rotation(math.radians(deg + 180), 4, 'Z')
     for part, into in ((parts_w, wood), (parts_i, iron)):
         part.transform(turn)
         me = bpy.data.meshes.new('tmp')

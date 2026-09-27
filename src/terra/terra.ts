@@ -14,7 +14,7 @@ import { CENTER, FLOOR_Y } from '../station'
 const TERRA_ANGLE = 201 + 180 - 360 // build_station_models.py TERRA_ANGLE, in scene degrees (from +X toward +Z)
 const TERRA_DIST = 46.5
 const TERRA_Z = 9 // the Recreation Deck
-const BENCHES = [{ r: 4.8, deg: 90 }, { r: 4.8, deg: 270 }] // build_terra.py BENCHES: facing out at the windows
+const BENCHES = [{ r: 4.3, deg: 90 }, { r: 4.3, deg: 270 }] // build_terra.py BENCHES: facing the pond
 // Bench seats (build_terra.py: slats 0.43-0.47 m up over the lawn, from 0.24 m in front of the bench's line to
 // 0.25 m behind), with seating.ts's relation to the seat as on the couches: the player about 0.45 m under the seat
 // top, standing on the lawn just in front of it, the orb 0.17 m over the seat.
@@ -50,10 +50,10 @@ export function buildTerra(): void {
     invisibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS
   })
 
-  // Benches: two seats each, looking out at a window's view.
+  // Benches: two seats each, looking across the pond.
   for (const b of BENCHES) {
     const a = ((TERRA_ANGLE + b.deg) * Math.PI) / 180
-    const inward = Vector3.create(Math.cos(a), 0, Math.sin(a)) // the way the bench faces: out, toward the window
+    const inward = Vector3.create(-Math.cos(a), 0, -Math.sin(a)) // the way the bench faces: in, toward the pond
     const across = Vector3.create(-inward.z, 0, inward.x)
     const base = at(b.r, b.deg)
     for (const l of SEAT_LATERAL) {

@@ -15,7 +15,7 @@ const LOUNGE = 25 // build_station_models.py LOUNGE
 const RIG_HEIGHT = 9.5 // above the lounge floor (the dome is ~12 m up over the dance floor)
 const RIG_RADIUS = 9 // over the dance floor ring (7..13 m out)
 const SPOTS = 4
-const BEAM_LENGTH = 11
+const BEAM_LENGTH = 11 // at most; each frame a beam is cut to end at the lounge floor, or it pokes through into the deck below
 const PALETTE = [
   Color3.create(1, 0.1, 0.7),
   Color3.create(0.5, 0.1, 1),
@@ -81,6 +81,12 @@ export function buildClubLights(): void {
       const yaw = ((t * 25 + s.phase * 57) % 360)
       const pitch = 62 + Math.sin(t * 0.9 + s.phase) * 14
       Transform.getMutable(s.light).rotation = Quaternion.fromEulerDegrees(pitch, yaw, 0)
+      // The beam reaches down to the floor and no further (keeping its spread: the cone scales as a whole).
+      const length = Math.min(BEAM_LENGTH, (RIG_HEIGHT - 0.05) / Math.sin((pitch * Math.PI) / 180))
+      const k = length / BEAM_LENGTH
+      const beam = Transform.getMutable(s.beam)
+      beam.position = Vector3.create(0, 0, length / 2)
+      beam.scale = Vector3.create(k, length, k)
     }
     // Brightness follows the beat; beams re-coloured only when the level moves noticeably (material writes).
     const q = Math.round(level * 10) / 10
