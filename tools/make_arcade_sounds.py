@@ -48,4 +48,16 @@ write('start', render(0.6, lambda t, p: square(fanfare[min(3, int(p * 4))], t) *
 write('wave', render(0.45, lambda t, p: square(fanfare[min(3, int(p * 4))] * 1.5, t, 0.25) * (1 - 0.3 * p)), 0.35)
 # Game over: a slow falling line.
 write('over', render(1.4, lambda t, p: square([392, 349, 311, 262][min(3, int(p * 4))], t) * (1 - p) ** 0.7), 0.4)
+# ASTRO GARDEN:
+# Munch: a quick two-step chirp up.
+write('munch', render(0.1, lambda t, p: square(660 if p < 0.5 else 990, t, 0.3) * (1 - p)), 0.35)
+# Golden seed: a sparkling run up the scale, quick.
+sparkle = [784, 988, 1175, 1319, 1568, 1976]
+write('golden', render(0.36, lambda t, p: square(sparkle[min(5, int(p * 6))], t, 0.2) * (1 - 0.4 * p)), 0.3)
+# Wilt: the golden seed going, a soft falling blip.
+write('wilt', render(0.25, lambda t, p: square(700 - 400 * p, t, 0.5) * (1 - p)), 0.2)
+# Level: a little three-note fanfare.
+write('level', render(0.3, lambda t, p: square([523, 659, 988][min(2, int(p * 3))], t, 0.25) * (1 - 0.3 * p)), 0.3)
+# Crash: a noise burst with a thud under it.
+write('crash', render(0.6, lambda t, p: (0.6 * noise[int(t * RATE / (1 + 2 * p)) % RATE] + 0.4 * square(90 - 50 * p, t)) * (1 - p) ** 1.3), 0.55)
 print('wrote', sorted(os.listdir(OUT)))

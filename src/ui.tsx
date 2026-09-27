@@ -10,6 +10,7 @@ import { ComposePanel } from './board/compose'
 import { liftPanel } from './lift/lifts'
 import { standingAtAirlock } from './airlock'
 import { InvadersScreen } from './arcade/invaders/hud'
+import { GardenScreen } from './arcade/garden/hud'
 import { currentTrack, isMuted, toggleMuted, nextTrack } from './soundtrack'
 import { radioDisplay, radioGenre, inTheClub } from './lounge/radioNow'
 import { isRadioMuted, toggleRadioMuted } from './lounge/music'
@@ -223,6 +224,7 @@ export function setupUi(): void {
       <ShipDialogs />
       <ComposePanel />
       <InvadersScreen />
+      <GardenScreen />
       <StationMusicBar />
     </UiEntity>
   ))
