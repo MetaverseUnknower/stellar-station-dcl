@@ -1,10 +1,17 @@
-// The hub's upper levels: lift pads between the hub floor, two ring balconies and the lounge, and the lounge's
-// dance floor. The floors themselves are in station.glb (tools/build_station_models.py: BALCONIES, LOUNGE, LIFT_R).
-// Lifts run on both ends of the X axis and the dance floor is a ring round the centre, so, like the rest of the
-// layout, none of this depends on which way the explorer converts the model's axes.
-import { engine, Entity, Transform, MeshRenderer, Material, TextShape, Billboard, BillboardMode, Tween, EasingFunction } from '@dcl/sdk/ecs'
+// The hub's upper levels: two lift shafts between the hub floor, the two ring balconies and the lounge, and the
+// lounge's dance floor. The floors, the balconies' landings at the shafts and the lounge's lift wells are in
+// station.glb (tools/build_station_models.py: BALCONIES, LOUNGE, LIFT_R, LIFT_PLATFORM_R).
+//
+// Each lift is a solid platform the rider stands on, moved with a Tween; the explorer carries a standing avatar with
+// its platform, so nothing moves the player directly. Stand on it and press E (up) or F (down); from any level,
+// click the lift's call button. While the platform is elsewhere, a gate closes each landing so nobody steps into an
+// empty shaft. Lifts run on both ends of the X axis, so, like the rest of the layout, none of this depends on which
+// way the explorer converts the model's axes.
+import {
+  engine, Entity, Transform, MeshRenderer, MeshCollider, Material, Tween, EasingFunction,
+  PointerEventType, InputAction, inputSystem, pointerEventsSystem, ColliderLayer
+} from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color4, Color3 } from '@dcl/sdk/math'
-import { movePlayerTo } from '~system/RestrictedActions'
 import { CENTER, FLOOR_Y } from './station'
 
 const LEVELS = [
@@ -13,137 +20,157 @@ const LEVELS = [
   { name: 'BALCONY 2', height: 17 },
   { name: 'LOUNGE', height: 25 }
 ]
-const LIFT_R = 17 // the lift column, in the open atrium (balconies start at 20 m) and through the lounge's wells
-const HOVER = 0.3 // lift legs run this far above a floor
-const SPEED = 6 // m/s
-const PAD_RADIUS = 1
-const PAD_SPREAD = 2.3 // up and down pads either side of the arrival point
-const UP = Color3.create(0, 0.9, 1)
-const DOWN = Color3.create(1, 0.2, 0.8)
+const LIFT_R = 17 // the shaft's centre: in the open atrium (balconies start at 20 m) and through the lounge's wells
+const PLATFORM_RADIUS = 1.5 // build_station_models.py LIFT_PLATFORM_R
+const PLATFORM_THICKNESS = 0.12
+const SPEED = 2.5 // m/s
+const DWELL = 0.4 // seconds after arriving before the gate opens
+const GLOW = Color3.create(0, 0.9, 1)
+const GATE = Color3.create(1, 0.25, 0.8)
 
-/** Where a lift drops you on a level, and where that level's pads sit (off the lift column, clear of rails). */
-function arrivalR(level: number): number {
-  return level === 0 ? LIFT_R : level === LEVELS.length - 1 ? 21 : 22
+type Lift = {
+  side: number
+  platform: Entity
+  gates: (Entity | null)[] // per level; none on the hub floor
+  level: number
+  moving: boolean
 }
 
-function point(side: number, r: number, level: number, lateral = 0, above = 0): Vector3 {
-  return Vector3.create(CENTER.x + side * r, FLOOR_Y + LEVELS[level].height + above, CENTER.z + lateral)
+const lifts: Lift[] = []
+
+/** The platform's centre when its top is flush with a level's floor. */
+function platformAt(side: number, level: number): Vector3 {
+  return Vector3.create(CENTER.x + side * LIFT_R, FLOOR_Y + LEVELS[level].height + 0.01 - PLATFORM_THICKNESS / 2, CENTER.z)
 }
 
-type Pad = { entity: Entity; center: Vector3; path: Vector3[]; color: Color3; inside: boolean; charge: number }
+/** The lift the player is standing on, if any. */
+export function liftUnderPlayer(): { level: string; canUp: boolean; canDown: boolean; moving: boolean } | null {
+  const player = Transform.getOrNull(engine.PlayerEntity)
+  if (!player) return null
+  for (const lift of lifts) {
+    const p = Transform.get(lift.platform).position
+    const top = p.y + PLATFORM_THICKNESS / 2
+    const onIt = Math.hypot(player.position.x - p.x, player.position.z - p.z) < PLATFORM_RADIUS && Math.abs(player.position.y - top) < 1.2
+    if (onIt) return { level: LEVELS[lift.level].name, canUp: lift.level < LEVELS.length - 1, canDown: lift.level > 0, moving: lift.moving }
+  }
+  return null
+}
 
 export function buildHubLevels(): void {
-  const pads: Pad[] = []
-  for (const side of [1, -1]) {
-    for (let level = 0; level < LEVELS.length; level++) {
-      // The hub floor's up pad sits inside the column; the other levels' pads flank the arrival point.
-      if (level < LEVELS.length - 1) {
-        const at = level === 0 ? point(side, 13, 0) : point(side, arrivalR(level), level, PAD_SPREAD)
-        pads.push(makePad(at, UP, `UP  ·  ${LEVELS[level + 1].name}`, route(side, level, level + 1, at)))
-      }
-      if (level > 0) {
-        const at = point(side, arrivalR(level), level, -PAD_SPREAD)
-        pads.push(makePad(at, DOWN, `DOWN  ·  ${LEVELS[level - 1].name}`, route(side, level, level - 1, at)))
-      }
-    }
-  }
+  for (const side of [1, -1]) lifts.push(makeLift(side))
   buildDanceFloor()
 
-  let riding = false
-  engine.addSystem((dt) => {
+  // E / F while standing on a platform rides it one level up / down.
+  engine.addSystem(() => {
+    const up = inputSystem.isTriggered(InputAction.IA_PRIMARY, PointerEventType.PET_DOWN)
+    const down = inputSystem.isTriggered(InputAction.IA_SECONDARY, PointerEventType.PET_DOWN)
+    if (!up && !down) return
     const player = Transform.getOrNull(engine.PlayerEntity)
     if (!player) return
-    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300)
-    for (const pad of pads) {
-      const dx = player.position.x - pad.center.x
-      const dz = player.position.z - pad.center.z
-      const dy = player.position.y - pad.center.y
-      const inside = Math.hypot(dx, dz) < PAD_RADIUS && dy > -0.5 && dy < 2
-      // Only stepping onto a pad starts it, so arriving next to one (or on one) never sends you straight back.
-      if (inside && !pad.inside && !riding) pad.charge = 0.6
-      if (!inside) pad.charge = 0
-      pad.inside = inside
-      if (pad.charge > 0) {
-        pad.charge -= dt
-        if (pad.charge <= 0 && !riding) {
-          riding = true
-          ride(pad.path, () => (riding = false))
-        }
-      }
-      const glow = pad.charge > 0 ? 3 : 0.8 + pulse * 0.6
-      Material.setPbrMaterial(pad.entity, { albedoColor: Color4.fromColor3(pad.color, 1), emissiveColor: pad.color, emissiveIntensity: glow })
+    for (const lift of lifts) {
+      const p = Transform.get(lift.platform).position
+      const onIt = Math.hypot(player.position.x - p.x, player.position.z - p.z) < PLATFORM_RADIUS &&
+        Math.abs(player.position.y - (p.y + PLATFORM_THICKNESS / 2)) < 1.2
+      if (onIt) sendTo(lift, lift.level + (up ? 1 : -1))
     }
   })
 }
 
-/** Out over the atrium (or into the lounge's well), along the lift column, then onto the destination floor. */
-function route(side: number, from: number, to: number, start: Vector3): Vector3[] {
-  return [
-    Vector3.create(start.x, start.y + HOVER, start.z),
-    point(side, LIFT_R, from, 0, HOVER),
-    point(side, LIFT_R, to, 0, HOVER),
-    point(side, arrivalR(to), to, 0, HOVER)
-  ]
-}
-
-// The lift's platform: a glowing disc that carries the rider, moving with each leg of the ride under their feet
-// (movePlayerTo places the feet), and parked out of sight between rides. It's local to each player's scene, so other
-// players see the rider glide without it.
-const PLATFORM_RADIUS = 1.2
-const PLATFORM_THICKNESS = 0.08
-// Under the hub (its hull bottoms out near y 30), out of sight. A function, not a constant: this module is loaded
-// while station.ts (which imports it) is still starting, before CENTER exists.
-const parked = () => Vector3.create(CENTER.x, 20, CENTER.z)
-let platform: Entity | null = null
-
-function platformEntity(): Entity {
-  if (platform) return platform
-  platform = engine.addEntity()
-  Transform.create(platform, { position: parked(), scale: Vector3.create(PLATFORM_RADIUS * 2, PLATFORM_THICKNESS, PLATFORM_RADIUS * 2) })
+function makeLift(side: number): Lift {
+  const platform = engine.addEntity()
+  Transform.create(platform, {
+    position: platformAt(side, 0),
+    scale: Vector3.create(PLATFORM_RADIUS * 2, PLATFORM_THICKNESS, PLATFORM_RADIUS * 2)
+  })
   MeshRenderer.setCylinder(platform)
-  Material.setPbrMaterial(platform, { albedoColor: Color4.create(0, 0.6, 0.8, 1), emissiveColor: UP, emissiveIntensity: 1.6, metallic: 0.6, roughness: 0.3 })
-  return platform
-}
+  MeshCollider.setCylinder(platform)
+  Material.setPbrMaterial(platform, { albedoColor: Color4.create(0, 0.5, 0.7, 1), emissiveColor: GLOW, emissiveIntensity: 1.4, metallic: 0.6, roughness: 0.3 })
 
-const underFeet = (feet: Vector3) => Vector3.create(feet.x, feet.y - PLATFORM_THICKNESS / 2 - 0.02, feet.z)
-
-function ride(path: Vector3[], done: () => void): void {
-  const disc = platformEntity()
-  let leg = 0
-  let wait = 0
-  const system = (dt: number) => {
-    wait -= dt
-    if (wait > 0) return
-    if (leg >= path.length) {
-      engine.removeSystem(system)
-      // Let the rider step off, then park the platform.
-      Tween.deleteFrom(disc)
-      Transform.getMutable(disc).position = parked()
-      done()
-      return
-    }
-    const from = leg === 0 ? Transform.get(engine.PlayerEntity).position : path[leg - 1]
-    const duration = Math.max(0.3, Vector3.distance(from, path[leg]) / SPEED)
-    void movePlayerTo({ newRelativePosition: path[leg], duration })
-    Tween.setMove(disc, underFeet(from), underFeet(path[leg]), duration * 1000, EasingFunction.EF_LINEAR)
-    wait = duration
-    leg++
+  const lift: Lift = { side, platform, gates: [], level: 0, moving: false }
+  for (let level = 0; level < LEVELS.length; level++) {
+    lift.gates.push(level === 0 ? null : makeGate(side, level))
+    makeCallButton(lift, level)
   }
-  engine.addSystem(system)
+  closeGates(lift)
+  return lift
 }
 
-function makePad(center: Vector3, color: Color3, label: string, path: Vector3[]): Pad {
-  const entity = engine.addEntity()
-  Transform.create(entity, {
-    position: Vector3.create(center.x, center.y + 0.04, center.z),
-    scale: Vector3.create(PAD_RADIUS * 2, 0.06, PAD_RADIUS * 2)
+/** Where a level's opening onto the shaft is: the balcony landing's end, or the lounge well rail's gap. */
+function openingX(level: number): { x: number; width: number } {
+  if (level === LEVELS.length - 1) return { x: LIFT_R + 2.7 * Math.cos((40 * Math.PI) / 180), width: 2 * 2.7 * Math.sin((40 * Math.PI) / 180) + 0.2 }
+  return { x: LIFT_R + PLATFORM_RADIUS + 0.1, width: 3.0 }
+}
+
+/** An invisible wall across a level's opening with a glowing bar along it; solid while the lift is elsewhere. */
+function makeGate(side: number, level: number): Entity {
+  const { x, width } = openingX(level)
+  const gate = engine.addEntity()
+  Transform.create(gate, {
+    position: Vector3.create(CENTER.x + side * x, FLOOR_Y + LEVELS[level].height + 0.65, CENTER.z),
+    scale: Vector3.create(0.1, 1.3, width)
   })
-  MeshRenderer.setCylinder(entity)
-  const text = engine.addEntity()
-  Transform.create(text, { position: Vector3.create(center.x, center.y + 2.4, center.z) })
-  TextShape.create(text, { text: label, fontSize: 2.5, textColor: Color4.fromColor3(color, 1), outlineWidth: 0.1, outlineColor: Color3.Black() })
-  Billboard.create(text, { billboardMode: BillboardMode.BM_Y })
-  return { entity, center, path, color, inside: false, charge: 0 }
+  const bar = engine.addEntity()
+  Transform.create(bar, { parent: gate, position: Vector3.create(0, 0.1, 0), scale: Vector3.create(0.6, 0.05, 1) })
+  MeshRenderer.setBox(bar)
+  Material.setPbrMaterial(bar, { albedoColor: Color4.fromColor3(GATE, 1), emissiveColor: GATE, emissiveIntensity: 2 })
+  return gate
+}
+
+function setGate(gate: Entity | null, closed: boolean): void {
+  if (!gate) return
+  if (closed) {
+    MeshCollider.setBox(gate, ColliderLayer.CL_PHYSICS)
+    Transform.getMutable(gate).scale.y = 1.3
+  } else {
+    MeshCollider.deleteFrom(gate)
+    Transform.getMutable(gate).scale.y = 0.001 // hides the bar
+  }
+}
+
+function closeGates(lift: Lift): void {
+  lift.gates.forEach((g, level) => setGate(g, lift.moving || level !== lift.level))
+}
+
+/** A small glowing call button on a post beside each level's opening. */
+function makeCallButton(lift: Lift, level: number): void {
+  const { x, width } = openingX(level)
+  const post = engine.addEntity()
+  const r = level === 0 ? LIFT_R + PLATFORM_RADIUS + 0.9 : x + 0.35
+  Transform.create(post, {
+    // Beside the opening: on the hub floor just clear of the shaft; up top, just inside the landing's (or well's) rail.
+    position: Vector3.create(CENTER.x + lift.side * r, FLOOR_Y + LEVELS[level].height + 1.1, CENTER.z + (level === 0 ? width / 2 + 0.25 : width / 2 - 0.25)),
+    scale: Vector3.create(0.25, 0.25, 0.08),
+    rotation: Quaternion.fromEulerDegrees(0, 90, 0)
+  })
+  MeshRenderer.setBox(post)
+  MeshCollider.setBox(post, ColliderLayer.CL_POINTER)
+  Material.setPbrMaterial(post, { albedoColor: Color4.fromColor3(GLOW, 1), emissiveColor: GLOW, emissiveIntensity: 2.5 })
+  pointerEventsSystem.onPointerDown(
+    { entity: post, opts: { button: InputAction.IA_POINTER, hoverText: `Call lift to ${LEVELS[level].name.toLowerCase()}`, maxDistance: 6 } },
+    () => sendTo(lift, level)
+  )
+}
+
+function sendTo(lift: Lift, target: number): void {
+  if (lift.moving || target < 0 || target >= LEVELS.length || target === lift.level) return
+  const from = lift.level
+  lift.moving = true
+  closeGates(lift)
+  const distance = Math.abs(LEVELS[target].height - LEVELS[from].height)
+  const seconds = distance / SPEED
+  Tween.setMove(lift.platform, platformAt(lift.side, from), platformAt(lift.side, target), seconds * 1000, EasingFunction.EF_EASESINE)
+  let t = 0
+  const wait = (dt: number) => {
+    t += dt
+    if (t < seconds + DWELL) return
+    engine.removeSystem(wait)
+    Tween.deleteFrom(lift.platform)
+    Transform.getMutable(lift.platform).position = platformAt(lift.side, target)
+    lift.level = target
+    lift.moving = false
+    closeGates(lift)
+  }
+  engine.addSystem(wait)
 }
 
 // Dance floor: a ring of tiles round the lounge's central opening, cycling colours in waves.

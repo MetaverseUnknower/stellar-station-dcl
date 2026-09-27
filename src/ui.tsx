@@ -7,6 +7,7 @@ import { getGateState, returnToShip, isAdmin, getStations, pickStation } from '.
 import { getCrew } from './audience'
 import { ShipDialogs } from './shipDialogs'
 import { ComposePanel } from './board/compose'
+import { liftUnderPlayer } from './hubLevels'
 
 // stations/shipOverview.ts (copied from the ship) opens these from '../ui', as on the ship.
 export { openRefineryDialog, openPurchaseDialog, openRecallDialog } from './shipDialogs'
@@ -112,12 +113,28 @@ function AdminPanel() {
   )
 }
 
+/** While standing on a lift: where it is and how to ride it. */
+function LiftHint() {
+  const lift = liftUnderPlayer()
+  if (!lift) return null
+  const keys = lift.moving ? 'MOVING…' : [lift.canUp ? 'E  ▲ UP' : '', lift.canDown ? 'F  ▼ DOWN' : ''].filter(Boolean).join('     ')
+  return (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { bottom: px(140) }, width: '100%', justifyContent: 'center' }}>
+      <UiEntity uiTransform={{ padding: { top: px(10), bottom: px(10), left: px(22), right: px(22) }, flexDirection: 'column', alignItems: 'center' }} uiBackground={{ color: PANEL }}>
+        <Label value={`LIFT  ·  ${lift.level}`} fontSize={px(18)} color={DIM} />
+        <Label value={keys} fontSize={px(24)} color={CYAN} />
+      </UiEntity>
+    </UiEntity>
+  )
+}
+
 export function setupUi(): void {
   ReactEcsRenderer.setUiRenderer(() => (
     <UiEntity uiTransform={{ width: '100%', height: '100%' }}>
       <StatusBanner />
       <CrewPanel />
       <AdminPanel />
+      <LiftHint />
       <ShipDialogs />
       <ComposePanel />
     </UiEntity>

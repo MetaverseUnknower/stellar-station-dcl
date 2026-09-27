@@ -37,7 +37,9 @@ BALCONY_INNER = 20.0
 OCULUS_R = 6.0
 LIFT_R = 17.0
 WELL_R = 1.8
-LIFT_GAP_DEG = 8
+LIFT_PLATFORM_R = 1.5   # src/hubLevels.ts PLATFORM_RADIUS: the lift platform's disc
+LANDING_HALF = 1.5      # landings are 3 m wide
+LIFT_GAP_DEG = math.degrees(math.atan(LANDING_HALF / (20.0 + 0.15)))   # the balcony rail's gap is the landing's width
 LOUNGE_BENCHES = (60, 90, 120, 240, 270, 300)
 
 DEMO = bpy.data.collections['Daisy Class Interior Demo']
@@ -470,6 +472,39 @@ def railing(coll, name, radius, z, center=(0, 0), gap=None):
     coll.objects.link(ring_band(f'{name}Rail_collider', radius, z, z + 1.3, None, center, gap, depth=0.2))
 
 
+def annulus(name, center, r0, r1, z0, z1, mat=None, n=48):
+    """A flat solid ring (for the collision under a lift well's collar), faces pointing out of the solid."""
+    bm = bmesh.new()
+    cx, cy = center
+    ring = lambda r, z: [bm.verts.new((cx + math.cos(2 * math.pi * i / n) * r, cy + math.sin(2 * math.pi * i / n) * r, z)) for i in range(n)]
+    ti, to, bi, bo = ring(r0, z1), ring(r1, z1), ring(r0, z0), ring(r1, z0)
+    for i in range(n):
+        j = (i + 1) % n
+        tm = 2 * math.pi * (i + 0.5) / n
+        radial = Vector((math.cos(tm), math.sin(tm), 0))
+        orient(bm.faces.new([ti[i], ti[j], to[j], to[i]]), Vector((0, 0, 1)))
+        orient(bm.faces.new([bi[i], bi[j], bo[j], bo[i]]), Vector((0, 0, -1)))
+        orient(bm.faces.new([ti[i], ti[j], bi[j], bi[i]]), -radial)
+        orient(bm.faces.new([to[i], to[j], bo[j], bo[i]]), radial)
+    return mesh_object(name, bm, mat)
+
+
+def landing(coll, name, side, z, deck):
+    """A landing from a balcony's inner edge out to the lift shaft on the X axis, railed along its sides. The edge
+    facing the shaft is closed by a gate in the scene (src/hubLevels.ts) while the lift is elsewhere."""
+    near, far = LIFT_R + LIFT_PLATFORM_R + 0.05, BALCONY_INNER + 0.3   # overlaps the slab's edge
+    x0, x1 = sorted((side * near, side * far))
+    w = LANDING_HALF
+    coll.objects.link(box(name, (x0, -w, z - SLAB), (x1, w, z), deck))
+    coll.objects.link(box(f'{name}_collider', (x0, -w, z - SLAB), (x1, w, z)))
+    coll.objects.link(box(f'PureEM_{name}Edge', (x0, -w, z - SLAB * 0.65), (x1, w, z - SLAB * 0.35), material('Blue EM')))
+    for s in (-1, 1):
+        y = s * w
+        coll.objects.link(box(f'{name}Glass{s}', (x0, y - 0.02, z), (x1, y + 0.02, z + 1.05), glass_material()))
+        coll.objects.link(box(f'PureEM_{name}Cap{s}', (x0, y - 0.04, z + 1.05), (x1, y + 0.04, z + 1.15), material('PinkEM')))
+        coll.objects.link(box(f'{name}Rail{s}_collider', (x0, y - 0.1, z), (x1, y + 0.1, z + 1.3)))
+
+
 def build_hub_levels(hub):
     coll = bpy.data.collections.new('levels')
     bpy.context.scene.collection.children.link(coll)
@@ -483,9 +518,11 @@ def build_hub_levels(hub):
         coll.objects.link(col)
         coll.objects.link(ring_band(f'PureEM_Balcony{i}Edge', BALCONY_INNER - 0.01, z - SLAB * 0.65, z - SLAB * 0.35, material('Blue EM')))
         railing(coll, f'Balcony{i}', BALCONY_INNER + 0.15, z, gap=near_lift)
+        for side in (1, -1):
+            landing(coll, f'Balcony{i}Landing{side}', side, z, deck)
 
     wells = [(LIFT_R, 0), (-LIFT_R, 0)]
-    vis, col = slab('Lounge', wall, LOUNGE, OCULUS_R, deck, wells=wells, radial=0.6, collider_n=96, collider_radial=0.8)
+    vis, col = slab('Lounge', wall, LOUNGE, OCULUS_R, deck, wells=wells, radial=0.6, collider_n=144, collider_radial=0.6)   # the collider's well holes must match the floor you see
     coll.objects.link(vis)
     coll.objects.link(col)
     coll.objects.link(ring_band('PureEM_OculusEdge', OCULUS_R - 0.01, LOUNGE - SLAB * 0.65, LOUNGE - SLAB * 0.35, material('Blue EM')))
@@ -494,6 +531,8 @@ def build_hub_levels(hub):
         # Lift well: a lined shaft through the slab, a collar over the cut edge, and a rail open on its outer side.
         coll.objects.link(ring_band(f'Well{side}Liner', WELL_R, LOUNGE - SLAB - 0.01, LOUNGE + 0.01, under, (wx, wy)))
         coll.objects.link(ring_band(f'PureEM_Well{side}Glow', WELL_R + 0.3, LOUNGE + 0.01, LOUNGE + 0.03, material('Blue EM'), (wx, wy), depth=0.6))
+        # Solid footing under the collar: the slab's hole is cut from whole cells, so its edge is ragged out to ~2.6 m.
+        coll.objects.link(annulus(f'Well{side}Collar_collider', (wx, wy), WELL_R, WELL_R + 1.0, LOUNGE - SLAB, LOUNGE + 0.03))
         outward = (lambda t, side=side: abs(((math.degrees(t) - (0 if side > 0 else 180) + 180) % 360) - 180) < 40)
         railing(coll, f'Well{side}', WELL_R + 0.9, LOUNGE, (wx, wy), gap=outward)
     name_colliders(coll)
