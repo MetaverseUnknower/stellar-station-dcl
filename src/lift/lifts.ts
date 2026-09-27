@@ -18,7 +18,7 @@ import { Vector3, Color4, Color3 } from '@dcl/sdk/math'
 import { syncEntity, isStateSyncronized } from '@dcl/sdk/network'
 import { CENTER, FLOOR_Y } from '../station'
 import { onGateChanged, getGateState, GateState } from '../gate'
-import { Calls, Dir, has, withCall, serve, next } from './controller'
+import { Calls, Dir, has, withCall, serve, next, stopOnTheWay } from './controller'
 import { stationName } from '../stationMarker'
 
 // Floors are numbered from 1, as the number keys that pick them (the explorer has no action on 0).
@@ -36,6 +36,7 @@ const SPEED = 2.5 // m/s
 const GATE_DELAY = 0.4 // seconds after arriving before the gate opens
 const DOOR_TIME = 3 // seconds a car waits at a stop before going on
 const JITTER = 0.4 // up to this long before a scene acts on a decision, so they rarely act at once
+const STOP_MARGIN = 1.2 // metres: a floor closer than this ahead of a moving car is too close to stop at
 const SETTLE = 2 // seconds to wait for synced state before writing (rebel-radio's SYNC_SETTLE_SECONDS)
 const NUMBER_KEYS = [InputAction.IA_ACTION_3, InputAction.IA_ACTION_4, InputAction.IA_ACTION_5, InputAction.IA_ACTION_6] // keys 1-4
 const GLOW = Color3.create(0, 0.9, 1)
@@ -67,6 +68,7 @@ type Lift = {
   arriveAt: number // scene time the current ride ends
   arrivedAt: number // scene time the car last stopped
   seenMove: string | null // the ride this scene last acted on
+  ride: { at: number; departAt: number; fromY: number; toY: number; start: number; seconds: number } | null // the ride under way here
   pending: { at: number; seq: number } | null // a write this scene means to make, and the state it was based on
   painted: string // the calls the buttons last showed
 }
@@ -152,7 +154,7 @@ function makeLift(side: number): Lift {
   Material.setPbrMaterial(platform, { albedoColor: Color4.create(0, 0.5, 0.7, 1), emissiveColor: GLOW, emissiveIntensity: 1.4, metallic: 0.6, roughness: 0.3 })
   const lift: Lift = {
     side, platform, gates: [], buttons: [], state: newState(side, null), stateSince: 0,
-    at: 0, moving: false, arriveAt: 0, arrivedAt: -99, seenMove: null, pending: null, painted: ''
+    at: 0, moving: false, arriveAt: 0, arrivedAt: -99, seenMove: null, ride: null, pending: null, painted: ''
   }
   for (let floor = 0; floor < FLOORS.length; floor++) {
     lift.gates.push(floor === 0 ? null : makeGate(side, floor))
@@ -248,9 +250,36 @@ function run(lift: Lift): void {
   setGates(lift)
   paintButtons(lift, s)
   if (!lift.moving && settled(lift)) dispatch(lift, s)
+  else if (lift.moving && settled(lift)) stopOnTheWayIfCalled(lift, s)
 }
 
-/** Start (or, for a late joiner, pick up) the ride the state describes. */
+/**
+ * While moving: a call ahead of the car, going its way, before its target (someone picked 3 while it heads for 2
+ * from 4) makes that floor the target, so the car stops there first. Written as dispatch's steps are: after a short
+ * random delay, only if nobody changed the state meanwhile.
+ */
+function stopOnTheWayIfCalled(lift: Lift, s: State): void {
+  if (s.dir !== 1 && s.dir !== -1) return
+  const pos = floorPosition(lift)
+  const f = FLOORS.length
+  // The margin in floors, from the gap to the next floor ahead.
+  const ahead = Math.max(0, Math.min(f - 1, s.dir === 1 ? Math.ceil(pos) : Math.floor(pos)))
+  const gap = Math.max(1, Math.abs(FLOORS[ahead].height - FLOORS[Math.max(0, Math.min(f - 1, ahead - s.dir))].height))
+  const stop = stopOnTheWay(pos, s.dir, s.target, { up: s.up, down: s.down, car: s.car }, STOP_MARGIN / gap)
+  if (stop === null) {
+    lift.pending = null
+    return
+  }
+  if (!lift.pending || lift.pending.seq !== s.seq) {
+    lift.pending = { at: clock + Math.random() * JITTER, seq: s.seq }
+    return
+  }
+  if (clock < lift.pending.at) return
+  lift.pending = null
+  write(lift, { target: stop })
+}
+
+/** Start (or, for a late joiner, pick up) the ride the state describes, or cut it short for a stop on the way. */
 function follow(lift: Lift, s: State): void {
   const key = `${s.at}|${s.target}|${s.departAt}`
   if (key === lift.seenMove) return
@@ -261,6 +290,11 @@ function follow(lift: Lift, s: State): void {
     if (lift.moving || lift.at !== s.at) arrive(lift, s.at)
     return
   }
+  // The same ride, with a new target (a stop on the way): carry on from where the car is.
+  if (lift.moving && lift.ride && lift.ride.at === s.at && lift.ride.departAt === s.departAt) {
+    rideTo(lift, currentY(lift), s.target, s)
+    return
+  }
   const seconds = travelSeconds(s.at, s.target)
   // A ride already under way when we joined: finish what's left (or skip it if it's over). Otherwise it starts now,
   // a moment behind the scene that set it off, rather than trusting two clocks.
@@ -269,14 +303,43 @@ function follow(lift: Lift, s: State): void {
     arrive(lift, s.target)
     return
   }
-  const from = firstLook ? lerp(platformAt(lift.side, s.at), platformAt(lift.side, s.target), elapsed / seconds) : platformAt(lift.side, s.at)
+  const fromY = platformAt(lift.side, s.at).y
+  rideTo(lift, fromY + (platformAt(lift.side, s.target).y - fromY) * (elapsed / seconds), s.target, s)
+}
+
+/** Move the platform at a steady SPEED from height fromY to a floor. (Steady, so a ride can be cut short anywhere
+ *  and every scene agrees where the car is.) */
+function rideTo(lift: Lift, fromY: number, floor: number, s: State): void {
+  const to = platformAt(lift.side, floor)
+  const seconds = Math.abs(to.y - fromY) / SPEED
   lift.moving = true
-  lift.arriveAt = clock + seconds - elapsed
-  Tween.setMove(lift.platform, from, platformAt(lift.side, s.target), (seconds - elapsed) * 1000, firstLook ? EasingFunction.EF_LINEAR : EasingFunction.EF_EASESINE)
+  lift.arriveAt = clock + seconds
+  lift.ride = { at: s.at, departAt: s.departAt, fromY, toY: to.y, start: clock, seconds }
+  Tween.setMove(lift.platform, Vector3.create(to.x, fromY, to.z), to, Math.max(1, seconds * 1000), EasingFunction.EF_LINEAR)
+}
+
+/** The platform's height as this scene shows it. */
+function currentY(lift: Lift): number {
+  const r = lift.ride
+  if (!lift.moving || !r) return platformAt(lift.side, lift.at).y
+  const t = r.seconds > 0 ? Math.min(1, (clock - r.start) / r.seconds) : 1
+  return r.fromY + (r.toY - r.fromY) * t
+}
+
+/** The platform's height in floors (fractional between them), for stopOnTheWay. */
+function floorPosition(lift: Lift): number {
+  const h = currentY(lift) - platformAt(lift.side, 0).y
+  for (let f = 0; f < FLOORS.length - 1; f++) {
+    const lo = FLOORS[f].height
+    const hi = FLOORS[f + 1].height
+    if (h <= hi) return f + Math.max(0, (h - lo) / (hi - lo))
+  }
+  return FLOORS.length - 1
 }
 
 function arrive(lift: Lift, floor: number): void {
   Tween.deleteFrom(lift.platform)
+  lift.ride = null
   Transform.getMutable(lift.platform).position = platformAt(lift.side, floor)
   lift.at = floor
   lift.moving = false
@@ -328,7 +391,6 @@ function paintButtons(lift: Lift, s: State): void {
   }
 }
 
-const lerp = (a: Vector3, b: Vector3, t: number) => Vector3.create(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
 
 // ---- the rider's panel ------------------------------------------------------------------------------------
 
@@ -339,7 +401,7 @@ function liftUnder(): Lift | null {
   for (const lift of lifts) {
     const p = Transform.get(lift.platform).position
     const onIt = Math.hypot(player.position.x - p.x, player.position.z - p.z) < PLATFORM_RADIUS &&
-      Math.abs(player.position.y - (p.y + PLATFORM_THICKNESS / 2)) < 1.2
+      Math.abs(player.position.y - (currentY(lift) + PLATFORM_THICKNESS / 2)) < 1.2
     if (onIt) return lift
   }
   return null

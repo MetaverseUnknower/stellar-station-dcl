@@ -50,3 +50,15 @@ export function next(floor: number, dir: Dir, c: Calls, floors: number): { targe
   }
   return null
 }
+
+/**
+ * A stop on the way: while the car at height `pos` (in floors, fractional mid-ride) travels `dir` toward `target`,
+ * the nearest floor still ahead of it, before the target, with a car call or a hall call going its way. Floors
+ * within `margin` of the car are too close to stop for. null when there's none (the ride goes on to the target).
+ */
+export function stopOnTheWay(pos: number, dir: 1 | -1, target: number, c: Calls, margin: number): number | null {
+  for (let f = dir === 1 ? Math.ceil(pos + margin) : Math.floor(pos - margin); dir === 1 ? f < target : f > target; f += dir) {
+    if (has(c.car, f) || has(dir === 1 ? c.up : c.down, f)) return f
+  }
+  return null
+}

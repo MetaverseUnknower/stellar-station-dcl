@@ -252,6 +252,13 @@ class CorridorFrame:
 
     def _inner(self, trees, s0, sign, y, z, fallback, bumper):
         wall = self._hit(trees[0], s0, sign, y, z)
+        # The walls have seams where a separate panel (a light strip) stands in for them, e.g. ~3 m above the
+        # Recreation Deck; a ray through one misses. Take the wall just above or below rather than the fallback,
+        # which would pull the corridor's end metres into the room.
+        for dz in (0.2, -0.2, 0.4, -0.4, 0.6, -0.6, 0.8, -0.8, 1.0, -1.0):
+            if wall is not None:
+                break
+            wall = self._hit(trees[0], s0, sign, y, z + dz)
         wall = fallback if wall is None else wall
         if bumper:
             # The floor's bumper stands proud of the wall near the deck; sit on it, but ignore anything
@@ -266,7 +273,30 @@ class CorridorFrame:
         return self._inner(self.hub, 18, 1, y, z, INNER_WALL * HUB_SCALE, bumper)
 
     def pod_inner(self, y, z, bumper=False):
+        if self.pod_scale < 1:
+            return self._pod_inner_smooth(y, z)
         return self._inner(self.pod, self.pod_dist - 8 * self.pod_scale, -1, y, z, self.pod_dist - INNER_WALL * self.pod_scale, bumper)
+
+    def _pod_inner_smooth(self, y, z):
+        """A small pod's wall is tightly curved, and its panels' bumps and seams show in a trim laid on it. Fit a
+        smooth surface to it across the doorway instead, s = a + b y^2 + c z + d z^2 + e y^2 z, and sit the
+        corridor's end and trim on that. (No floor bumper: at this scale it's a few centimetres.)"""
+        if not hasattr(self, '_fit'):
+            import numpy as np
+            rows, rhs = [], []
+            for yy in np.linspace(-3.2, 3.2, 17):
+                for zz in np.linspace(0.3, 4.6, 12):
+                    v = self._inner(self.pod, self.pod_dist - 8 * self.pod_scale, -1, yy, zz, None, False)
+                    if v is not None:
+                        rows.append([1, yy * yy, zz, zz * zz, yy * yy * zz])
+                        rhs.append(v)
+            A, v = np.array(rows), np.array(rhs)
+            self._fit = np.linalg.lstsq(A, v, rcond=None)[0]
+            # Out to the most protruding point (0.2-0.3 m, a panel over the doorway), so the wall never covers the
+            # trim; elsewhere the trim stands a little proud of the wall.
+            self._fit[0] += float((v - A @ self._fit).max())
+        a, b, c, d, e = self._fit
+        return float(a + b * y * y + c * z + d * z * z + e * y * y * z)
 
     # Outside, a ray near the hull's lower edge can slip under it and hit the floor from below; only trust hits
     # near where the hull should be (None otherwise, and trim() borrows a neighbour's).
