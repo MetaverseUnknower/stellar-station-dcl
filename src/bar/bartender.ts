@@ -11,7 +11,7 @@
 import { engine, Entity, Transform, GltfContainer, ColliderLayer, MeshRenderer, Material, pointerEventsSystem, InputAction } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
-import { Drink, holdDrink, startDrinks } from './drinks'
+import { Drink, holdDrink, startDrinks, holdingDrink, handBack } from './drinks'
 import { unlockBackRoom, doorState, onDoorChanged } from './secretDoor'
 import { createBubble, whisper, Line, BubbleStyle } from './speechBubble'
 
@@ -49,6 +49,8 @@ type Personality = {
   afterwards: string[] // clicked soon after you've come out
   welcomeBack: string[] // as you come out
   wandered: string // you asked, then wandered off
+  another: string // clicked while you're holding a drink: would you like another?
+  tookGlass: string // taking your glass back
   mutters: string[]
   jittery: boolean // glances about when it mutters
 }
@@ -85,6 +87,8 @@ const DEX: Personality = {
   afterwards: ['I don’t know what you’re talking about.', 'Back room? What back room?', 'Those are shelves. Just shelves.'],
   welcomeBack: ['Never saw you.', 'You were never here.', 'Who are you again? Never mind. Don’t tell me.', 'I didn’t see a thing.'],
   wandered: 'Suit yourself.',
+  another: 'Another?',
+  tookGlass: 'I\u2019ll take that.',
   mutters: [
     'Those shelves are just shelves.',
     'Nothing back there but stock.',
@@ -130,6 +134,8 @@ const PIP: Personality = {
   afterwards: ['Wasn’t that fun?', 'The Eld are lovely once you get to know them!', 'Did you bring me anything back?'],
   welcomeBack: ['Welcome back! How was it?', 'Did they like you? I bet they liked you.', 'Ooh, you smell like cosmic radiation!', 'Yay, you’re back!'],
   wandered: 'Aww, maybe next time!',
+  another: 'Ooh, ready for another?',
+  tookGlass: 'Thank you! Did you like it?',
   mutters: [
     'Have you tried the Mythic Bloom? It sparkles!',
     'I polished every glass today!',
@@ -141,15 +147,28 @@ const PIP: Personality = {
   jittery: false
 }
 
-/** The menu, and which bartender handed it over. */
-export const barMenu = { open: false, from: 'DEX' }
+/** The menu (or, holding a drink, "would you like another?" first), and which bartender it's from. */
+export const barMenu = { open: false, asking: false, from: 'DEX' }
 
-type Bartender = { order: (drink: Drink) => void }
+type Bartender = { order: (drink: Drink) => void; takeGlass: () => void }
 const bartenders = new Map<string, Bartender>()
 let seller: string | null = null // who opened the back bar for you last
 
 export function closeBarMenu(): void {
   barMenu.open = false
+  barMenu.asking = false
+}
+
+/** "Would you like another?": yes, the menu. */
+export function wantAnother(): void {
+  barMenu.asking = false
+  barMenu.open = true
+}
+
+/** "Would you like another?": no, I'm done. The bartender takes the glass. */
+export function doneDrinking(): void {
+  barMenu.asking = false
+  bartenders.get(barMenu.from)?.takeGlass()
 }
 
 /** Order from the menu: the bartender who handed it over makes it. */
@@ -232,6 +251,16 @@ function buildBartender(p: Personality): Bartender {
     pointerEventsSystem.onPointerDown(
       { entity: e, opts: { button: InputAction.IA_POINTER, hoverText: `Order a drink from ${p.name}`, maxDistance: 6, showHighlight: false } },
       () => {
+        // Holding a drink: would you like another? (unless the back bar's open for you; then there's only one thing
+        // worth saying)
+        if (holdingDrink() && doorState() !== 'invited') {
+          if (!barMenu.asking || barMenu.from !== p.name) say(p.another)
+          if (p.eyes === 'round') happy = 0.8
+          barMenu.open = false
+          barMenu.asking = true
+          barMenu.from = p.name
+          return
+        }
         if (!barMenu.open || barMenu.from !== p.name) {
           if (doorState() === 'invited') say(p.whenOpen)
           else if (recent() && seller === p.name) say(pick(p.afterwards))
@@ -339,10 +368,15 @@ function buildBartender(p: Personality): Bartender {
     }
 
     // Walk away and the menu goes back behind the bar
-    if (barMenu.open && barMenu.from === p.name && me && Vector3.distance(me.position, base) > LOOK_RANGE) barMenu.open = false
+    if ((barMenu.open || barMenu.asking) && barMenu.from === p.name && me && Vector3.distance(me.position, base) > LOOK_RANGE) closeBarMenu()
   })
 
   return {
+    takeGlass() {
+      handBack()
+      say(p.tookGlass)
+      if (p.eyes === 'round') happy = 1
+    },
     order(drink: Drink) {
       if (!drink.glass) {
         if (doorState() === 'closed') seller = p.name

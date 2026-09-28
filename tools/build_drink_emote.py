@@ -10,6 +10,10 @@
 # The glass is the emote's prop, keyed to the hand every other frame, so it sits in the hand however the explorer
 # holds it. One emote per drink and way, differing only in the glass's colour:
 #   assets/emotes/<id>_emote.glb, assets/emotes/<id>_sit_emote.glb      (scene emotes must end in _emote.glb)
+# and two with no drink, to end a drinking one when the glass is handed back mid-emote (it would carry on, with its
+# glass, until you moved):
+#   assets/emotes/empty_emote.glb       a moment standing easy, empty-handed, then back to the explorer's own idle
+#   assets/emotes/empty_sit_emote.glb   sitting on the seat as the sitting one does, both hands on the thighs (loops)
 #
 #   /Applications/Blender.app/Contents/MacOS/Blender -b "<documentation>/static/images/emotes/Avatar_File.blend" \
 #       --python tools/build_drink_emote.py -- assets/emotes
@@ -206,8 +210,8 @@ def pose_standing(f):
     drinking_arm(sip)
 
 
-def pose_sitting(f):
-    sip = sip_at(f)
+def pose_sitting(f, drinking=True):
+    sip = sip_at(f) if drinking else 0.0
     shift = math.sin(2 * math.pi * f / 120)
     beat = 0.5 - 0.5 * math.cos(2 * math.pi * f / BEAT)
     groove = 1 - 0.7 * sip
@@ -238,12 +242,33 @@ def pose_sitting(f):
     tilt('Avatar_Neck', SIDE, 0.045 * beat * groove - 0.05)
     tilt('Avatar_Head', FWD, 0.03 * shift * groove)
     tilt('Avatar_Head', SIDE, -0.18 * sip)
-    # The free hand resting on the thigh
-    aim('Avatar_LeftArm', v(0.18, F * 0.35, -1))
-    aim('Avatar_LeftForeArm', v(0.0, F * 1, -0.25))
-    aim('Avatar_LeftHand', v(0.0, F * 1, -0.35))
-    curl('Left', 0.3)
-    drinking_arm(sip)
+    # The free hand resting on the thigh (both, with no drink)
+    for s, sgn in (('Left', 1),) + ((('Right', -1),) if not drinking else ()):
+        aim(f'Avatar_{s}Arm', v(sgn * 0.18, F * 0.35, -1))
+        aim(f'Avatar_{s}ForeArm', v(0.0, F * 1, -0.25))
+        aim(f'Avatar_{s}Hand', v(0.0, F * 1, -0.35))
+        curl(s, 0.3)
+    if drinking:
+        drinking_arm(sip)
+
+
+def pose_sitting_empty(f):
+    pose_sitting(f, drinking=False)
+
+
+EMPTY_LENGTH = 24   # frames: the standing one's just long enough to take over from the drinking one
+
+
+def pose_standing_empty(f):
+    """Standing easy, arms down, empty-handed: the explorer's own idle takes over when it ends."""
+    reset()
+    for s in ('Left', 'Right'):
+        leg_to(s, ANKLES[s], knee_out=0.15 if s == 'Left' else -0.15)
+    for s, sgn in (('Left', 1), ('Right', -1)):
+        aim(f'Avatar_{s}Arm', v(sgn * 0.12, F * 0.03, -1))
+        aim(f'Avatar_{s}ForeArm', v(sgn * 0.06, F * 0.15, -1))
+        aim(f'Avatar_{s}Hand', v(sgn * 0.04, F * 0.2, -1))
+        curl(s, 0.3)
 
 
 # ── The glass: a highball, two materials (the prop limit), centred on the origin, upright ──
@@ -370,5 +395,41 @@ def build(pose, suffix):
         a.use_fake_user = False
 
 
+def build_empty(pose, filename, name, length):
+    """An avatar-only emote (no prop), keyed like the others."""
+    for o in (arm, prop):
+        o.animation_data.action = None
+        for t in list(o.animation_data.nla_tracks):
+            o.animation_data.nla_tracks.remove(t)
+    scene.frame_end = length
+    poses = {}
+    for f in range(0, length + 1, STEP):
+        pose(f)
+        poses[f] = {pb.name: (pb.rotation_quaternion.copy(), pb.location.copy()) for pb in arm.pose.bones if pb.name.startswith('Avatar_')}
+    act = bpy.data.actions.new(f'{name}_Avatar')
+    arm.animation_data.action = act
+    for f, bones in poses.items():
+        for bone, (rot, loc) in bones.items():
+            pb = arm.pose.bones[bone]
+            pb.rotation_quaternion = rot
+            pb.location = loc
+            pb.keyframe_insert('rotation_quaternion', frame=f)
+            pb.keyframe_insert('location', frame=f)
+    arm.animation_data.action = None
+    track = arm.animation_data.nla_tracks.new()
+    track.name = f'{name}_Avatar'
+    track.strips.new(track.name, 0, act)
+    bpy.ops.object.select_all(action='DESELECT')
+    arm.select_set(True)
+    path = os.path.join(OUT, filename)
+    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_def_bones=True,
+                              export_animation_mode='NLA_TRACKS', export_force_sampling=True, export_frame_step=1,
+                              export_morph=False, export_skins=True, export_apply=False)
+    print('WROTE', path, os.path.getsize(path) // 1024, 'KB', name)
+    scene.frame_end = LENGTH
+
+
 build(pose_standing, '')
 build(pose_sitting, '_sit')
+build_empty(pose_standing_empty, 'empty_emote.glb', 'Empty', EMPTY_LENGTH)
+build_empty(pose_sitting_empty, 'empty_sit_emote.glb', 'EmptySit', LENGTH)

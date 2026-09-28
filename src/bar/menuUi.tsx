@@ -6,7 +6,7 @@ import { Color4 } from '@dcl/sdk/math'
 import { engine, UiCanvasInformation } from '@dcl/sdk/ecs'
 import { px as scaled } from '../uiScale'
 import { DRINKS, Drink, dropNotice } from './drinks'
-import { barMenu, closeBarMenu, order } from './bartender'
+import { barMenu, closeBarMenu, order, wantAnother, doneDrinking } from './bartender'
 
 const NAVY = Color4.create(0.03, 0.06, 0.16, 0.96)
 const CARD = Color4.create(0.05, 0.1, 0.24, 1)
@@ -81,6 +81,40 @@ export function BarMenu() {
         </UiEntity>
         <UiEntity uiTransform={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', width: px(2 * (CARD_W + 12)), margin: { top: px(6) } }}>
           {DRINKS.map((d) => <DrinkCard key={d.id} drink={d} />)}
+        </UiEntity>
+      </UiEntity>
+    </UiEntity>
+  )
+}
+
+function DialogButton(props: { label: string; colour: Color4; onClick: () => void; filled?: boolean }) {
+  return (
+    <UiEntity
+      uiTransform={{ height: px(38), padding: { left: px(18), right: px(18) }, margin: { left: px(6), right: px(6) }, justifyContent: 'center', alignItems: 'center', borderRadius: px(19), borderWidth: px(1), borderColor: props.colour }}
+      uiBackground={{ color: props.filled ? props.colour : CARD }}
+      onMouseDown={props.onClick}
+    >
+      <Label value={props.label} fontSize={px(14)} color={props.filled ? INK : CREAM} />
+    </UiEntity>
+  )
+}
+
+/** Holding a drink, a bartender asks: would you like another? Another (the menu), done (they take the glass), or not now. */
+export function AnotherDialog() {
+  if (!barMenu.asking) return null
+  fitToWindow()
+  return (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { top: 0, left: 0 }, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+      <UiEntity
+        uiTransform={{ flexDirection: 'column', alignItems: 'center', padding: px(22), borderWidth: px(2), borderColor: BRASS, borderRadius: px(12) }}
+        uiBackground={{ color: NAVY }}
+      >
+        <Label value={barMenu.from} fontSize={px(13)} color={CYAN} uiTransform={{ height: px(20) }} />
+        <Label value="Would you like another?" fontSize={px(22)} color={CREAM} uiTransform={{ height: px(36), margin: { bottom: px(14) } }} />
+        <UiEntity uiTransform={{ flexDirection: 'row', alignItems: 'center' }}>
+          <DialogButton label="ANOTHER, PLEASE" colour={PINK} filled onClick={wantAnother} />
+          <DialogButton label="I'M DONE" colour={CYAN} onClick={doneDrinking} />
+          <DialogButton label="NEVER MIND" colour={BRASS} onClick={closeBarMenu} />
         </UiEntity>
       </UiEntity>
     </UiEntity>

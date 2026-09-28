@@ -167,6 +167,24 @@ export function holdDrink(drink: Drink): void {
   drinkingAt = null
 }
 
+const EMPTY_EMOTE = 'assets/emotes/empty_emote.glb' // a moment standing easy, empty-handed
+const EMPTY_SIT_EMOTE = 'assets/emotes/empty_sit_emote.glb' // sitting on the seat, both hands on the thighs (loops)
+
+/** Hand the glass back (to a bartender). Mid-drink, the drinking emote would carry on with its own glass until I
+ *  moved, so it's ended with an empty-handed one: standing, a moment and then the explorer's idle; sitting, sat on
+ *  the seat as before, hands on the thighs. */
+export function handBack(): void {
+  const wasDrinking = drinkingAt !== null
+  const seated = isSeated()
+  finishDrink()
+  if (!wasDrinking) return
+  triggeredAt = clock
+  void triggerSceneEmote({ src: seated ? EMPTY_SIT_EMOTE : EMPTY_EMOTE, loop: seated })
+}
+
+/** Whether I'm holding a drink. */
+export const holdingDrink = (): boolean => holding !== null
+
 /** The drink's gone (finished, dropped, or replaced). */
 export function finishDrink(): void {
   if (glass) engine.removeEntity(glass)
