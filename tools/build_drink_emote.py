@@ -223,7 +223,7 @@ for f in range(0, LENGTH + 1, 2):
     palm = -(hand.to_3x3() @ Vector((1, 0, 0))).normalized()   # the palm's side: opposite the back of the hand
     grip = hand.translation + along * 0.06 + palm * 0.04 + Vector((0, 0, 0.015))   # held in the palm, fingers round it, centred in the fist
     s = sip_at(f)
-    g = Matrix.Translation(grip + Vector((0, 0, 0.03 * s))) @ Matrix.Rotation(-F * 1.05 * s, 4, 'X')
+    g = Matrix.Translation(grip + Vector((0, 0, 0.03 * s))) @ Matrix.Rotation(F * 1.05 * s, 4, 'X')   # the top tips back, toward the lips (the avatar faces -Y)
     pprop.matrix = prop.matrix_world.inverted() @ g @ REST
     pprop.keyframe_insert('rotation_quaternion', frame=f)
     pprop.keyframe_insert('location', frame=f)
