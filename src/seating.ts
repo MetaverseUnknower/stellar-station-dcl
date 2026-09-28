@@ -70,6 +70,10 @@ const GROW_SPEED = 0.8
 const SIT_EMOTES = ['sittingChair2', 'sittingChair1']
 /** The Silt's own walk-away release distance. */
 const SIT_RELEASE_DISTANCE = 1.0
+// movePlayerTo lands a frame or more later, so until the player has reached the seat the stand-up check must wait (it
+// used to run in the same tick as the sit, see the player still where they clicked from, and let the seat go at once:
+// seated in the animation, but not as far as the scene knew). Give up on a seat never reached after this long.
+const ARRIVE_SECONDS = 3
 
 export type SeatSpec = {
   /** World position the player is moved to on sit. */
@@ -101,6 +105,8 @@ type SitSpot = {
 const sitSpots: SitSpot[] = []
 /** Which seat the local player is in (-1 = none). */
 let localSeatIndex = -1
+let arrived = false // reached the seat since sitting in it
+let sittingFor = 0
 /** Whether I'm sitting in one of the scene's seats (bar/drinks.ts: no drinking emote over a sitting one). */
 export const isSeated = (): boolean => localSeatIndex >= 0
 
@@ -212,6 +218,8 @@ function sitIn(spotIdx: number): void {
   spot.emoteIndex = (spot.emoteIndex + 1) % SIT_EMOTES.length
   seatState.occupied = true
   localSeatIndex = spotIdx
+  arrived = false
+  sittingFor = 0
 }
 
 function tickSeating(dt: number) {
@@ -298,7 +306,9 @@ function tickSeating(dt: number) {
       const dx = pt.position.x - spot.seatPos.x
       const dz = pt.position.z - spot.seatPos.z
       const dist = Math.sqrt(dx * dx + dz * dz)
-      if (dist > SIT_RELEASE_DISTANCE) {
+      sittingFor += dt
+      if (!arrived && dist <= SIT_RELEASE_DISTANCE) arrived = true
+      if ((arrived && dist > SIT_RELEASE_DISTANCE) || (!arrived && sittingFor > ARRIVE_SECONDS)) {
         const seatState = SeatState.getMutable(spot.orb)
         seatState.occupied = false
         localSeatIndex = -1
