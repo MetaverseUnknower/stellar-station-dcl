@@ -347,6 +347,7 @@ export function startDrinks(): void {
       dropNotice.left -= dt
       if (dropNotice.left <= 0) dropNotice.text = ''
     }
+    if (!isSeated()) perchedThisSit = false // up: the next sit may perch me again
     othersCheck -= dt
     if (othersCheck <= 0) {
       othersCheck = 0.5
@@ -385,7 +386,6 @@ export function startDrinks(): void {
     // The sitting one is made sat on the seat itself; the seat's own sit put me on the floor in front of it. Handed a
     // drink sitting down: onto the seat's perch (facing the way it faces), and drink the moment I'm there.
     // (Distances across the floor only: the player's position may be taken at the feet or higher up the body.)
-    if (!isSeated()) perchedThisSit = false
     const seat = isSeated() ? seatPerch() : null
     const off = (p: Vector3) => Math.hypot(me.position.x - p.x, me.position.z - p.z) > PERCHED_METRES
     if (perching) {
