@@ -330,15 +330,20 @@ def build(pose, suffix):
         pprop.keyframe_insert('location', frame=f)
         pprop.keyframe_insert('scale', frame=f)
 
-    # Both actions onto NLA tracks (the exporter names the animations after them), then one file per drink
-    for o, name in ((arm, 'Drink_Avatar'), (prop, 'Drink_Prop')):
-        a = o.animation_data.action
-        track = o.animation_data.nla_tracks.new()
-        track.name = name
-        track.strips.new(name, 0, a)
+    # One file per drink, each with its own animation names (<Drink>[Sit]_Avatar / _Prop): the explorer seems to keep
+    # emote clips by name, so files sharing names all played whichever loaded first. The exporter names the animations
+    # after the NLA tracks.
+    for o in (arm, prop):
         o.animation_data.action = None
     os.makedirs(OUT, exist_ok=True)
     for drink, rgb in DRINKS.items():
+        name = drink.capitalize() + ('Sit' if suffix else '')
+        for o, a, part in ((arm, act, 'Avatar'), (prop, prop_act, 'Prop')):
+            for t in list(o.animation_data.nla_tracks):
+                o.animation_data.nla_tracks.remove(t)
+            track = o.animation_data.nla_tracks.new()
+            track.name = f'{name}_{part}'
+            track.strips.new(track.name, 0, a)
         b = liquid.node_tree.nodes['Principled BSDF']
         b.inputs['Base Color'].default_value = (*rgb, 1)
         b.inputs['Emission Color' if 'Emission Color' in b.inputs else 'Emission'].default_value = (*rgb, 1)
@@ -350,7 +355,7 @@ def build(pose, suffix):
         bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_def_bones=True,
                                   export_animation_mode='NLA_TRACKS', export_force_sampling=True, export_frame_step=1,
                                   export_morph=False, export_skins=True, export_apply=False)
-        print('WROTE', path, os.path.getsize(path) // 1024, 'KB')
+        print('WROTE', path, os.path.getsize(path) // 1024, 'KB', name)
     # For a check render, if asked for
     if os.environ.get('CHECK_BLEND'):
         bpy.ops.wm.save_as_mainfile(filepath=os.environ['CHECK_BLEND'].replace('.blend', f'{suffix}.blend'), copy=True)

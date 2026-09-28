@@ -342,6 +342,7 @@ export function startDrinks(): void {
     if (!drinkingAt && still >= STILL_SECONDS && emote) {
       drinkingAt = me.position
       triggeredAt = clock
+      console.log('[drinks] drinking', emote, isSeated() ? '(seated)' : '(standing)')
       void triggerSceneEmote({ src: emote, loop: true })
     }
     showHandGlass(!drinkingAt)
