@@ -27,12 +27,14 @@ async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?
     response = await send()
   }
   if (!response.ok) {
-    // The server's { error } is written for players ("Not enough cargo space: ..."); show it as is.
+    // The server's { error } is written for players ("Not enough cargo space: ..."); show it as is. The Decentraland
+    // client unwraps it before we see it: on an error reply the body is already the `error` string, not the JSON
+    // (unity-explorer SignedFetchWrap.cs), so a body that isn't JSON is the message itself.
     let message = `Request failed (${response.status})`
     try {
       message = JSON.parse(response.body).error ?? message
     } catch {
-      /* not JSON */
+      if (response.body) message = response.body
     }
     throw new Error(message)
   }

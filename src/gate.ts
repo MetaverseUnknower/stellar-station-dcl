@@ -15,7 +15,7 @@ const RECHECK_SECONDS = 30
 export type GateState =
   | { kind: 'checking' }
   | { kind: 'aboard'; stationId: string }
-  | { kind: 'refused'; reason: string }
+  | { kind: 'refused'; reason: string; newcomer?: boolean }   // newcomer: no Galaxy Gardeners captain yet
   | { kind: 'error'; reason: string }
 
 let state: GateState = { kind: 'checking' }
@@ -103,8 +103,9 @@ export async function startGate(): Promise<void> {
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('sign-in timed out')), 20000))
     ])
     if (!hasPlayer) {
-      set({ kind: 'refused', reason: 'No Galaxy Gardeners captain found for this wallet.' })
-      eject('Set up your ship in Galaxy Gardeners first, then dock at a station to come aboard.')
+      // A first-time visitor: the game starts in the ship world, where their ship is waiting to be claimed
+      set({ kind: 'refused', reason: 'Only docked Galaxy Gardeners crews can come aboard.', newcomer: true })
+      eject(`Welcome! Stellar Station is for Galaxy Gardeners crews. Claim your free ship at ${SHIP_WORLD}, then dock at a station to come aboard.`)
       return
     }
   } catch (err: any) {

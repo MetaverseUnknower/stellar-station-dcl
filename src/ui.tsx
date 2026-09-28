@@ -3,7 +3,7 @@
 import ReactEcs, { ReactEcsRenderer, UiEntity, Label } from '@dcl/sdk/react-ecs'
 import { Color4 } from '@dcl/sdk/math'
 import { px } from './uiScale'
-import { getGateState, returnToShip, isAdmin, getStations, pickStation } from './gate'
+import { getGateState, returnToShip, isAdmin, getStations, pickStation, SHIP_WORLD } from './gate'
 import { ShipDialogs } from './shipDialogs'
 import { ComposePanel } from './board/compose'
 import { liftPanel } from './lift/lifts'
@@ -33,6 +33,7 @@ function StatusBanner() {
   const gate = getGateState()
   if (gate.kind === 'aboard') return null
   const text = gate.kind === 'checking' ? 'Checking your docking clearance...' : gate.reason
+  if (gate.kind === 'refused' && gate.newcomer) return <NewcomerBanner />
   return (
     <UiEntity
       uiTransform={{ positionType: 'absolute', position: { top: px(80) }, width: '100%', justifyContent: 'center' }}
@@ -51,6 +52,29 @@ function StatusBanner() {
             <Label value="RETURN TO SHIP" fontSize={px(20)} color={Color4.Black()} />
           </UiEntity>
         )}
+      </UiEntity>
+    </UiEntity>
+  )
+}
+
+// A visitor with no Galaxy Gardeners captain yet: say what the station is and where the game starts
+function NewcomerBanner() {
+  return (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { top: px(80) }, width: '100%', justifyContent: 'center' }}>
+      <UiEntity uiTransform={{ width: px(760), padding: px(24), flexDirection: 'column', alignItems: 'center' }} uiBackground={{ color: PANEL }}>
+        <Label value="Welcome to Stellar Station" fontSize={px(30)} color={CYAN} />
+        <Label value="Only docked Galaxy Gardeners crews can come aboard." fontSize={px(20)} color={DIM}
+          uiTransform={{ margin: { top: px(8) } }} />
+        <Label value={`Your ship is waiting for you: claim it at ${SHIP_WORLD},`} fontSize={px(20)} color={DIM}
+          uiTransform={{ margin: { top: px(14) } }} />
+        <Label value="then dock here from its Stellar Navigation console." fontSize={px(20)} color={DIM} />
+        <UiEntity
+          uiTransform={{ margin: { top: px(18) }, padding: px(12), width: px(300), justifyContent: 'center' }}
+          uiBackground={{ color: CYAN }}
+          onMouseDown={() => returnToShip(`Claim your free ship at ${SHIP_WORLD}, then dock at a station to come aboard.`)}
+        >
+          <Label value="CLAIM MY SHIP" fontSize={px(22)} color={Color4.Black()} />
+        </UiEntity>
       </UiEntity>
     </UiEntity>
   )
