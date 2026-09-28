@@ -73,7 +73,7 @@ export function BarMenu() {
         <UiEntity uiTransform={{ width: '100%', flexDirection: 'row', alignItems: 'center', height: px(44), padding: { left: px(6), right: px(6) } }}>
           <UiEntity uiTransform={{ flexDirection: 'column', flexGrow: 1 }}>
             <Label value="THE SPACE BAR" fontSize={px(22)} color={PINK} textAlign="middle-left" uiTransform={{ height: px(30) }} />
-            <Label value="Refinery mocktails, mixed by DEX  ·  on the house" fontSize={px(13)} color={CYAN} textAlign="middle-left" uiTransform={{ height: px(18) }} />
+            <Label value={`Refinery mocktails, mixed by ${barMenu.from}  ·  on the house`} fontSize={px(13)} color={CYAN} textAlign="middle-left" uiTransform={{ height: px(18) }} />
           </UiEntity>
           <UiEntity uiTransform={{ width: px(40), height: px(40), justifyContent: 'center', alignItems: 'center', borderWidth: px(1), borderColor: BRASS, borderRadius: px(20) }} onMouseDown={closeBarMenu}>
             <Label value="X" fontSize={px(16)} color={CREAM} />

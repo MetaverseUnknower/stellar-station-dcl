@@ -1,5 +1,5 @@
-// DEX's speech: a holographic readout over his head, not a plain caption. A dark panel with a cyan frame,
-// a small "DEX-7 // VOX" tag, and his words in monospace, typed out a character at a time like a terminal; whispers
+// A bartender's speech: a holographic readout over its head, not a plain caption. A dark panel with a glowing frame,
+// a small tag (DEX's "DEX-7 // VOX"), and his words in monospace, typed out a character at a time like a terminal; whispers
 // in italics, dimmer. It turns to face you (Billboard), sizes itself to the line, and clears itself after a while.
 // Sizes are worked out from the monospace font's advance (about 0.6 em, an em being a tenth of the font size in
 // metres), since a TextShape can't report its own size.
@@ -20,9 +20,8 @@ const EDGE = 0.012
 const CHARS_PER_SECOND = 45
 const HOLD_SECONDS = 4.5 // after it's all typed out
 
-const TEXT = Color4.create(0.75, 0.97, 1, 1)
-const WHISPER = Color4.create(0.55, 0.72, 0.8, 1)
-const CYAN = Color3.create(0.2, 0.9, 1)
+/** Each bartender's own look: its tag, its frame's glow, its text, its panel. */
+export type BubbleStyle = { tag: string; edge: Color3; text: Color4; panel: Color4 }
 
 function wrap(text: string): string[] {
   const lines: string[] = []
@@ -42,7 +41,8 @@ function wrap(text: string): string[] {
 export type Bubble = { say: (line: Line) => void; speaking: () => boolean }
 
 /** A bubble whose bottom edge sits at `position` (in `parent`'s space). */
-export function createBubble(parent: Entity, position: Vector3): Bubble {
+export function createBubble(parent: Entity, position: Vector3, style: BubbleStyle): Bubble {
+  const whisperColour = Color4.create(style.text.r * 0.72, style.text.g * 0.75, style.text.b * 0.8, 1)
   const anchor = engine.addEntity()
   Transform.create(anchor, { parent, position })
   Billboard.create(anchor, { billboardMode: BillboardMode.BM_Y })
@@ -55,8 +55,8 @@ export function createBubble(parent: Entity, position: Vector3): Bubble {
   MeshRenderer.setPlane(panel)
   // Opaque: the bar's glowing bottles behind it shone straight through a translucent one
   Material.setPbrMaterial(panel, {
-    albedoColor: Color4.create(0.015, 0.035, 0.08, 1),
-    emissiveColor: Color3.create(0.015, 0.05, 0.1),
+    albedoColor: style.panel,
+    emissiveColor: Color3.create(style.panel.r, style.panel.g * 1.4, style.panel.b * 1.25),
     emissiveIntensity: 1,
     metallic: 0,
     roughness: 1
@@ -65,15 +65,15 @@ export function createBubble(parent: Entity, position: Vector3): Bubble {
     const e = engine.addEntity()
     Transform.create(e, { parent: group })
     MeshRenderer.setPlane(e)
-    Material.setPbrMaterial(e, { albedoColor: Color4.create(CYAN.r, CYAN.g, CYAN.b, 1), emissiveColor: CYAN, emissiveIntensity: 3 })
+    Material.setPbrMaterial(e, { albedoColor: Color4.create(style.edge.r, style.edge.g, style.edge.b, 1), emissiveColor: style.edge, emissiveIntensity: 3 })
     return e
   })
   const tag = engine.addEntity()
   Transform.create(tag, { parent: group })
-  TextShape.create(tag, { text: 'DEX-7 // VOX', fontSize: 0.6, font: Font.F_MONOSPACE, textColor: Color4.create(0.2, 0.9, 1, 0.8), textAlign: TextAlignMode.TAM_MIDDLE_LEFT })
+  TextShape.create(tag, { text: style.tag, fontSize: 0.6, font: Font.F_MONOSPACE, textColor: Color4.create(style.edge.r, style.edge.g, style.edge.b, 0.8), textAlign: TextAlignMode.TAM_MIDDLE_LEFT })
   const words = engine.addEntity()
   Transform.create(words, { parent: group })
-  TextShape.create(words, { text: '', fontSize: FONT, font: Font.F_MONOSPACE, textColor: TEXT, textAlign: TextAlignMode.TAM_TOP_LEFT })
+  TextShape.create(words, { text: '', fontSize: FONT, font: Font.F_MONOSPACE, textColor: style.text, textAlign: TextAlignMode.TAM_TOP_LEFT })
 
   let full = ''
   let whispered = false
@@ -116,7 +116,7 @@ export function createBubble(parent: Entity, position: Vector3): Bubble {
     hold = HOLD_SECONDS
     const ts = TextShape.getMutable(words)
     ts.text = ''
-    ts.textColor = whispered ? WHISPER : TEXT
+    ts.textColor = whispered ? whisperColour : style.text
     if (!full) {
       Transform.getMutable(group).scale = Vector3.Zero()
       return

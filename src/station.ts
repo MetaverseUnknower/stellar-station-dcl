@@ -20,7 +20,7 @@ import { buildSpaceBarSign } from './lounge/spaceBarSign'
 import { buildSpaceBar } from './lounge/spaceBar'
 import { buildRelay } from './blackMarket/relay'
 import { buildSecretDoor } from './bar/secretDoor'
-import { buildBartender } from './bar/bartender'
+import { buildBartenders } from './bar/bartender'
 import { startPirateRadio } from './blackMarket/radio'
 import { startCrew } from './crew/crew'
 import { buildArcade } from './arcade/arcade'
@@ -122,7 +122,7 @@ export function buildStation(): void {
   buildCouches()
   buildSpaceBarSign()
   buildSecretDoor(buildSpaceBar())
-  buildBartender()
+  buildBartenders()
   buildRelay()
   startPirateRadio()
   startCrew()
