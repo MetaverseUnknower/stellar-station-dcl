@@ -20,7 +20,6 @@ const STOOL_SCALE = 0.75
 const SEAT_RISE = 0.5
 const SEAT_TOWARD_BAR = 0.3
 const ORB_RISE = 1.15
-const CUSHION_TOP = 1.273 * STOOL_SCALE // the stool model's cushion top (Z-up, 1.273 up), for the sitting drinking emote
 const LOOK_RISE = 1.5
 
 /** Builds the bar and its stools; returns the bar, which the back bar's secret leaves hang off (bar/secretDoor.ts). */
@@ -59,8 +58,7 @@ export function buildSpaceBar(): Entity {
       lookAt: Vector3.create(x + out.x * 4, floorY + LOOK_RISE, z + out.z * 4),
       orbPos: Vector3.create(x, floorY + ORB_RISE, z),
       hoverText: 'Sit',
-      hitEntity: stool,
-      perch: Vector3.create(x, floorY + CUSHION_TOP, z)
+      hitEntity: stool
     })
   }
   return bar

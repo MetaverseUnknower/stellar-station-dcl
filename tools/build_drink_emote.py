@@ -4,9 +4,11 @@
 #   standing: moving like someone at a club: weight shifting side to side, a little bounce in the knees and a nod on
 #             the beat (120 bpm), the shoulders countering the hips, the free arm easy; feet planted (the legs are
 #             solved to keep them there)
-#   sitting:  for the scene's seats, which stand you on the seat and sit you down with Decentraland's sittingChair
-#             emotes: hips dropped onto the seat (where your feet are), thighs forward, shins hanging, a gentle sway,
-#             a foot tapping on the beat
+#   sitting:  for the scene's seats, in place of Decentraland's sittingChair emotes and laid out as they are: the
+#             seat moves you to just in front of it, its top about 0.47 m above you and its middle 0.3 m behind you
+#             (seating.ts's seats are tuned to that: a stool's seat point is 0.3 m in front of it, 0.455 m under its
+#             cushion; a couch's 0.48 m under its cushion), so the hips go up and back onto it; thighs forward,
+#             shins hanging, a gentle sway, a foot tapping on the beat
 # The glass is the emote's prop, keyed to the hand every other frame, so it sits in the hand however the explorer
 # holds it. One emote per drink and way, differing only in the glass's colour:
 #   assets/emotes/<id>_emote.glb, assets/emotes/<id>_sit_emote.glb      (scene emotes must end in _emote.glb)
@@ -38,7 +40,8 @@ F = -1                # the avatar faces -Y
 SIDE = Vector((1, 0, 0))   # the avatar's left-right axis
 FWD = Vector((0, F, 0))
 UP = Vector((0, 0, 1))
-SEAT_HIPS = 0.13      # sitting: the hips this far above the feet's rest level (the seat top, where you're stood)
+SEAT_HIPS = 0.60      # sitting: the hips this far above where the seat puts you (its top ~0.47 m up, and the pelvis)
+SEAT_BACK = 0.30      # and this far behind
 
 arm = bpy.data.objects['Armature']
 prop = bpy.data.objects['Armature_Prop']
@@ -217,7 +220,7 @@ def pose_sitting(f, drinking=True):
     groove = 1 - 0.7 * sip
     reset()
     hips_rest = REST['Avatar_Hips'].translation
-    move('Avatar_Hips', Vector((0, 0.05, SEAT_HIPS - hips_rest.z)))   # down onto the seat, a little back
+    move('Avatar_Hips', Vector((0, -F * SEAT_BACK, SEAT_HIPS - hips_rest.z)))   # onto the seat, behind
     tilt('Avatar_Hips', FWD, 0.02 * shift * groove)
     # Thighs forward along the seat, shins hanging, knees a little apart; the right foot taps on the beat, the heel
     # lifting off with the ball of the foot staying put (a quick lift, a softer fall)
