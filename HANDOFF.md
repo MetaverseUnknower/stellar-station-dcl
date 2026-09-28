@@ -29,6 +29,9 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     Breeding lab: a 0.6-scale pod off the Docks at Blender 169.5 (between the hub benches, under the -X observation
     pod), built but sealed by a door at the hub end (`sealed_door`), with a LAB sign and `src/lab/lab.ts`'s lettering.
     To open it later: drop the `sealed_door` part and its lettering.
+    Fuel cell dispensers: the landing build's vending machine and its panel (`src/fuel/`: giveaway, MANA store,
+    code redemption, operator on/off), copied unchanged but for import paths (it shares the station's `auth.ts`);
+    one machine per docking pod beside the airlock (`src/fuel/vending.ts`).
     signs like the lower four. Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
     (`src/observation/galaxyHologram.ts`; `galaxyMap.ts`, `heatMap.ts`, `prefs.ts` copied unchanged). The
     lifts (`src/lift/`: a physical platform in a vertical shaft on each end of the X axis, run as elevators. A HUD

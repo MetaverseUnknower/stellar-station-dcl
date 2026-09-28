@@ -23,6 +23,7 @@ import { setupCabinets } from './arcade/cabinet'
 import { buildTerra } from './terra/terra'
 import { buildLab } from './lab/lab'
 import { buildAirlocks } from './airlock'
+import { createVendingMachines } from './fuel/vending'
 
 export const CENTER = Vector3.create(128, 0, 128)
 export const FLOOR_Y = 40 // same deck height as the ship scene, so the skybox frames it the same way
@@ -121,6 +122,7 @@ export function buildStation(): void {
   buildTerra()
   buildLab()
   buildAirlocks()
+  createVendingMachines()
 
   // scene.json spawns everyone in the holding box. They're released into their pod once the gate clears them
   // (in preview straight away: nobody there is docked, and a preview sign-in can hang) and sent back to the box if

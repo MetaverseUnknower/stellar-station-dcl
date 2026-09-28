@@ -15,6 +15,7 @@ import { CometScreen } from './arcade/comet/hud'
 import { DriftScreen } from './arcade/drift/hud'
 import { OrbitScreen } from './arcade/orbit/hud'
 import { RacerScreen } from './arcade/racer/hud'
+import { FuelPanel } from './fuel/fuelPanelUi'
 import { currentTrack, isMuted, toggleMuted, nextTrack } from './soundtrack'
 import { radioDisplay, radioGenre, inTheClub } from './lounge/radioNow'
 import { isRadioMuted, toggleRadioMuted } from './lounge/music'
@@ -229,6 +230,7 @@ export function setupUi(): void {
       <DriftScreen />
       <OrbitScreen />
       <RacerScreen />
+      <FuelPanel />
       <StationMusicBar />
     </UiEntity>
   ))
