@@ -92,6 +92,9 @@ export type SeatSpec = {
   hitEntity?: Entity
   /** The Silt's per-orb resting yaw, which its hover spin adds onto. */
   baseRotY?: number
+  /** A point on the seat's surface, to stand the player on for an emote made sitting on it (bar/drinks.ts: the
+   *  sitting drinking emote). The sit emotes above are made for the player on the floor in front of the seat. */
+  perch?: Vector3
 }
 
 type SitSpot = {
@@ -100,6 +103,7 @@ type SitSpot = {
   lookAt: Vector3
   emoteIndex: number
   baseRotY: number
+  perch?: Vector3
 }
 
 const sitSpots: SitSpot[] = []
@@ -109,6 +113,11 @@ let arrived = false // reached the seat since sitting in it
 let sittingFor = 0
 /** Whether I'm sitting in one of the scene's seats (bar/drinks.ts: no drinking emote over a sitting one). */
 export const isSeated = (): boolean => localSeatIndex >= 0
+/** My seat's perch and where it faces, if I'm sitting in one that has a perch. */
+export function seatPerch(): { perch: Vector3; lookAt: Vector3 } | null {
+  const spot = localSeatIndex >= 0 ? sitSpots[localSeatIndex] : undefined
+  return spot?.perch ? { perch: spot.perch, lookAt: spot.lookAt } : null
+}
 
 const orbTargetScales: Map<Entity, number> = new Map()
 const orbHovering: Map<Entity, boolean> = new Map()
@@ -166,7 +175,7 @@ export function addSeat(spec: SeatSpec): void {
   registerBlockEntity(orb)
 
   const spotIdx = sitSpots.length
-  sitSpots.push({ orb, seatPos: spec.seatPos, lookAt: spec.lookAt, emoteIndex: 0, baseRotY })
+  sitSpots.push({ orb, seatPos: spec.seatPos, lookAt: spec.lookAt, emoteIndex: 0, baseRotY, perch: spec.perch })
 
   // --- the seat hitbox: MeshCollider FIRST, then PointerEvents ---
   // The Silt: "MeshCollider MUST come before PointerEvents". Its couches

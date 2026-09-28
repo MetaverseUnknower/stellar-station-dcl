@@ -25,6 +25,7 @@ const COUCH_SEAT_RISE = 0.07
 const COUCH_LOOK_AHEAD = 4.0
 const COUCH_LOOK_RISE = 1.5
 const COUCH_BODY_CUSHION_INDEX = 1
+const COUCH_CUSHION_TOP = 0.55 // the seat anchors' height: the cushion's top, for the sitting drinking emote
 
 type CouchSpec = { cx: number; cz: number; yaw: number; floorY: number }
 
@@ -59,7 +60,8 @@ function placeCouch(spec: CouchSpec): void {
       lookAt: Vector3.create(seatPos.x + facing.x * COUCH_LOOK_AHEAD, spec.floorY + COUCH_LOOK_RISE, seatPos.z + facing.z * COUCH_LOOK_AHEAD),
       orbPos,
       hoverText: 'Sit',
-      hitEntity: i === COUCH_BODY_CUSHION_INDEX ? couch : undefined
+      hitEntity: i === COUCH_BODY_CUSHION_INDEX ? couch : undefined,
+      perch: Vector3.create(orbPos.x, spec.floorY + COUCH_CUSHION_TOP, orbPos.z)
     })
   }
 }

@@ -25,7 +25,8 @@ import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { triggerSceneEmote } from '~system/RestrictedActions'
 import { getPlayer } from '@dcl/sdk/players'
 import { syncEntity, parentEntity, getParent } from '@dcl/sdk/network'
-import { isSeated } from '../seating'
+import { isSeated, seatPerch } from '../seating'
+import { movePlayerTo } from '~system/RestrictedActions'
 import { getCrew } from '../audience'
 
 // The glasses are modelled lying along +Z with the base at the origin (0.24 m long at GLASS_SCALE): stand them up.
@@ -117,6 +118,7 @@ const STILL_SECONDS = 1.0 // standing (or sitting) still this long starts the dr
 const STILL_METRES = 0.03 // moved less than this since the last check: still
 const MOVED_METRES = 0.12 // moved this far from where the emote started: it's over (the explorer has stopped it)
 const OURS_SECONDS = 2 // an emote command this soon after we triggered ours is ours
+const PERCHED_METRES = 0.25 // this close to a seat's perch, I'm on it
 const NOTICE_SECONDS = 3.5
 const DROP_SECONDS = 10 // a shared drop lives this long (to reach everyone), then goes
 const GLASS_BREAK = 'assets/audio/glass_break.mp3'
@@ -339,6 +341,16 @@ export function startDrinks(): void {
     // Still (standing, or sitting in one of the scene's seats): drink. Moving: hold it.
     still = moved < STILL_METRES * Math.max(1, dt * 60) ? still + dt : 0
     const emote = isSeated() ? holding.sitEmote : holding.emote
+    // The sitting one is made sat on the seat itself; the seat's own sit put me on the floor in front of it. Stand me
+    // on its perch (facing the way it faces), then drink once I've settled there.
+    const seat = isSeated() ? seatPerch() : null
+    // (Across the floor only: the player's position may be taken at the feet or higher up the body.)
+    const offPerch = seat ? Math.hypot(me.position.x - seat.perch.x, me.position.z - seat.perch.z) > PERCHED_METRES : false
+    if (!drinkingAt && still >= STILL_SECONDS && seat && offPerch) {
+      void movePlayerTo({ newRelativePosition: Vector3.add(seat.perch, Vector3.create(0, 0.05, 0)), cameraTarget: seat.lookAt, avatarTarget: seat.lookAt })
+      still = 0
+      return
+    }
     if (!drinkingAt && still >= STILL_SECONDS && emote) {
       drinkingAt = me.position
       triggeredAt = clock
