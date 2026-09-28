@@ -843,6 +843,13 @@ def sealed_door(name, angle, z, door, hub_wall, depth=0.6):
 HUB_WINDOWS = ((50, 130), (230, 310))   # degrees: the hub's two big windows (+-Y), clear of the doorways at 45 / 135 ...
 
 
+def in_eld_doorway(deg, z0, z1):
+    """A window-collider cell over the Eld's hidden doorway, which is cut into the lounge wall inside the -Y window's
+    span: the sheet must have a hole there, or it walls off the corridor (one-sided: out, but never back)."""
+    half = math.degrees((ELD_DOOR[0] / 2 + 0.6) / 28.0)   # the door's half-width at the wall, and a cell's slack
+    return abs(deg - ELD_ANGLE) < half + 1.0 and z1 > ELD_Z - 0.2 and z0 < ELD_Z + ELD_DOOR[1] + 0.3
+
+
 def window_colliders(wall):
     """The hub's window glass has no collision, and from the lounge a jump and a glide reached the top of the
     windows and out. An invisible sheet 8 cm inside each window, from the floor to the top of the dome."""
@@ -862,6 +869,8 @@ def window_colliders(wall):
             grid.append(row)
         for k in range(len(heights) - 1):
             for i in range(len(angles) - 1):
+                if in_eld_doorway(math.degrees((angles[i] + angles[i + 1]) / 2), heights[k], heights[k + 1]):
+                    continue
                 quad = (grid[k][i], grid[k][i + 1], grid[k + 1][i + 1], grid[k + 1][i])
                 if all(v is not None for v in quad):
                     bm.faces.new(quad)
