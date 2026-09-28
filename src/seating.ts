@@ -109,6 +109,11 @@ let arrived = false // reached the seat since sitting in it
 let sittingFor = 0
 /** Whether I'm sitting in one of the scene's seats (bar/drinks.ts: no drinking emote over a sitting one). */
 export const isSeated = (): boolean => localSeatIndex >= 0
+/** My seat's position and where it looks, while I'm sitting. */
+export function seatPlace(): { seatPos: Vector3; lookAt: Vector3 } | null {
+  const spot = localSeatIndex >= 0 ? sitSpots[localSeatIndex] : undefined
+  return spot ? { seatPos: spot.seatPos, lookAt: spot.lookAt } : null
+}
 
 const orbTargetScales: Map<Entity, number> = new Map()
 const orbHovering: Map<Entity, boolean> = new Map()

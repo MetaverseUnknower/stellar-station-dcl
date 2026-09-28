@@ -25,7 +25,7 @@ import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { triggerSceneEmote } from '~system/RestrictedActions'
 import { getPlayer } from '@dcl/sdk/players'
 import { syncEntity, parentEntity, getParent } from '@dcl/sdk/network'
-import { isSeated, setSitHook } from '../seating'
+import { isSeated, setSitHook, seatPlace } from '../seating'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { getCrew } from '../audience'
 
@@ -182,6 +182,16 @@ export function handBack(): void {
   if (!wasDrinking) return
   triggeredAt = clock
   void triggerSceneEmote({ src: seated ? EMPTY_SIT_EMOTE : EMPTY_EMOTE, loop: seated })
+}
+
+/** Where the seat's move actually left me, relative to its seat point (along the way it faces, and up): the sitting
+ *  drinking emote's hips are placed for it (tools/build_drink_emote.py SEAT_HIPS, SEAT_BACK). */
+function logSeatOffset(at: Vector3): void {
+  const seat = seatPlace()
+  if (!seat) return
+  const f = Vector3.normalize(Vector3.create(seat.lookAt.x - seat.seatPos.x, 0, seat.lookAt.z - seat.seatPos.z))
+  const d = Vector3.subtract(at, seat.seatPos)
+  console.log(`[drinks] seated: ${(d.x * f.x + d.z * f.z).toFixed(2)} m in front of the seat point, ${d.y.toFixed(2)} m above it`)
 }
 
 /** Whether I'm holding a drink. */
@@ -393,10 +403,12 @@ export function startDrinks(): void {
       if (clock - sitStartedAt > SIT_SETTLE) {
         sitStartedAt = -1
         drinkingAt = me.position
+        logSeatOffset(me.position)
       }
       showHandGlass(false)
       return
     }
+    if (!drinkingAt && still >= STILL_SECONDS && emote && isSeated()) logSeatOffset(me.position)
     if (!drinkingAt && still >= STILL_SECONDS && emote) {
       drinkingAt = me.position
       triggeredAt = clock

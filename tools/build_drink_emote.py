@@ -41,7 +41,8 @@ SIDE = Vector((1, 0, 0))   # the avatar's left-right axis
 FWD = Vector((0, F, 0))
 UP = Vector((0, 0, 1))
 SEAT_HIPS = 0.60      # sitting: the hips this far above where the seat puts you (its top ~0.47 m up, and the pelvis)
-SEAT_BACK = 0.30      # and this far behind
+SEAT_BACK = 0.50      # and this far behind (0.3 by the seat numbers; the avatar's collider seems to push it forward
+                      # off the seat by about as much again)
 
 arm = bpy.data.objects['Armature']
 prop = bpy.data.objects['Armature_Prop']
