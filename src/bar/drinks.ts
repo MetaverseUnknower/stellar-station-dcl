@@ -32,8 +32,11 @@ import { getCrew } from '../audience'
 // The glasses are modelled lying along +Z with the base at the origin (0.24 m long at GLASS_SCALE). Held at rest
 // (walking about, arm down), the glass sticks straight out of the fist at right angles to the arm, its base in the
 // grip: left along the hand anchor's +Z. (Stood up along the anchor's Y, it hung down the arm and didn't look held.)
+// The anchor is at the wrist, so the glass goes down the hand (the anchor's +Y, toward the fingers: along it, the glass
+// had hung below the hand rather than running up the arm) into the fist, or it sat in the forearm.
 const GLASS_SCALE = 0.15
-const IN_HAND = { position: Vector3.create(0, 0, -0.03), rotation: Quaternion.Identity() }
+const IN_FIST = 0.09 // metres from the wrist to the middle of the grip
+const IN_HAND = { position: Vector3.create(0, IN_FIST, -0.03), rotation: Quaternion.Identity() }
 
 export type Drink = {
   id: string
