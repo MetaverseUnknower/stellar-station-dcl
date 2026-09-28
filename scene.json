@@ -3,7 +3,8 @@
   "runtimeVersion": "7",
   "display": {
     "title": "Stellar Station",
-    "description": "A Galaxy Gardeners space station. Dock your ship to come aboard."
+    "description": "A Galaxy Gardeners space station. Dock your ship to come aboard.",
+    "navmapThumbnail": "assets/scene/scene-thumb.png"
   },
   "owner": "0x7e567DEaBFFCeCEea48dA456EBb9Ef84d159374C",
   "contact": {
