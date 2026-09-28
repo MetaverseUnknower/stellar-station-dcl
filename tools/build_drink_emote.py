@@ -62,6 +62,20 @@ def aim(name, direction, roll=0.0):
     pb.matrix = arm.matrix_world.inverted() @ turned
 
 
+def orient(name, y_dir, x_dir):
+    """Set a bone's world orientation outright: its length along y_dir, its X axis as near x_dir as that allows. (The
+    arm bones' X is the back of the hand's side: in the rest T-pose it points up, palms down.)"""
+    bpy.context.view_layer.update()
+    pb = arm.pose.bones[name]
+    m = world(pb)
+    y = y_dir.normalized()
+    x = (x_dir - y * x_dir.dot(y)).normalized()
+    z = x.cross(y)
+    r = Matrix((x, y, z)).transposed()
+    scale = m.to_scale()
+    pb.matrix = arm.matrix_world.inverted() @ (Matrix.Translation(m.translation) @ r.to_4x4() @ Matrix.Diagonal((*scale, 1)))
+
+
 def tilt(name, axis, angle):
     """Turn a bone about a world axis through its head."""
     bpy.context.view_layer.update()
@@ -105,9 +119,13 @@ def pose(sip, breath):
     # Right arm: glass at the chest, or up at the lips
     up = (1 - sip) * Vector((-0.12, F * 0.18, -0.97)) + sip * Vector((-0.05, F * 0.72, -0.68))
     fore = (1 - sip) * Vector((0.25, F * 0.85, 0.46)) + sip * Vector((0.36, F * 0.12, 0.93))
+    # Palm in toward the body, thumb up, fingers round the glass: the back of the hand (bone X) faces out, and the
+    # forearm's the same way, so the wrist isn't twisted.
+    OUT_SIDE = Vector((-1, 0, 0.15 + 0.6 * sip))
     aim('Avatar_RightArm', up)
-    aim('Avatar_RightForeArm', fore, roll=F * 1.2)
-    aim('Avatar_RightHand', fore + Vector((0.1, 0, -0.25)))
+    orient('Avatar_RightForeArm', fore, OUT_SIDE)
+    hand = (1 - sip) * Vector((0.15, F * 1, 0.05)) + sip * Vector((0.3, F * 0.2, 1.0))
+    orient('Avatar_RightHand', hand, OUT_SIDE)
     curl('Right', 1.0)
 
 
@@ -202,7 +220,8 @@ for f in range(0, LENGTH + 1, 2):
     bpy.context.view_layer.update()
     hand = world(arm.pose.bones['Avatar_RightHand'])
     along = (hand.to_3x3() @ Vector((0, 1, 0))).normalized()
-    grip = hand.translation + along * 0.07 + Vector((0.02, 0, -0.035))   # in the curled fingers, a little toward the body
+    palm = -(hand.to_3x3() @ Vector((1, 0, 0))).normalized()   # the palm's side: opposite the back of the hand
+    grip = hand.translation + along * 0.06 + palm * 0.04 + Vector((0, 0, 0.015))   # held in the palm, fingers round it, centred in the fist
     s = sip_at(f)
     g = Matrix.Translation(grip + Vector((0, 0, 0.03 * s))) @ Matrix.Rotation(-F * 1.05 * s, 4, 'X')
     pprop.matrix = prop.matrix_world.inverted() @ g @ REST
