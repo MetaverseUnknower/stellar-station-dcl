@@ -101,6 +101,8 @@ type SitSpot = {
 const sitSpots: SitSpot[] = []
 /** Which seat the local player is in (-1 = none). */
 let localSeatIndex = -1
+/** Whether I'm sitting in one of the scene's seats (bar/drinks.ts: no drinking emote over a sitting one). */
+export const isSeated = (): boolean => localSeatIndex >= 0
 
 const orbTargetScales: Map<Entity, number> = new Map()
 const orbHovering: Map<Entity, boolean> = new Map()

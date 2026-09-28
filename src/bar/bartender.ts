@@ -7,7 +7,7 @@
 import { engine, Entity, Transform, GltfContainer, ColliderLayer, MeshRenderer, Material, pointerEventsSystem, InputAction } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
-import { Drink, holdGlass, startDrinks } from './drinks'
+import { Drink, holdDrink, startDrinks } from './drinks'
 import { unlockBackRoom, doorState, onDoorChanged } from './secretDoor'
 import { createBubble, whisper, Line } from './speechBubble'
 
@@ -211,7 +211,7 @@ export function buildBartender(): void {
       Transform.getMutable(shaker).position = Vector3.add(HAND, Vector3.create(0, Math.sin(t * 40) * 0.06, 0))
       if (shaking <= 0) {
         Transform.getMutable(shaker).position = HAND
-        holdGlass(pending.glass as string)
+        holdDrink(pending)
         say(pending.served)
         pending = null
       }

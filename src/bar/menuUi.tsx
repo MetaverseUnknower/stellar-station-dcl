@@ -5,7 +5,7 @@ import ReactEcs, { UiEntity, Label } from '@dcl/sdk/react-ecs'
 import { Color4 } from '@dcl/sdk/math'
 import { engine, UiCanvasInformation } from '@dcl/sdk/ecs'
 import { px as scaled } from '../uiScale'
-import { DRINKS, Drink } from './drinks'
+import { DRINKS, Drink, dropNotice } from './drinks'
 import { barMenu, closeBarMenu, order } from './bartender'
 
 const NAVY = Color4.create(0.03, 0.06, 0.16, 0.96)
@@ -82,6 +82,21 @@ export function BarMenu() {
         <UiEntity uiTransform={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', width: px(2 * (CARD_W + 12)), margin: { top: px(6) } }}>
           {DRINKS.map((d) => <DrinkCard key={d.id} drink={d} />)}
         </UiEntity>
+      </UiEntity>
+    </UiEntity>
+  )
+}
+
+/** "You dropped your drink..." for a few seconds after a drink's dropped (drinks.ts). */
+export function DropNotice() {
+  if (!dropNotice.text) return null
+  return (
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { top: '22%', left: 0 }, width: '100%', justifyContent: 'center' }}>
+      <UiEntity
+        uiTransform={{ padding: { left: scaled(22), right: scaled(22), top: scaled(10), bottom: scaled(10) }, borderWidth: scaled(1), borderColor: PINK, borderRadius: scaled(8) }}
+        uiBackground={{ color: NAVY }}
+      >
+        <Label value={dropNotice.text} fontSize={scaled(22)} color={CREAM} />
       </UiEntity>
     </UiEntity>
   )
