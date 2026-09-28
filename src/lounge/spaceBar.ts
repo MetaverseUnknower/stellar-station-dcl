@@ -4,7 +4,7 @@
 //
 // The stool numbers are The Silt's (venue.ts): stools at 0.75 scale, stood up with a -90 degree X turn, 0.55 m out
 // from the counter's front edge; the seat is 0.5 m up and 0.3 m toward the bar, the orb 1.15 m up.
-import { engine, Transform, GltfContainer, ColliderLayer } from '@dcl/sdk/ecs'
+import { engine, Entity, Transform, GltfContainer, ColliderLayer } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
 import { addSeat } from '../seating'
 import { CENTER, FLOOR_Y } from '../station'
@@ -22,7 +22,8 @@ const SEAT_TOWARD_BAR = 0.3
 const ORB_RISE = 1.15
 const LOOK_RISE = 1.5
 
-export function buildSpaceBar(): void {
+/** Builds the bar and its stools; returns the bar, which the back bar's secret leaves hang off (bar/secretDoor.ts). */
+export function buildSpaceBar(): Entity {
   const floorY = FLOOR_Y + LOUNGE
   const bar = engine.addEntity()
   Transform.create(bar, {
@@ -60,4 +61,5 @@ export function buildSpaceBar(): void {
       hitEntity: stool
     })
   }
+  return bar
 }

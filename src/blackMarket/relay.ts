@@ -1,13 +1,9 @@
-// The black market's back room: a sealed obsidian chamber on the lounge floor against the dome, past the pillar at
-// the Space Bar's end, where an unregistered relay talks to the Eld, a Kardashev III civilisation that grants favours
-// for MANA (tools/build_black_market.py builds the room, the energy field in its doorway, the relay's pedestal and a
-// ring). Here: the relay's core (a glowing sphere and its light) inside three rings that turn like a gyroscope, and
-// that quicken and brighten while a petition is in flight; a hologram over it; ELD RELAY over the door; and the relay
-// opening the market's panel (market.ts, panelUi.tsx).
-//
-// Model to scene: the room, field and pedestal are built in place round the hub's centre, so they go at the centre
-// unturned; a point the build prints in Blender coordinates (x, y, z) is scene (CENTER.x - x, lounge floor + z,
-// CENTER.z - y), and a Blender angle A round the hub is scene angle A + 180.
+// The Eld relay: it stands in the middle of the Eld's pod, the one hidden behind the Space Bar's back bar
+// (build_station_models.py ELD_*: obsidian with violet light; bar/secretDoor.ts opens the way). An unregistered relay
+// to the Eld, a Kardashev III civilisation that grants favours for MANA (tools/build_black_market.py builds its
+// pedestal and a ring): its core, a glowing sphere and its light, inside three rings that turn like a gyroscope and
+// quicken and brighten while a petition is in flight; a hologram over it; and it opens the market's panel (market.ts,
+// panelUi.tsx).
 import {
   engine, Entity, Transform, GltfContainer, ColliderLayer, LightSource, TextShape, Font, MeshRenderer, MeshCollider,
   Material, Billboard, BillboardMode, pointerEventsSystem, InputAction
@@ -16,10 +12,10 @@ import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
 import { openMarket, closeMarket, market } from './market'
 
-const LOUNGE = 25 // build_station_models.py LOUNGE
-const FRONT_R = 22.8 // build_black_market.py R_FRONT: the front wall's hub-side face
-const DOOR_MID = 200.61 // scene degrees: the doorway's middle (the build prints DOOR scene angles 198.85 .. 202.37)
-const CORE = { x: 24.831, y: 7.71, z: 1.55 } // the build's CORE (Blender)
+const LOUNGE = 25 // build_station_models.py LOUNGE (the pod's floor is level with the lounge's)
+const POD_ANGLE = 55 + 180 // build_station_models.py ELD_ANGLE, in scene degrees (from +X toward +Z)
+const POD_DIST = 46 // build_station_models.py ELD_DIST
+const CORE_H = 1.55 // build_black_market.py CORE_H
 const RINGS = [
   // radius (the ring model is 1 m), a fixed tilt, and turn rates (degrees a second) about X and Y
   { r: 0.3, tilt: 70, rx: 23, ry: 41 },
@@ -32,32 +28,24 @@ const VIOLET = Color3.create(0.62, 0.4, 1)
 const WHITE_HOT = Color3.create(0.75, 0.9, 1)
 
 // Read at call time: station.ts imports this module, so FLOOR_Y isn't set yet while this file first runs.
-const floorY = () => FLOOR_Y + LOUNGE
-const fromBlender = (p: { x: number; y: number; z: number }) => Vector3.create(CENTER.x - p.x, floorY() + p.z, CENTER.z - p.y)
-const onRadius = (deg: number, r: number, h: number) => {
-  const a = (deg * Math.PI) / 180
-  return Vector3.create(CENTER.x + Math.cos(a) * r, floorY() + h, CENTER.z + Math.sin(a) * r)
-}
-/** Text reads from its -Z side: turn +Z to point out, away from the hub's centre, so it faces the centre. */
-const facingCentre = (deg: number) => {
-  const a = (deg * Math.PI) / 180
-  return Quaternion.fromEulerDegrees(0, (Math.atan2(Math.cos(a), Math.sin(a)) * 180) / Math.PI, 0)
+const podFloor = () => {
+  const a = (POD_ANGLE * Math.PI) / 180
+  return Vector3.create(CENTER.x + Math.cos(a) * POD_DIST, FLOOR_Y + LOUNGE, CENTER.z + Math.sin(a) * POD_DIST)
 }
 const mix = (a: Color3, b: Color3, k: number) => Color3.create(a.r + (b.r - a.r) * k, a.g + (b.g - a.g) * k, a.b + (b.b - a.b) * k)
 
-export function buildBlackMarket(): void {
-  const place = (src: string, mask: number) => {
-    const e = engine.addEntity()
-    Transform.create(e, { position: Vector3.create(CENTER.x, floorY(), CENTER.z) })
-    GltfContainer.create(e, { src, visibleMeshesCollisionMask: mask, invisibleMeshesCollisionMask: ColliderLayer.CL_NONE })
-    return e
-  }
-  place('assets/models/black_market_room.glb', ColliderLayer.CL_PHYSICS)
-  place('assets/models/black_market_field.glb', ColliderLayer.CL_NONE)
-  const pedestal = place('assets/models/black_market_relay.glb', ColliderLayer.CL_PHYSICS | ColliderLayer.CL_POINTER)
+export function buildRelay(): void {
+  const floor = podFloor()
+  const pedestal = engine.addEntity()
+  Transform.create(pedestal, { position: floor })
+  GltfContainer.create(pedestal, {
+    src: 'assets/models/black_market_relay.glb',
+    visibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS | ColliderLayer.CL_POINTER,
+    invisibleMeshesCollisionMask: ColliderLayer.CL_NONE
+  })
 
   // The core: a glowing sphere with a light in it, and something to click that's bigger than the sphere
-  const corePos = fromBlender(CORE)
+  const corePos = Vector3.add(floor, Vector3.create(0, CORE_H, 0))
   const core = engine.addEntity()
   Transform.create(core, { position: corePos, scale: Vector3.create(0.26, 0.26, 0.26) })
   MeshRenderer.setSphere(core)
@@ -86,16 +74,13 @@ export function buildBlackMarket(): void {
     )
   }
 
-  // The hologram over the relay, and the lettering over the door
+  // The hologram over the relay
   const holo = engine.addEntity()
   Transform.create(holo, { position: Vector3.add(corePos, Vector3.create(0, HOLO_RISE, 0)) })
   TextShape.create(holo, { text: '', fontSize: 1.3, font: Font.F_MONOSPACE, textColor: Color4.create(0.75, 0.6, 1, 0.9) })
   Billboard.create(holo, { billboardMode: BillboardMode.BM_Y })
-  const sign = engine.addEntity()
-  Transform.create(sign, { position: onRadius(DOOR_MID, FRONT_R - 0.02, 2.72), rotation: facingCentre(DOOR_MID) })
-  TextShape.create(sign, { text: 'E L D   R E L A Y', fontSize: 1.1, font: Font.F_MONOSPACE, textColor: Color4.create(0.7, 0.55, 1, 1) })
 
-  const relayFloor = Vector3.create(corePos.x, floorY(), corePos.z)
+  const relayFloor = floor
   let t = 0
   let spin = 0
   let glowTimer = 0

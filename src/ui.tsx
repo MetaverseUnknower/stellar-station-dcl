@@ -17,6 +17,7 @@ import { OrbitScreen } from './arcade/orbit/hud'
 import { RacerScreen } from './arcade/racer/hud'
 import { FuelPanel } from './fuel/fuelPanelUi'
 import { MarketPanel } from './blackMarket/panelUi'
+import { BarMenu } from './bar/menuUi'
 import { CrewButton, CrewPanel } from './crew/crewUi'
 import { currentTrack, isMuted, toggleMuted, nextTrack } from './soundtrack'
 import { radioDisplay, radioGenre, inTheClub } from './lounge/radioNow'
@@ -258,6 +259,7 @@ export function setupUi(): void {
       <RacerScreen />
       <FuelPanel />
       <MarketPanel />
+      <BarMenu />
       <CrewPanel />
       <CrewButton />
       <StationMusicBar />

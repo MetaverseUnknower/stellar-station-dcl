@@ -18,7 +18,9 @@ import { buildClubLights } from './lounge/clubLights'
 import { buildCouches } from './lounge/couches'
 import { buildSpaceBarSign } from './lounge/spaceBarSign'
 import { buildSpaceBar } from './lounge/spaceBar'
-import { buildBlackMarket } from './blackMarket/room'
+import { buildRelay } from './blackMarket/relay'
+import { buildSecretDoor } from './bar/secretDoor'
+import { buildBartender } from './bar/bartender'
 import { startPirateRadio } from './blackMarket/radio'
 import { startCrew } from './crew/crew'
 import { buildArcade } from './arcade/arcade'
@@ -119,8 +121,9 @@ export function buildStation(): void {
   buildClubLights()
   buildCouches()
   buildSpaceBarSign()
-  buildSpaceBar()
-  buildBlackMarket()
+  buildSecretDoor(buildSpaceBar())
+  buildBartender()
+  buildRelay()
   startPirateRadio()
   startCrew()
   buildArcade()

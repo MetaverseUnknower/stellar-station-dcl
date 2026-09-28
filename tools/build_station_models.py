@@ -43,6 +43,12 @@ TERRA_DOOR = (4.0, 3.6)
 # now: its corridor is closed at the hub end by a door (src/lab/lab.ts says what's coming).
 LAB_ANGLE, LAB_SCALE, LAB_DIST, LAB_Z = 169.5, 0.6, 46.5, 0.0
 LAB_DOOR = (4.0, 3.6)
+# The Eld's pod: a small pod off the lounge, hidden behind the Space Bar (scene 235, Blender 55). Its doorway is cut
+# low and narrow so the back bar's centre bay (two leaves that swing open: build_space_bar.py, src/bar/) covers it,
+# and the SPACE BAR sign over the bar clears it. Obsidian inside, with violet light (restyle_eld). Clear of the
+# docking pod under it at 45 (which tops out ~15 m up) and of the Observation Deck's pods.
+ELD_ANGLE, ELD_SCALE, ELD_DIST, ELD_Z = 55.0, 0.4, 46.0, 25.0
+ELD_DOOR = (2.0, 2.3)
 BENCH_ANGLES = (-20, 0, 20, 160, 180, 200)
 POD_DISTANCE = INNER_WALL * HUB_SCALE + CORRIDOR_LENGTH + INNER_WALL   # pod centre from hub centre
 # Hub levels (src/station.ts HUB_LEVELS must match): two ring balconies open over the atrium, and a lounge with a
@@ -313,6 +319,10 @@ class CorridorFrame:
     # near where the hull should be (None otherwise, and trim() borrows a neighbour's).
     def hub_outer(self, y, z):
         s = self._hit(self.hub[1], self.mid, -1, y, z)
+        if s is not None and self.base >= LOUNGE:
+            # Up at the lounge the dome has curved well in from its widest (the hull is ~30 m out there, not 33.6),
+            # and there's no lower edge for a ray to slip under.
+            return s if 22 < s < self.mid else None
         return s if s is not None and abs(s - HUB_OUTER * HUB_SCALE) < 3 else None
 
     def pod_outer(self, y, z):
@@ -328,8 +338,9 @@ class CorridorFrame:
             v.co = self.at(s, y, z)
 
 
-def build_corridor(deg, hub_tree, pod_tree, base=0.0, pod_dist=POD_DISTANCE, pod_scale=1.0, door=(DOOR_W, DOOR_H)):
-    """A corridor on the diagonal deg, built in station space and fitted to the curved hulls at both ends."""
+def build_corridor(deg, hub_tree, pod_tree, base=0.0, pod_dist=POD_DISTANCE, pod_scale=1.0, door=(DOOR_W, DOOR_H), hub_trim=True):
+    """A corridor on the diagonal deg, built in station space and fitted to the curved hulls at both ends. Without
+    hub_trim, no frame round its mouth in the hub (a hidden doorway: the Eld's, behind the Space Bar's back bar)."""
     coll = bpy.data.collections.new('corridor')
     bpy.context.scene.collection.children.link(coll)
     f = CorridorFrame(deg, hub_tree, pod_tree, base, pod_dist, pod_scale)
@@ -375,6 +386,8 @@ def build_corridor(deg, hub_tree, pod_tree, base=0.0, pod_dist=POD_DISTANCE, pod
             ('PodIn', lambda y, z: f.pod_inner(y, z, bumper=True), 1, (u_in, u_out), False),
             ('HubOut', f.hub_outer, 1, (o_in, o_out), True),
             ('PodOut', f.pod_outer, -1, (o_in, o_out), True)):
+        if name == 'HubIn' and not hub_trim:
+            continue
         coll.objects.link(trim(f'CorridorTrim{name}', f, surface, toward_viewer, *loops, frame_mat, closed))
 
     # Colliders: floor slab, the two side walls, and a ceiling slab over the whole width (with a jump and a glide the
@@ -746,7 +759,24 @@ def merge(colls):
     return out
 
 
-def build_small_pod(hub_tree, hub_wall, angle, scale, dist, z, door, sign_text, sign_rgb):
+def restyle_eld(colls):
+    """The Eld's pod and corridor in the black market's colours: glossy obsidian, the light strips violet, the glass
+    left alone. (Each mesh is its own copy, so the other pods keep the kit's materials.)"""
+    obsidian = panel_material('EldObsidian', (0.015, 0.012, 0.022), 0.9, 0.18)
+    violet = glow_material('EldViolet', (0.55, 0.3, 1.0), 2.4)
+    for coll in colls:
+        for ob in coll.objects:
+            if '_collider' in ob.name or ob.name.startswith(('Window', 'Glass')):
+                continue
+            ob.data = ob.data.copy()
+            glow = ob.name.startswith(('PureEM', 'PureEm'))
+            for i in range(len(ob.data.materials)):
+                ob.data.materials[i] = violet if glow or 'EM' in (ob.data.materials[i].name if ob.data.materials[i] else '') else obsidian
+            if not ob.data.materials:
+                ob.data.materials.append(violet if glow else obsidian)
+
+
+def build_small_pod(hub_tree, hub_wall, angle, scale, dist, z, door, sign_text, sign_rgb, hidden=False):
     """A small pod off a balcony (the arcade, Terra), its corridor and its sign. Like the observation pods: no engine
     (a second window instead) and no projector; no benches or wall rails either (they'd be doll-sized at this
     scale)."""
@@ -765,7 +795,9 @@ def build_small_pod(hub_tree, hub_wall, angle, scale, dist, z, door, sign_text, 
     name_colliders(pod)
     pod_tree = (hull_bvh(pod), hull_bvh(pod, ('Wall 0', 'RivetWall', 'Ground')))
     cut_door(pod, angle + 180, *door, r_min=11 * scale, center=centre, floor=z)
-    corridor = build_corridor(angle, hub_tree, pod_tree, base=z, pod_dist=dist, pod_scale=scale, door=door)
+    corridor = build_corridor(angle, hub_tree, pod_tree, base=z, pod_dist=dist, pod_scale=scale, door=door, hub_trim=not hidden)
+    if hidden:   # no sign, no frame in the hub: the doorway is a secret
+        return [pod, corridor]
     sign = dock_sign(f'{sign_text}Sign', angle, hub_wall, base=z, text=sign_text, door_h=door[1], rgb=sign_rgb, w=3.8)
     return [pod, corridor, sign]
 
@@ -866,6 +898,7 @@ def main():
     cut_door(hub, ARCADE_ANGLE, *ARCADE_DOOR, r_min=11 * HUB_SCALE, floor=ARCADE_Z)
     cut_door(hub, TERRA_ANGLE, *TERRA_DOOR, r_min=11 * HUB_SCALE, floor=TERRA_Z)
     cut_door(hub, LAB_ANGLE, *LAB_DOOR, r_min=11 * HUB_SCALE, floor=LAB_Z)
+    cut_door(hub, ELD_ANGLE, *ELD_DOOR, r_min=11 * HUB_SCALE, floor=ELD_Z)
     parts.append(hub)
 
     for a in HUB_DOORS:
@@ -901,6 +934,9 @@ def main():
     parts += build_small_pod(hub_tree, hub_wall, TERRA_ANGLE, TERRA_SCALE, TERRA_DIST, TERRA_Z, TERRA_DOOR, 'TERRA', (0.4, 1, 0.5))
     parts += build_small_pod(hub_tree, hub_wall, LAB_ANGLE, LAB_SCALE, LAB_DIST, LAB_Z, LAB_DOOR, 'LAB', (0.7, 0.45, 1))
     parts.append(sealed_door('LabDoor', LAB_ANGLE, LAB_Z, LAB_DOOR, hub_wall))
+    eld = build_small_pod(hub_tree, hub_wall, ELD_ANGLE, ELD_SCALE, ELD_DIST, ELD_Z, ELD_DOOR, None, None, hidden=True)
+    restyle_eld(eld)
+    parts += eld
     parts.append(build_hub_levels(hub, hub_wall))
     parts.append(window_colliders(hub_wall))
     for a in HUB_DOORS:
