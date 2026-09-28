@@ -215,16 +215,23 @@ def pose_sitting(f):
     hips_rest = REST['Avatar_Hips'].translation
     move('Avatar_Hips', Vector((0, 0.05, SEAT_HIPS - hips_rest.z)))   # down onto the seat, a little back
     tilt('Avatar_Hips', FWD, 0.02 * shift * groove)
-    # Thighs forward along the seat, shins hanging, knees a little apart; the right foot taps on the beat
+    # Thighs forward along the seat, shins hanging, knees a little apart; the right foot taps on the beat, the heel
+    # lifting off with the ball of the foot staying put (a quick lift, a softer fall)
+    tap = beat ** 2 * 0.016
     for s, sgn in (('Left', 1), ('Right', -1)):
         up = arm.pose.bones[f'Avatar_{s}UpLeg']
         bpy.context.view_layer.update()
         hip = world(up).translation
         l1, l2 = bone_len(f'Avatar_{s}UpLeg', f'Avatar_{s}Leg'), bone_len(f'Avatar_{s}Leg', f'Avatar_{s}Foot')
         knee = hip + v(sgn * 0.12, F * 1, -0.06) * l1
-        tap = 0.035 * beat if s == 'Right' else 0.0
-        ankle = knee + v(0, F * 0.22, -1) * l2 + Vector((0, 0, tap))
+        lift = tap if s == 'Right' else 0.0
+        ankle = knee + v(0, F * 0.22, -1) * l2 + Vector((0, 0, lift))
         leg_to(s, ankle, knee_out=sgn * 0.3)
+        if lift:
+            # Pivot the foot down about the ankle so its ball stays where it was, and keep the toes flat
+            toe = math.asin(min(1, lift / bone_len(f'Avatar_{s}Foot', f'Avatar_{s}ToeBase')))
+            tilt(f'Avatar_{s}Foot', SIDE, toe)
+            tilt(f'Avatar_{s}ToeBase', SIDE, -toe)
     tilt('Avatar_Spine', SIDE, 0.07)   # leaning in a little, as you do on a stool
     tilt('Avatar_Spine1', FWD, -0.03 * shift * groove)
     tilt('Avatar_Spine2', SIDE, 0.012 * math.sin(2 * math.pi * f / 80))
