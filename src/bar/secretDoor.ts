@@ -1,8 +1,12 @@
 // The way to the Eld: the Space Bar's back bar has a centre bay of two leaves (build_space_bar.py LeafL_/LeafR_)
 // that swing open, hinged at their outer front corners, onto the doorway of a hidden pod (build_station_models.py
-// ELD_*). Order the Vacuum on the Rocks, hold the rocks (drinks.ts) and DEX opens them for you: they stay open while
-// you're near the bar or through in the pod, and close once you've gone. Only for you: nobody else sees them move.
-// Anyone already through when the scene reloads can still get out: the leaves open for someone behind them.
+// ELD_*). Ordering the Vacuum on the Rocks, hold the rocks (drinks.ts) buys one way in: DEX opens the leaves, they
+// close behind you once you're through, open again when you come back to them from inside, and close behind you once
+// you're out. To go back in, order another. Only for you: nobody else sees them move. Anyone already through when the
+// scene reloads is inside, so the leaves still let them out.
+//
+//   closed ─(order)→ invited ─(through the doorway)→ inside ─(back at the doorway)→ leaving ─(clear of the bay)→ closed
+//   invited ─(wandered off)→ closed           leaving ─(back into the corridor)→ inside
 import { engine, Entity, Transform, GltfContainer, ColliderLayer, Tween, EasingFunction } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
@@ -15,26 +19,47 @@ const HINGE_X = -26.8379
 const HINGE_Z = 1.3126
 const SWING = 90 // degrees open
 const SWING_MS = 1400
-const STAY_NEAR = 10 // metres from the bay: past this (and not through in the pod), the leaves close
+const WANDERED = 10 // metres from the bay: invited, but gone elsewhere
 const BEHIND_R = 27.1 // further out than this, near the doorway's line, you're behind the back bar
+const THROUGH_R = 29.6 // in the corridor, past the doorway (the hull is ~28.5 out) and clear of the leaves' swing
+const EXIT_R = 31 // coming back along the corridor, this close to the doorway: let them out
+const CLEAR = 3 // metres from the bay once out: clear of the leaves' swing (their free ends reach ~2.7 m), so they can close
 
-let unlocked = false
+export type DoorState = 'closed' | 'invited' | 'inside' | 'leaving'
+
+let state: DoorState = 'closed'
 let open = false
 let leaves: { e: Entity; openYaw: number }[] = []
+const listeners: ((from: DoorState, to: DoorState) => void)[] = []
+
+export const doorState = () => state
+/** Called on every change of state (DEX has something to say about most of them). */
+export function onDoorChanged(fn: (from: DoorState, to: DoorState) => void): void {
+  listeners.push(fn)
+}
+
+function become(next: DoorState): void {
+  if (next === state) return
+  const from = state
+  state = next
+  swing(next === 'invited' || next === 'leaving')
+  for (const fn of listeners) fn(from, next)
+}
 
 const bayCentre = () => {
   const a = (BAR_ANGLE * Math.PI) / 180
   return Vector3.create(CENTER.x + Math.cos(a) * 26.9, FLOOR_Y + LOUNGE, CENTER.z + Math.sin(a) * 26.9)
 }
 
-/** Behind the back bar: in the doorway, the corridor or the pod beyond (on the lounge's level). */
-function behind(p: Vector3): boolean {
+/** How far out from the hub's centre I am if I'm behind the back bar (in the doorway, corridor or pod), or null. */
+function behindAt(p: Vector3): number | null {
   const dx = p.x - CENTER.x
   const dz = p.z - CENTER.z
   const r = Math.sqrt(dx * dx + dz * dz)
   let deg = (Math.atan2(dz, dx) * 180) / Math.PI
   if (deg < 0) deg += 360
-  return r > BEHIND_R && Math.abs(deg - BAR_ANGLE) < 12 && Math.abs(p.y - (FLOOR_Y + LOUNGE)) < 6
+  const behind = r > BEHIND_R && Math.abs(deg - BAR_ANGLE) < 12 && Math.abs(p.y - (FLOOR_Y + LOUNGE)) < 6
+  return behind ? r : null
 }
 
 function swing(to: boolean): void {
@@ -50,10 +75,9 @@ function swing(to: boolean): void {
   }
 }
 
-/** The secret's been asked for: open up. */
+/** The secret's been asked for: one way in. */
 export function unlockBackRoom(): void {
-  unlocked = true
-  swing(true)
+  if (state === 'closed') become('invited')
 }
 
 export function buildSecretDoor(bar: Entity): void {
@@ -72,12 +96,28 @@ export function buildSecretDoor(bar: Entity): void {
   let check = 0
   engine.addSystem((dt) => {
     check += dt
-    if (check < 0.25) return
+    if (check < 0.2) return
     check = 0
     const me = Transform.getOrNull(engine.PlayerEntity)
     if (!me) return
-    const through = behind(me.position)
-    const near = Vector3.distance(me.position, bayCentre()) < STAY_NEAR
-    swing(through || (unlocked && near))
+    const r = behindAt(me.position)
+    const fromBay = Vector3.distance(me.position, bayCentre())
+    switch (state) {
+      case 'closed':
+        if (r !== null && r > THROUGH_R) become('inside') // already through (a reload, say)
+        else if (r !== null) become('leaving') // somehow in the doorway: let them out
+        break
+      case 'invited':
+        if (r !== null && r > THROUGH_R) become('inside')
+        else if (r === null && fromBay > WANDERED) become('closed')
+        break
+      case 'inside':
+        if (r !== null && r < EXIT_R) become('leaving')
+        break
+      case 'leaving':
+        if (r !== null && r > EXIT_R + 1) become('inside')
+        else if (r === null && fromBay > CLEAR) become('closed')
+        break
+    }
   })
 }

@@ -66,7 +66,7 @@ export const DRINKS: Drink[] = [
     ingredients: ['Nothing', 'Chilled'],
     method: 'Serve immediately, before it gets any emptier.',
     glass: null,
-    served: '…Of course. Right this way.'
+    served: '' // DEX has a whole routine for this one (bartender.ts)
   }
 ]
 
