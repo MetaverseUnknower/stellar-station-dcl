@@ -6,14 +6,14 @@
 // movement to itself while frozen), E or Space to act and start, F to walk away. Walking away (or being moved off,
 // e.g. teleported) ends the session.
 //
-// High scores belong to the station: synced between the players docked there, and only them, under a network id from
-// the station's id and the game (as the lifts do, lift/lifts.ts).
-import { engine, Entity, Transform, InputModifier, inputSystem, InputAction, PointerEventType, AudioSource, Schemas } from '@dcl/sdk/ecs'
+// High scores belong to the station, kept by the game server (routes/arcade.ts): every player's best at each game,
+// per station. Loaded on arriving, posted at each game over.
+import { engine, Entity, Transform, InputModifier, inputSystem, InputAction, PointerEventType, AudioSource } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
-import { syncEntity } from '@dcl/sdk/network'
 import { getPlayer } from '@dcl/sdk/players'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { onGateChanged, getGateState, GateState } from '../gate'
+import { getArcadeScores, postArcadeScore, ArcadeTables, ArcadeEntry } from '../stationApi'
 
 const LEAVE_DISTANCE = 3 // metres from where the game put the player: past this, the session ends
 const SOUND_VOLUME = 0.55
@@ -71,46 +71,52 @@ export function leave(): void {
 
 // ---- high scores ---------------------------------------------------------------------------------------------------
 
-const HiScore = engine.defineComponent('stellar::ArcadeHiScore', { game: Schemas.String, score: Schemas.Int, name: Schemas.String })
-const GAMES = ['invaders', 'garden', 'breaker', 'comet', 'drift', 'orbit', 'racer'] // each game's table has its own network id: keep this order, add at the end
-const tables = new Map<string, Entity>()
+// Kept by the game server (routes/arcade.ts): each station's table per game, every player's best. Loaded on arriving
+// at a station (and again after each game over); a game over posts its score. Until the server answers, a game's
+// high score is 0 and '' (and the station's cabinets show none).
 
-function syncId(stationId: string, game: string): number {
-  let h = 0x811c9dc5
-  for (const ch of stationId) {
-    h ^= ch.charCodeAt(0)
-    h = Math.imul(h, 0x01000193) >>> 0
+let station: string | null = null
+let tables: ArcadeTables['games'] = {}
+let loading = false
+
+async function loadTables(): Promise<void> {
+  if (!station || loading) return
+  loading = true
+  try {
+    tables = (await getArcadeScores(station)).games ?? {}
+    for (const [game, t] of Object.entries(tables)) bests.set(game, Math.max(personalBest(game), t.mine ?? 0))
+  } catch (e) {
+    console.log('[arcade] high scores unavailable', e)
+  } finally {
+    loading = false
   }
-  return 780000 + (h % 10000) * 4 + Math.max(0, GAMES.indexOf(game)) // clear of the lifts' 720000..760000
 }
 
-function useStation(stationId: string | null): void {
-  for (const game of GAMES) {
-    const e = engine.addEntity()
-    HiScore.create(e, { game, score: 0, name: '' })
-    if (stationId) syncEntity(e, [HiScore.componentId], syncId(stationId, game))
-    tables.set(game, e)
-  }
-}
-
-/** A game's high score at this station (0 and '' until someone sets one). */
+/** A game's high score at this station (0 and '' until someone sets one, or until the server answers). */
 export function stationHiScore(game: string): { score: number; name: string } {
-  const e = tables.get(game)
-  const h = e ? HiScore.getOrNull(e) : null
-  return h ? { score: h.score, name: h.name } : { score: 0, name: '' }
+  const top = tables[game]?.top?.[0]
+  return top ? { score: top.score, name: top.name.slice(0, 14).toUpperCase() } : { score: 0, name: '' }
 }
 
-/** Record a finished game's score: a personal best, and the station's high score if it beats it. */
+/** A game's top five at this station, best first. */
+export const stationTop = (game: string): ArcadeEntry[] => tables[game]?.top ?? []
+
+/** Record a finished game's score: a personal best, and on the server, which keeps the station's table. */
 function offer(game: CabinetGame): void {
-  const score = game.score()
+  const score = Math.floor(game.score())
   if (submitted || score <= 0) return
   submitted = true
   bests.set(game.id, Math.max(personalBest(game.id), score))
-  const e = tables.get(game.id)
-  if (e && score > stationHiScore(game.id).score) {
-    const name = (getPlayer()?.name || 'GARDENER').slice(0, 14).toUpperCase()
-    HiScore.createOrReplace(e, { game: game.id, score, name })
+  // Shown straight away if it tops the table; the server's answer (and the reloaded table) follows.
+  if (score > stationHiScore(game.id).score) {
+    const name = getPlayer()?.name || 'Gardener'
+    const t = (tables[game.id] ??= { top: [], mine: 0 })
+    t.top = [{ name, score }, ...t.top].slice(0, 5)
   }
+  if (!station) return
+  postArcadeScore(station, game.id, score)
+    .then(() => loadTables())
+    .catch((e) => console.log('[arcade] score not recorded', e))
 }
 
 // ---- sounds --------------------------------------------------------------------------------------------------------
@@ -161,12 +167,12 @@ function setHum(h: { clip: string; pitch: number; volume: number } | null): void
 // ---- running -------------------------------------------------------------------------------------------------------
 
 export function setupCabinets(): void {
-  let station: string | null = null
   const onGate = (gate: GateState) => {
     const next = gate.kind === 'aboard' ? gate.stationId : null
-    if (next !== station || tables.size === 0) {
+    if (next !== station) {
       station = next
-      useStation(station)
+      tables = {}
+      void loadTables()
     }
   }
   onGateChanged(onGate)

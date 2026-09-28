@@ -159,3 +159,18 @@ export type Leaderboards = { galaxyId: string; refreshedAt: string | null; categ
 export function getLeaderboards(): Promise<Leaderboards> {
   return apiGet('/api/leaderboards')
 }
+
+// ---- the arcade's high scores (server routes/arcade.ts) ----
+
+export type ArcadeEntry = { name: string; score: number }
+export type ArcadeTables = { games: Record<string, { top: ArcadeEntry[]; mine: number }> }
+
+/** Each game's top five at this station, and my own best at each. */
+export function getArcadeScores(stationId: string): Promise<ArcadeTables> {
+  return request('GET', `/api/arcade/${stationId}`)
+}
+
+/** A game over: kept if it beats my best at this game here. */
+export function postArcadeScore(stationId: string, game: string, score: number): Promise<{ best: number; improved: boolean }> {
+  return request('POST', `/api/arcade/${stationId}/${game}`, { score })
+}
