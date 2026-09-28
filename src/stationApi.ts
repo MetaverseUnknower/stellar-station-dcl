@@ -217,8 +217,32 @@ export function getPirateRadio(): Promise<{ broadcast: { message: string; by: st
   return apiGet('/api/black-market/radio')
 }
 
-export function getFriends(): Promise<{ friends: Friend[] }> {
+// ---- friends (server routes/friends.ts) ----
+
+export type FriendRequestIn = { friendshipId: string; fromPlayerId: string; fromUsername: string }
+export type FriendRequestOut = { friendshipId: string; toPlayerId: string; toUsername: string }
+export type FriendsList = { friends: Friend[]; incomingRequests: FriendRequestIn[]; outgoingRequests: FriendRequestOut[] }
+
+export function getFriends(): Promise<FriendsList> {
   return apiGet('/api/friends')
+}
+
+/** Send a request by friend code (or accept theirs, if they'd already asked). */
+export function requestFriendByCode(friendCode: string): Promise<{ status: string; message?: string }> {
+  return apiPost('/api/friends/request', { friendCode })
+}
+
+/** Send a request to a player docked at my station. */
+export function requestDockedFriend(playerId: string): Promise<{ status: string; message?: string }> {
+  return apiPost('/api/friends/request-docked', { playerId })
+}
+
+export function acceptFriend(friendshipId: string): Promise<{ status: string }> {
+  return apiPost(`/api/friends/accept/${encodeURIComponent(friendshipId)}`)
+}
+
+export function rejectFriend(friendshipId: string): Promise<unknown> {
+  return apiPost(`/api/friends/reject/${encodeURIComponent(friendshipId)}`)
 }
 
 /**

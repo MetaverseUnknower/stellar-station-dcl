@@ -53,6 +53,7 @@ export async function openMarket(): Promise<void> {
   if (market.busy) return // a purchase in flight owns the panel; just show it
   if (market.phase === 'done') resetPurchase()
   if (market.items.length) {
+    void getFriends().then((f) => { market.friends = f.friends ?? [] }).catch(() => {}) // friends made since
     void refreshMine()
     void resumePending()
     return

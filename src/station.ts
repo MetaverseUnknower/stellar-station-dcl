@@ -20,6 +20,7 @@ import { buildSpaceBarSign } from './lounge/spaceBarSign'
 import { buildSpaceBar } from './lounge/spaceBar'
 import { buildBlackMarket } from './blackMarket/room'
 import { startPirateRadio } from './blackMarket/radio'
+import { startCrew } from './crew/crew'
 import { buildArcade } from './arcade/arcade'
 import { setupCabinets } from './arcade/cabinet'
 import { buildTerra } from './terra/terra'
@@ -121,6 +122,7 @@ export function buildStation(): void {
   buildSpaceBar()
   buildBlackMarket()
   startPirateRadio()
+  startCrew()
   buildArcade()
   setupCabinets()
   buildTerra()
