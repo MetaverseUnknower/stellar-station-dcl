@@ -1,16 +1,15 @@
 // DEX, the Space Bar's robot bartender (tools/build_bartender.py): he hovers behind the counter beside the back bar's
 // centre bay, follows whoever's nearest with his head, blinks, and, clicked, hands over the menu (menuUi.tsx). He
 // shakes each drink before it's served into your hand (drinks.ts). The fourth thing on the menu isn't a drink: ask for
-// it and he gets shifty (checks nobody's watching, drops his voice, asks if you were followed) and then opens the back
-// bar, once (secretDoor.ts). Afterwards he never saw you, and he mutters about the shelves being just shelves.
-import {
-  engine, Entity, Transform, GltfContainer, ColliderLayer, MeshRenderer, Material, TextShape, Billboard, BillboardMode,
-  pointerEventsSystem, InputAction
-} from '@dcl/sdk/ecs'
+// it and he gives you a dirty look, then gets shifty (checks nobody's watching, drops his voice, asks if you were
+// followed) and then opens the back bar, once (secretDoor.ts). Afterwards he never saw you, and he mutters about the
+// shelves being just shelves. He talks in a holographic readout over his head (speechBubble.ts).
+import { engine, Entity, Transform, GltfContainer, ColliderLayer, MeshRenderer, Material, pointerEventsSystem, InputAction } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
 import { Drink, holdGlass, startDrinks } from './drinks'
 import { unlockBackRoom, doorState, onDoorChanged } from './secretDoor'
+import { createBubble, whisper, Line } from './speechBubble'
 
 const LOUNGE = 25 // build_station_models.py LOUNGE
 const ANGLE = 239.4 // scene degrees: behind the counter, 2 m along from the centre bay (clear of its leaves' swing)
@@ -20,11 +19,11 @@ const HAND = Vector3.create(0.3, 1.08, 0.36) // build_bartender.py HAND (-0.3, -
 const LOOK_RANGE = 9
 const MAX_TURN = 70 // degrees the head turns either way
 const SHAKE_SECONDS = 1.6
-const SAY_SECONDS = 4.5
 const DENY_SECONDS = 120 // after you've come out, for this long he doesn't know what you're talking about
 const MUTTER_NEAR = 6 // metres: close enough to overhear him
 
-const whisper = (text: string) => `<i><size=85%>${text}</size></i>`
+const SCOWL = 20 // degrees each eye tilts, inner end down, for a dirty look
+const LEAN = 0.08 // metres he leans in when he's glaring
 const pick = (lines: string[]) => lines[Math.floor(Math.random() * lines.length)]
 
 const GREETINGS = ['What can I get you?', 'What\u2019ll it be?', 'Evening. Drink?', 'Name your poison. Non-toxic, obviously.']
@@ -40,16 +39,17 @@ const MUTTERS = [
 ]
 
 /** A little scene: lines at set times, some of them nervous, with something to do at the end. */
-type Beat = { at: number; say?: string; nervous?: number; then?: () => void }
+type Beat = { at: number; say?: Line; nervous?: number; glare?: number; then?: () => void }
 
 export const barMenu = { open: false }
 
-let say: (text: string) => void = () => {}
+let say: (line: Line) => void = () => {}
 let shaking = 0
 let pending: Drink | null = null
 let script: Beat[] = []
 let scriptT = 0
 let nervous = 0 // seconds of glancing about
+let glare = 0 // seconds of dirty look
 let lastExit = -Infinity // (on the bartender's clock) when you last came out of the back
 let clock = 0
 
@@ -61,22 +61,22 @@ function run(beats: Beat[]): void {
 /** The Vacuum on the Rocks, hold the rocks: a password, not a drink. */
 function orderTheNothing(): void {
   if (doorState() === 'invited') {
-    run([{ at: 0, say: whisper('I heard you the first time. Go.'), nervous: 1.5 }])
+    run([{ at: 0, say: whisper('I heard you the first time. Go.'), glare: 1.5 }])
     return
   }
   if (clock - lastExit < DENY_SECONDS) {
     run([
-      { at: 0, say: '\u2026Again?', nervous: 1.5 },
-      { at: 1.8, say: whisper('Fine. Quick. Nobody\u2019s looking.'), then: unlockBackRoom }
+      { at: 0, say: '\u2026Again?', glare: 1.8 },
+      { at: 1.8, say: whisper('Fine. Quick. Nobody\u2019s looking.'), nervous: 1.2, then: unlockBackRoom }
     ])
     return
   }
   run([
-    { at: 0, say: '\u2026', nervous: 2.4 },
-    { at: 1.4, say: whisper('Keep your voice down.') },
-    { at: 3.4, say: whisper('Vacuum on the Rocks. Hold the rocks. Right.') },
-    { at: 5.6, say: whisper('Nobody followed you?'), nervous: 2.2 },
-    { at: 7.8, say: whisper('\u2026Through the back. Be quick.'), then: unlockBackRoom }
+    { at: 0, say: '\u2026', glare: 2.4 },
+    { at: 2.4, say: whisper('Keep your voice down.'), nervous: 2 },
+    { at: 4.6, say: whisper('Vacuum on the Rocks. Hold the rocks. Right.') },
+    { at: 7.0, say: whisper('Nobody followed you?'), nervous: 2.2 },
+    { at: 9.2, say: whisper('\u2026Through the back. Be quick.'), then: unlockBackRoom }
   ])
 }
 
@@ -128,16 +128,9 @@ export function buildBartender(): void {
     return e
   })
 
-  // What he says, over his head
-  const speech = engine.addEntity()
-  Transform.create(speech, { parent: root, position: Vector3.create(0, NECK + 0.62, 0) })
-  TextShape.create(speech, { text: '', fontSize: 1.4, textColor: Color4.create(1, 0.95, 0.85, 1), outlineWidth: 0.15, outlineColor: Color3.create(0.02, 0.05, 0.12) })
-  Billboard.create(speech, { billboardMode: BillboardMode.BM_Y })
-  let saying = 0
-  say = (text: string) => {
-    TextShape.getMutable(speech).text = text
-    saying = SAY_SECONDS
-  }
+  // What he says, in a readout over his head
+  const bubble = createBubble(root, Vector3.create(0, NECK + 0.58, 0))
+  say = bubble.say
 
   for (const e of [body, head]) {
     pointerEventsSystem.onPointerDown(
@@ -167,10 +160,15 @@ export function buildBartender(): void {
   let blink = 3
   let headYaw = 0
   let mutter = 45
+  let lean = 0
+  let scowling = false
+  const fwd = Vector3.normalize(Vector3.create(CENTER.x - base.x, 0, CENTER.z - base.z))
   engine.addSystem((dt) => {
     t += dt
     clock = t
-    Transform.getMutable(root).position = Vector3.create(base.x, base.y + Math.sin(t * 1.7) * 0.02, base.z)
+    // He hovers, and leans in when he's glaring at you
+    lean += ((glare > 0 ? LEAN : 0) - lean) * Math.min(1, dt * 6)
+    Transform.getMutable(root).position = Vector3.create(base.x + fwd.x * lean, base.y + Math.sin(t * 1.7) * 0.02, base.z + fwd.z * lean)
 
     // The head turns toward me when I'm near, and wanders a little when I'm not
     // (and darts about, checking nobody's watching, when he's nervous)
@@ -180,21 +178,31 @@ export function buildBartender(): void {
       const toMe = (Math.atan2(me.position.x - base.x, me.position.z - base.z) * 180) / Math.PI
       want = ((toMe - facing + 540) % 360) - 180
     }
-    if (nervous > 0) {
+    if (glare > 0) {
+      glare -= dt // stares you down: eyes on you, whatever else is going on
+    } else if (nervous > 0) {
       nervous -= dt
       want = Math.sin(t * 5) > 0 ? MAX_TURN : -MAX_TURN
     }
     want = Math.max(-MAX_TURN, Math.min(MAX_TURN, want))
-    headYaw += (want - headYaw) * Math.min(1, dt * (nervous > 0 ? 9 : 4))
+    headYaw += (want - headYaw) * Math.min(1, dt * (nervous > 0 || glare > 0 ? 9 : 4))
     Transform.getMutable(head).rotation = Quaternion.fromEulerDegrees(0, headYaw, 0)
 
     blink -= dt
     const shut = blink < 0.12
     if (blink < 0) blink = 2.5 + Math.random() * 3
+    // Narrowed when he's shifty; narrowed and tilted, inner ends down, for a dirty look
+    const y = shut ? 0.005 : glare > 0 ? 0.02 : nervous > 0 ? 0.016 : 0.035
     for (const e of eyes) {
-      const s = Transform.getMutable(e).scale
-      const y = shut ? 0.005 : nervous > 0 ? 0.016 : 0.035 // narrowed, when he's shifty
-      if (s.y !== y) Transform.getMutable(e).scale = Vector3.create(0.06, y, 0.01)
+      if (Transform.get(e).scale.y !== y) Transform.getMutable(e).scale = Vector3.create(0.06, y, 0.01)
+    }
+    if ((glare > 0) !== scowling) {
+      scowling = glare > 0
+      // Seen from the front, a positive roll turns an eye clockwise; the eye at +x is on the viewer's left.
+      eyes.forEach((e, i) => {
+        const sgn = i === 0 ? -1 : 1
+        Transform.getMutable(e).rotation = Quaternion.fromEulerDegrees(0, 0, scowling ? sgn * SCOWL : 0)
+      })
     }
 
     // Shake the drink, then serve it
@@ -216,6 +224,7 @@ export function buildBartender(): void {
         const beat = script.shift() as Beat
         if (beat.say !== undefined) say(beat.say)
         if (beat.nervous) nervous = beat.nervous
+        if (beat.glare) glare = beat.glare
         beat.then?.()
       }
     }
@@ -224,7 +233,7 @@ export function buildBartender(): void {
     mutter -= dt
     if (mutter <= 0) {
       mutter = 40 + Math.random() * 40
-      if (me && Vector3.distance(me.position, base) < MUTTER_NEAR && saying <= 0 && !script.length && Math.random() < 0.6) {
+      if (me && Vector3.distance(me.position, base) < MUTTER_NEAR && !bubble.speaking() && !script.length && Math.random() < 0.6) {
         say(pick(MUTTERS))
         nervous = 1.2
       }
@@ -232,11 +241,6 @@ export function buildBartender(): void {
 
     // Walk away and the menu goes back behind the bar
     if (barMenu.open && me && Vector3.distance(me.position, base) > LOOK_RANGE) barMenu.open = false
-
-    if (saying > 0) {
-      saying -= dt
-      if (saying <= 0) TextShape.getMutable(speech).text = ''
-    }
   })
 }
 

@@ -64,12 +64,13 @@ export function BarMenu() {
   if (!barMenu.open) return null
   fitToWindow()
   return (
-    <UiEntity uiTransform={{ positionType: 'absolute', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+    // Pinned to the whole screen and centred both ways
+    <UiEntity uiTransform={{ positionType: 'absolute', position: { top: 0, left: 0 }, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
       <UiEntity
-        uiTransform={{ flexDirection: 'column', padding: px(16), borderWidth: px(2), borderColor: BRASS, borderRadius: px(12) }}
+        uiTransform={{ width: px(PANEL_W), flexDirection: 'column', alignItems: 'center', padding: px(16), borderWidth: px(2), borderColor: BRASS, borderRadius: px(12) }}
         uiBackground={{ color: NAVY }}
       >
-        <UiEntity uiTransform={{ flexDirection: 'row', alignItems: 'center', height: px(44), margin: { left: px(8), right: px(8) } }}>
+        <UiEntity uiTransform={{ width: '100%', flexDirection: 'row', alignItems: 'center', height: px(44), padding: { left: px(6), right: px(6) } }}>
           <UiEntity uiTransform={{ flexDirection: 'column', flexGrow: 1 }}>
             <Label value="THE SPACE BAR" fontSize={px(22)} color={PINK} textAlign="middle-left" uiTransform={{ height: px(30) }} />
             <Label value="Refinery mocktails, mixed by DEX  ·  on the house" fontSize={px(13)} color={CYAN} textAlign="middle-left" uiTransform={{ height: px(18) }} />
@@ -78,7 +79,7 @@ export function BarMenu() {
             <Label value="X" fontSize={px(16)} color={CREAM} />
           </UiEntity>
         </UiEntity>
-        <UiEntity uiTransform={{ flexDirection: 'row', flexWrap: 'wrap', width: px(2 * (CARD_W + 12)), margin: { top: px(6) } }}>
+        <UiEntity uiTransform={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', width: px(2 * (CARD_W + 12)), margin: { top: px(6) } }}>
           {DRINKS.map((d) => <DrinkCard key={d.id} drink={d} />)}
         </UiEntity>
       </UiEntity>
