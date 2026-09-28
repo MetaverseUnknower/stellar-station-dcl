@@ -132,8 +132,8 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
 - Deploy: `npm run deploy -- --target-content https://worlds-content-server.decentraland.org`, signing with
   the MetaPetal wallet `0x7e56…374C`. That wallet must own `stellarstation.dcl.eth` (or be granted deploy
   permission) first.
-- Last deployed 2026-09-27 from `ef0978e` (all seven arcade games, Terra, the breeding lab, airlocks, the
-  soundtrack and Relay Radio now-playing, the sealed colliders). The signature must be made within 5 minutes of
+- Last deployed 2026-09-28 from `b41b034` (the fuel cell dispenser in the hub, the newcomer welcome banner, and
+  everything before). The signature must be made within 5 minutes of
   the signing page opening.
 - The ship scene's `.editor/project.json` and its `scene.json` `source.projectId` belong to that project; don't
   copy them here. Creator Hub assigns this project its own on import.
