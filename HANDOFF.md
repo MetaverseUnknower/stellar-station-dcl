@@ -31,7 +31,8 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
     To open it later: drop the `sealed_door` part and its lettering.
     Fuel cell dispensers: the landing build's vending machine and its panel (`src/fuel/`: giveaway, MANA store,
     code redemption, operator on/off), copied unchanged but for import paths (it shares the station's `auth.ts`);
-    one machine per docking pod beside the airlock (`src/fuel/vending.ts`).
+    one machine in the hub's desk ring at 270°, opposite the trading post, at 1.5x (`src/fuel/vending.ts`).
+    Visitors with no captain get a welcome banner pointing them to the ship world (`gate.ts`, `ui.tsx`).
     signs like the lower four. Observation Deck (balcony 1): the ship's 3D galaxy map with the social heat map, turning over the atrium
     (`src/observation/galaxyHologram.ts`; `galaxyMap.ts`, `heatMap.ts`, `prefs.ts` copied unchanged). The
     lifts (`src/lift/`: a physical platform in a vertical shaft on each end of the X axis, run as elevators. A HUD
