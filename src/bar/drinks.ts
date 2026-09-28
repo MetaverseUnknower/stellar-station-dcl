@@ -29,9 +29,11 @@ import { isSeated, seatPerch } from '../seating'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { getCrew } from '../audience'
 
-// The glasses are modelled lying along +Z with the base at the origin (0.24 m long at GLASS_SCALE): stand them up.
+// The glasses are modelled lying along +Z with the base at the origin (0.24 m long at GLASS_SCALE). Held at rest
+// (walking about, arm down), the glass sticks straight out of the fist at right angles to the arm, its base in the
+// grip: left along the hand anchor's +Z. (Stood up along the anchor's Y, it hung down the arm and didn't look held.)
 const GLASS_SCALE = 0.15
-const IN_HAND = { position: Vector3.create(0, -0.06, 0), rotation: Quaternion.fromEulerDegrees(-90, 0, 0) }
+const IN_HAND = { position: Vector3.create(0, 0, -0.03), rotation: Quaternion.Identity() }
 
 export type Drink = {
   id: string
