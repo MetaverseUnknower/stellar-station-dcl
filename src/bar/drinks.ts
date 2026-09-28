@@ -25,7 +25,7 @@ import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { triggerSceneEmote } from '~system/RestrictedActions'
 import { getPlayer } from '@dcl/sdk/players'
 import { syncEntity, parentEntity, getParent } from '@dcl/sdk/network'
-import { isSeated, seatPerch } from '../seating'
+import { isSeated, seatPerch, setSitHook } from '../seating'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { getCrew } from '../audience'
 
@@ -142,6 +142,8 @@ let left = 0
 let drinkingAt: Vector3 | null = null // where the drinking emote started, while it plays
 let triggeredAt = -Infinity
 let clock = 0
+let perching: { perch: Vector3; since: number } | null = null // on my way onto a seat's perch, to drink there
+const PERCH_GIVE_UP = 3 // seconds
 
 /** "You dropped your drink..." while it's showing (menuUi.tsx draws it). */
 export const dropNotice = { text: '', left: 0 }
@@ -290,7 +292,22 @@ function othersDrinks(): void {
   }
 }
 
+/** Stand me on a seat's perch; the sitting drinking emote starts the moment I'm there (waiting any longer, I'd be
+ *  seen stood on the seat: the move ends whatever emote was playing). */
+function perchOn(perch: Vector3, lookAt: Vector3): void {
+  void movePlayerTo({ newRelativePosition: Vector3.add(perch, Vector3.create(0, 0.05, 0)), cameraTarget: lookAt, avatarTarget: lookAt })
+  perching = { perch, since: clock }
+  drinkingAt = null
+}
+
 export function startDrinks(): void {
+  // Sitting down with a drink: straight onto the seat's perch and into the sitting drinking emote, rather than the
+  // seat's own sit (made for the floor in front of it) and then a hop up
+  setSitHook((perch, lookAt) => {
+    if (!holding?.sitEmote || !perch) return false
+    perchOn(perch, lookAt)
+    return true
+  })
   let lastPos: Vector3 | null = null
   let still = 0
   let lastEmote = -1
@@ -343,14 +360,26 @@ export function startDrinks(): void {
     // Still (standing, or sitting in one of the scene's seats): drink. Moving: hold it.
     still = moved < STILL_METRES * Math.max(1, dt * 60) ? still + dt : 0
     const emote = isSeated() ? holding.sitEmote : holding.emote
-    // The sitting one is made sat on the seat itself; the seat's own sit put me on the floor in front of it. Stand me
-    // on its perch (facing the way it faces), then drink once I've settled there.
+    // The sitting one is made sat on the seat itself; the seat's own sit put me on the floor in front of it. Handed a
+    // drink sitting down: onto the seat's perch (facing the way it faces), and drink the moment I'm there.
+    // (Distances across the floor only: the player's position may be taken at the feet or higher up the body.)
     const seat = isSeated() ? seatPerch() : null
-    // (Across the floor only: the player's position may be taken at the feet or higher up the body.)
-    const offPerch = seat ? Math.hypot(me.position.x - seat.perch.x, me.position.z - seat.perch.z) > PERCHED_METRES : false
-    if (!drinkingAt && still >= STILL_SECONDS && seat && offPerch) {
-      void movePlayerTo({ newRelativePosition: Vector3.add(seat.perch, Vector3.create(0, 0.05, 0)), cameraTarget: seat.lookAt, avatarTarget: seat.lookAt })
-      still = 0
+    const off = (p: Vector3) => Math.hypot(me.position.x - p.x, me.position.z - p.z) > PERCHED_METRES
+    if (perching) {
+      if (!off(perching.perch) && emote) {
+        perching = null
+        drinkingAt = me.position
+        triggeredAt = clock
+        console.log('[drinks] drinking', emote, '(seated)')
+        void triggerSceneEmote({ src: emote, loop: true })
+      } else if (clock - perching.since > PERCH_GIVE_UP) {
+        perching = null
+      }
+      showHandGlass(!drinkingAt)
+      return
+    }
+    if (!drinkingAt && seat && off(seat.perch)) {
+      perchOn(seat.perch, seat.lookAt)
       return
     }
     if (!drinkingAt && still >= STILL_SECONDS && emote) {

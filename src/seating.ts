@@ -216,15 +216,24 @@ export function addSeat(spec: SeatSpec): void {
   }
 }
 
+/** Someone else can sit the player down instead (bar/drinks.ts, holding a drink: straight into the sitting drinking
+ *  emote, on the seat's perch). Returns whether it did. */
+let sitHook: ((perch: Vector3 | undefined, lookAt: Vector3) => boolean) | null = null
+export function setSitHook(fn: (perch: Vector3 | undefined, lookAt: Vector3) => boolean): void {
+  sitHook = fn
+}
+
 function sitIn(spotIdx: number): void {
   const spot = sitSpots[spotIdx]
   const seatState = SeatState.getMutable(spot.orb)
-  movePlayerTo({
-    newRelativePosition: { x: spot.seatPos.x, y: spot.seatPos.y, z: spot.seatPos.z },
-    cameraTarget: { x: spot.lookAt.x, y: spot.lookAt.y, z: spot.lookAt.z }
-  })
-  triggerEmote({ predefinedEmote: SIT_EMOTES[spot.emoteIndex] })
-  spot.emoteIndex = (spot.emoteIndex + 1) % SIT_EMOTES.length
+  if (!sitHook?.(spot.perch, spot.lookAt)) {
+    movePlayerTo({
+      newRelativePosition: { x: spot.seatPos.x, y: spot.seatPos.y, z: spot.seatPos.z },
+      cameraTarget: { x: spot.lookAt.x, y: spot.lookAt.y, z: spot.lookAt.z }
+    })
+    triggerEmote({ predefinedEmote: SIT_EMOTES[spot.emoteIndex] })
+    spot.emoteIndex = (spot.emoteIndex + 1) % SIT_EMOTES.length
+  }
   seatState.occupied = true
   localSeatIndex = spotIdx
   arrived = false
