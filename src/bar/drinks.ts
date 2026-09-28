@@ -6,16 +6,27 @@
 // hand anchor instead, and the explorer carries it.
 //
 // Stand still with a drink and you drink it: the drink's emote (tools/build_drink_emote.py: held at the chest, a sip
-// every eight seconds) plays on a loop, with its own glass as the emote's prop, so the hand's glass hides meanwhile.
-// Walk and it stops (the explorer ends emotes on movement) and the hand's glass is back. Play any other emote and you
-// drop it: it smashes on the floor and "You dropped your drink..." (sitting down in one of the scene's seats is fine).
+// every eight seconds, swaying like someone at a club) plays on a loop, with its own glass as the emote's prop, so the
+// hand's glass hides meanwhile. Sit in one of the scene's seats and it's the sitting version. Walk and it stops (the
+// explorer ends emotes on movement) and the hand's glass is back. Play any other emote and you drop it: it smashes on
+// the floor and "You dropped your drink..." (sitting down in one of the scene's seats is fine).
+//
+// Everyone sees everyone's drinks. The emotes are broadcast by the explorer (to everyone near); the hand's glass is
+// shared with syncEntity (an AvatarAttach naming my avatar, which every client attaches to my hand), and so is a
+// dropped drink (a DrinkDrop, which every client smashes where it fell, with the crash). Only for the crew docked at
+// the same station: the world is one room for every station (audience.ts hides everyone else's avatars), so anyone
+// else's glass or smash is hidden or skipped here, as is the glass of someone who's left with it still in hand.
 import {
   engine, Entity, Transform, GltfContainer, AvatarAttach, AvatarAnchorPointType, AvatarEmoteCommand, AudioSource,
+  VisibilityComponent, PlayerIdentityData, Schemas,
   MeshRenderer, Material, MaterialTransparencyMode, Tween, EasingFunction
 } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { triggerSceneEmote } from '~system/RestrictedActions'
+import { getPlayer } from '@dcl/sdk/players'
+import { syncEntity, parentEntity, getParent } from '@dcl/sdk/network'
 import { isSeated } from '../seating'
+import { getCrew } from '../audience'
 
 // The glasses are modelled lying along +Z with the base at the origin (0.24 m long at GLASS_SCALE): stand them up.
 const GLASS_SCALE = 0.15
@@ -31,6 +42,7 @@ export type Drink = {
   method: string
   glass: string | null // null: there's nothing to hand you
   emote: string | null // the drinking emote, with this drink's glass
+  sitEmote: string | null // the same, sitting
   colour: Color3 // the drink's, for the shards when it's dropped
   served: string // what DEX says as he serves it
 }
@@ -52,6 +64,7 @@ export const DRINKS: Drink[] = [
     method: 'Syrup over ice, top with the soda, stir once.',
     glass: 'assets/models/glasses/lumen_rift_highball.glb',
     emote: 'assets/emotes/helium3_emote.glb',
+    sitEmote: 'assets/emotes/helium3_sit_emote.glb',
     colour: Color3.create(0.2, 0.75, 1),
     served: 'One Helium-3 Fizz. Mind the bubbles.'
   },
@@ -65,6 +78,7 @@ export const DRINKS: Drink[] = [
     method: 'Juice over ice, top with sparkling water. Wrap the glow stick round the glass.',
     glass: 'assets/models/glasses/nebula_tear_highball.glb',
     emote: 'assets/emotes/plasma_emote.glb',
+    sitEmote: 'assets/emotes/plasma_sit_emote.glb',
     colour: Color3.create(0.55, 0.2, 0.95),
     served: 'One Plasma Crystal. Do not look directly at it.'
   },
@@ -78,6 +92,7 @@ export const DRINKS: Drink[] = [
     method: 'Glitter into the lemonade, pour over ice, let the grenadine sink. Cotton candy on the rim.',
     glass: 'assets/models/glasses/synapse_highball.glb',
     emote: 'assets/emotes/mythic_emote.glb',
+    sitEmote: 'assets/emotes/mythic_sit_emote.glb',
     colour: Color3.create(1, 0.35, 0.7),
     served: 'One Mythic Bloom. Very rare. Please don’t trade it.'
   },
@@ -91,18 +106,30 @@ export const DRINKS: Drink[] = [
     method: 'Serve immediately, before it gets any emptier.',
     glass: null,
     emote: null,
+    sitEmote: null,
     colour: Color3.Black(),
     served: '' // DEX has a whole routine for this one (bartender.ts)
   }
 ]
 
-const HOLD_SECONDS = 5 * 60 // a drink lasts five minutes
-const STILL_SECONDS = 1.0 // standing still this long starts the drinking emote
+const HOLD_SECONDS = 5 * 60 // a drink lasts five minutes (or, if you're drinking then, until you next move)
+const STILL_SECONDS = 1.0 // standing (or sitting) still this long starts the drinking emote
 const STILL_METRES = 0.03 // moved less than this since the last check: still
 const MOVED_METRES = 0.12 // moved this far from where the emote started: it's over (the explorer has stopped it)
 const OURS_SECONDS = 2 // an emote command this soon after we triggered ours is ours
 const NOTICE_SECONDS = 3.5
+const DROP_SECONDS = 10 // a shared drop lives this long (to reach everyone), then goes
 const GLASS_BREAK = 'assets/audio/glass_break.mp3'
+const GLASS_SRC = new Map(DRINKS.filter((d) => d.glass).map((d) => [d.id, d.glass as string]))
+
+/** A dropped drink, shared: every client smashes one where it fell. */
+const DrinkDrop = engine.defineComponent('bar::DrinkDrop', {
+  drink: Schemas.String,
+  by: Schemas.String,
+  x: Schemas.Number,
+  y: Schemas.Number,
+  z: Schemas.Number
+})
 
 let holding: Drink | null = null
 let anchor: Entity | null = null
@@ -115,21 +142,26 @@ let clock = 0
 /** "You dropped your drink..." while it's showing (menuUi.tsx draws it). */
 export const dropNotice = { text: '', left: 0 }
 
-/** Hand me a drink (replacing any I'm holding). */
+const myAddress = () => (getPlayer()?.userId ?? '').toLowerCase()
+
+/** Hand me a drink (replacing any I'm holding). Shared: everyone docked here sees it in my hand. */
 export function holdDrink(drink: Drink): void {
   if (!drink.glass) return
   finishDrink()
   holding = drink
   anchor = engine.addEntity()
-  AvatarAttach.create(anchor, { anchorPointId: AvatarAnchorPointType.AAPT_RIGHT_HAND })
+  AvatarAttach.create(anchor, { avatarId: myAddress() || undefined, anchorPointId: AvatarAnchorPointType.AAPT_RIGHT_HAND })
+  syncEntity(anchor, [AvatarAttach.componentId])
   glass = engine.addEntity()
   Transform.create(glass, { parent: anchor, ...IN_HAND, scale: Vector3.create(GLASS_SCALE, GLASS_SCALE, GLASS_SCALE) })
   GltfContainer.create(glass, { src: drink.glass })
+  syncEntity(glass, [Transform.componentId, GltfContainer.componentId])
+  parentEntity(glass, anchor)
   left = HOLD_SECONDS
   drinkingAt = null
 }
 
-/** The drink's gone (finished, or replaced). */
+/** The drink's gone (finished, dropped, or replaced). */
 export function finishDrink(): void {
   if (glass) engine.removeEntity(glass)
   if (anchor) engine.removeEntity(anchor)
@@ -145,7 +177,18 @@ function showHandGlass(show: boolean): void {
   if (Transform.get(glass).scale.x !== s) Transform.getMutable(glass).scale = Vector3.create(s, s, s)
 }
 
-/** Smash: the glass drops from about hand height beside me and shatters, with a crash, and a notice. */
+/** Whether a player's drinks are shown here: they're in the scene, and docked at my station. */
+function sharedWithMe(address: string): boolean {
+  const a = address.toLowerCase()
+  if (a === myAddress()) return true
+  let present = false
+  for (const [, id] of engine.getEntitiesWith(PlayerIdentityData)) {
+    if (id.address.toLowerCase() === a) present = true
+  }
+  return present && getCrew().some((p) => (p.walletAddress ?? '').toLowerCase() === a)
+}
+
+/** Drop mine: tell everyone (they smash it their end), smash it here, and say so. */
 function dropDrink(): void {
   const drink = holding
   const me = Transform.getOrNull(engine.PlayerEntity)
@@ -153,30 +196,41 @@ function dropDrink(): void {
   if (!drink || !me) return
   dropNotice.text = 'You dropped your drink\u2026'
   dropNotice.left = NOTICE_SECONDS
-
-  const speaker = engine.addEntity()
-  Transform.create(speaker, { position: me.position })
-  AudioSource.create(speaker, { audioClipUrl: GLASS_BREAK, playing: true, loop: false, volume: 1, global: true })
-
-  // Where the hand would be: a little to my right and forward, at about waist height; the floor under my feet
+  // Where the hand would be: a little to my right and forward, at about waist height
   const right = Vector3.rotate(Vector3.create(0.25, 0, 0.2), me.rotation)
-  const from = Vector3.add(me.position, Vector3.create(right.x, 0.15, right.z))
-  const floor = me.position.y - 0.85
+  const at = Vector3.add(me.position, Vector3.create(right.x, 0.15, right.z))
+  const shared = engine.addEntity()
+  DrinkDrop.create(shared, { drink: drink.id, by: myAddress(), x: at.x, y: at.y, z: at.z })
+  syncEntity(shared, [DrinkDrop.componentId])
+  seenDrops.add(shared)
+  cleanup.push({ e: shared, at: clock + DROP_SECONDS })
+  smash(drink.id, at, me.position.y - 0.85, true)
+}
+
+type Piece = { e: Entity; at: number; drink: Drink; floor: Vector3 }
+const pieces: Piece[] = []
+const cleanup: { e: Entity; at: number }[] = []
+const seenDrops = new Set<Entity>()
+
+/** A glass falls from `from` to the floor and shatters, with the crash (heard everywhere if it's mine, nearby if not). */
+function smash(drinkId: string, from: Vector3, floorY: number, mine: boolean): void {
+  const drink = DRINKS.find((d) => d.id === drinkId)
+  const src = GLASS_SRC.get(drinkId)
+  if (!drink || !src) return
+  const speaker = engine.addEntity()
+  Transform.create(speaker, { position: from })
+  AudioSource.create(speaker, { audioClipUrl: GLASS_BREAK, playing: true, loop: false, volume: 1, global: mine })
+  cleanup.push({ e: speaker, at: clock + 3 })
   const falling = engine.addEntity()
   Transform.create(falling, { position: from, rotation: Quaternion.fromEulerDegrees(-90, 0, 0), scale: Vector3.create(GLASS_SCALE, GLASS_SCALE, GLASS_SCALE) })
-  GltfContainer.create(falling, { src: drink.glass as string })
+  GltfContainer.create(falling, { src })
   Tween.create(falling, {
-    mode: Tween.Mode.Move({ start: from, end: Vector3.create(from.x, floor + 0.02, from.z) }),
+    mode: Tween.Mode.Move({ start: from, end: Vector3.create(from.x, floorY + 0.02, from.z) }),
     duration: 280,
     easingFunction: EasingFunction.EF_EASEINQUAD
   })
-  pieces.push({ e: falling, at: clock, kind: 'glass', drink, floor: Vector3.create(from.x, floor, from.z) })
-  cleanup.push({ e: speaker, at: clock + 3 })
+  pieces.push({ e: falling, at: clock, drink, floor: Vector3.create(from.x, floorY, from.z) })
 }
-
-type Piece = { e: Entity; at: number; kind: 'glass'; drink: Drink; floor: Vector3 }
-const pieces: Piece[] = []
-const cleanup: { e: Entity; at: number }[] = []
 
 /** The glass has hit the floor: swap it for shards skittering out, and a splash of the drink, all fading away. */
 function shatter(p: Piece): void {
@@ -213,10 +267,30 @@ function shatter(p: Piece): void {
   }
 }
 
+/** Other people's drinks: hide the glasses of anyone not here with me, and smash the drops of those who are. */
+function othersDrinks(): void {
+  for (const [e, attach] of engine.getEntitiesWith(AvatarAttach)) {
+    if (e === anchor || !attach.avatarId) continue
+    const show = sharedWithMe(attach.avatarId)
+    for (const [g] of engine.getEntitiesWith(GltfContainer)) {
+      if (getParent(g) !== e) continue
+      const v = VisibilityComponent.getOrNull(g)
+      if (!v || v.visible !== show) VisibilityComponent.createOrReplace(g, { visible: show })
+    }
+  }
+  for (const [e, drop] of engine.getEntitiesWith(DrinkDrop)) {
+    if (seenDrops.has(e)) continue
+    seenDrops.add(e)
+    if (drop.by === myAddress() || !sharedWithMe(drop.by)) continue
+    smash(drop.drink, Vector3.create(drop.x, drop.y, drop.z), drop.y - 1.0, false)
+  }
+}
+
 export function startDrinks(): void {
   let lastPos: Vector3 | null = null
   let still = 0
   let lastEmote = -1
+  let othersCheck = 0
   engine.addSystem((dt) => {
     clock += dt
 
@@ -229,6 +303,11 @@ export function startDrinks(): void {
     if (dropNotice.left > 0) {
       dropNotice.left -= dt
       if (dropNotice.left <= 0) dropNotice.text = ''
+    }
+    othersCheck -= dt
+    if (othersCheck <= 0) {
+      othersCheck = 0.5
+      othersDrinks()
     }
 
     // Emotes I play: ours (the drinking one, just triggered) or sitting down are fine; anything else drops the drink.
@@ -244,23 +323,26 @@ export function startDrinks(): void {
     }
 
     if (!holding || !glass) return
-    left -= dt
-    if (left <= 0) {
-      finishDrink()
-      return
-    }
-
-    // Standing still: drink. Moving (or sitting): hold it.
     const me = Transform.getOrNull(engine.PlayerEntity)
     if (!me) return
     const moved = lastPos ? Vector3.distance(me.position, lastPos) : 0
     lastPos = me.position
     if (drinkingAt && Vector3.distance(me.position, drinkingAt) > MOVED_METRES) drinkingAt = null
+
+    // Finished: once the time's up and I'm not mid-emote (it would carry on with its glass until I moved)
+    left -= dt
+    if (left <= 0 && !drinkingAt) {
+      finishDrink()
+      return
+    }
+
+    // Still (standing, or sitting in one of the scene's seats): drink. Moving: hold it.
     still = moved < STILL_METRES * Math.max(1, dt * 60) ? still + dt : 0
-    if (!drinkingAt && still >= STILL_SECONDS && !isSeated() && holding.emote) {
+    const emote = isSeated() ? holding.sitEmote : holding.emote
+    if (!drinkingAt && still >= STILL_SECONDS && emote) {
       drinkingAt = me.position
       triggeredAt = clock
-      void triggerSceneEmote({ src: holding.emote, loop: true })
+      void triggerSceneEmote({ src: emote, loop: true })
     }
     showHandGlass(!drinkingAt)
   })
