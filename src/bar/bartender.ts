@@ -134,7 +134,7 @@ export function buildBartender(): void {
 
   for (const e of [body, head]) {
     pointerEventsSystem.onPointerDown(
-      { entity: e, opts: { button: InputAction.IA_POINTER, hoverText: 'Order a drink', maxDistance: 6 } },
+      { entity: e, opts: { button: InputAction.IA_POINTER, hoverText: 'Order a drink', maxDistance: 6, showHighlight: false } },
       () => {
         if (!barMenu.open) {
           if (doorState() === 'invited') say(whisper('Why are you still standing here? Go.'))

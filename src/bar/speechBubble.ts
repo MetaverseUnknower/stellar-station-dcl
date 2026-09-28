@@ -1,9 +1,9 @@
-// DEX's speech: a holographic readout over his head, not a plain caption. A dark translucent panel with a cyan frame,
+// DEX's speech: a holographic readout over his head, not a plain caption. A dark panel with a cyan frame,
 // a small "DEX-7 // VOX" tag, and his words in monospace, typed out a character at a time like a terminal; whispers
 // in italics, dimmer. It turns to face you (Billboard), sizes itself to the line, and clears itself after a while.
 // Sizes are worked out from the monospace font's advance (about 0.6 em, an em being a tenth of the font size in
 // metres), since a TextShape can't report its own size.
-import { engine, Entity, Transform, TextShape, Font, TextAlignMode, MeshRenderer, Material, MaterialTransparencyMode, Billboard, BillboardMode } from '@dcl/sdk/ecs'
+import { engine, Entity, Transform, TextShape, Font, TextAlignMode, MeshRenderer, Material, Billboard, BillboardMode } from '@dcl/sdk/ecs'
 import { Vector3, Color3, Color4 } from '@dcl/sdk/math'
 
 /** A line to say: plain, or whispered. */
@@ -53,11 +53,13 @@ export function createBubble(parent: Entity, position: Vector3): Bubble {
   const panel = engine.addEntity()
   Transform.create(panel, { parent: group, position: Vector3.create(0, 0, 0.02) })
   MeshRenderer.setPlane(panel)
+  // Opaque: the bar's glowing bottles behind it shone straight through a translucent one
   Material.setPbrMaterial(panel, {
-    albedoColor: Color4.create(0.02, 0.05, 0.12, 0.88),
-    emissiveColor: Color3.create(0.02, 0.08, 0.16),
+    albedoColor: Color4.create(0.015, 0.035, 0.08, 1),
+    emissiveColor: Color3.create(0.015, 0.05, 0.1),
     emissiveIntensity: 1,
-    transparencyMode: MaterialTransparencyMode.MTM_ALPHA_BLEND
+    metallic: 0,
+    roughness: 1
   })
   const edges = [0, 1, 2, 3].map(() => {
     const e = engine.addEntity()
@@ -98,15 +100,11 @@ export function createBubble(parent: Entity, position: Vector3): Bubble {
       t.scale = s
     })
     const top = h / 2 - PAD
-    Transform.getMutable(tag).position = Vector3.create(0, top - TAG_H / 2 + 0.02, 0)
-    const tagBox = TextShape.getMutable(tag)
-    tagBox.width = w - 2 * PAD
-    tagBox.height = TAG_H
-    // The text box, top-left aligned, spans the content area below the tag
-    const box = TextShape.getMutable(words)
-    box.width = w - 2 * PAD
-    box.height = h - 2 * PAD - TAG_H
-    Transform.getMutable(words).position = Vector3.create(0, -TAG_H / 2, 0)
+    // Left-aligned text starts at its entity's position (not at the left of some box), so each goes at the content's
+    // left edge: the tag at the top, his words under it.
+    const left = -w / 2 + PAD
+    Transform.getMutable(tag).position = Vector3.create(left, top - TAG_H / 2 + 0.01, -0.005)
+    Transform.getMutable(words).position = Vector3.create(left, top - TAG_H, -0.005)
   }
 
   function say(line: Line): void {
