@@ -39,7 +39,7 @@ const IN_FIST = 0.09 // metres from the wrist to the middle of the grip
 const IN_HAND = { position: Vector3.create(0, IN_FIST, -0.03), rotation: Quaternion.Identity() }
 
 // build_drink_emote.py SIT_VERSION: the sitting emotes' file names change with them (the explorer caches by name)
-const SIT_VERSION = 'v3'
+const SIT_VERSION = 'v4'
 
 export type Drink = {
   id: string
@@ -51,7 +51,8 @@ export type Drink = {
   method: string
   glass: string | null // null: there's nothing to hand you
   emote: string | null // the drinking emote, with this drink's glass
-  sitEmote: string | null // the same, sitting
+  sitEmote: string | null // the same, sitting (on a stool)
+  couchEmote: string | null // and on a couch, further back
   colour: Color3 // the drink's, for the shards when it's dropped
   served: string // what DEX says as he serves it
 }
@@ -74,6 +75,7 @@ export const DRINKS: Drink[] = [
     glass: 'assets/models/glasses/lumen_rift_highball.glb',
     emote: 'assets/emotes/helium3_emote.glb',
     sitEmote: `assets/emotes/helium3_sit_${SIT_VERSION}_emote.glb`,
+    couchEmote: `assets/emotes/helium3_couch_${SIT_VERSION}_emote.glb`,
     colour: Color3.create(0.2, 0.75, 1),
     served: 'One Helium-3 Fizz. Mind the bubbles.'
   },
@@ -88,6 +90,7 @@ export const DRINKS: Drink[] = [
     glass: 'assets/models/glasses/nebula_tear_highball.glb',
     emote: 'assets/emotes/plasma_emote.glb',
     sitEmote: `assets/emotes/plasma_sit_${SIT_VERSION}_emote.glb`,
+    couchEmote: `assets/emotes/plasma_couch_${SIT_VERSION}_emote.glb`,
     colour: Color3.create(0.55, 0.2, 0.95),
     served: 'One Plasma Crystal. Do not look directly at it.'
   },
@@ -102,6 +105,7 @@ export const DRINKS: Drink[] = [
     glass: 'assets/models/glasses/synapse_highball.glb',
     emote: 'assets/emotes/mythic_emote.glb',
     sitEmote: `assets/emotes/mythic_sit_${SIT_VERSION}_emote.glb`,
+    couchEmote: `assets/emotes/mythic_couch_${SIT_VERSION}_emote.glb`,
     colour: Color3.create(1, 0.35, 0.7),
     served: 'One Mythic Bloom. Very rare. Please don’t trade it.'
   },
@@ -116,6 +120,7 @@ export const DRINKS: Drink[] = [
     glass: null,
     emote: null,
     sitEmote: null,
+    couchEmote: null,
     colour: Color3.Black(),
     served: '' // DEX has a whole routine for this one (bartender.ts)
   }
@@ -174,6 +179,7 @@ export function holdDrink(drink: Drink): void {
 
 const EMPTY_EMOTE = 'assets/emotes/empty_emote.glb' // a moment standing easy, empty-handed
 const EMPTY_SIT_EMOTE = `assets/emotes/empty_sit_${SIT_VERSION}_emote.glb` // sitting on the seat, both hands on the thighs (loops)
+const EMPTY_COUCH_EMOTE = `assets/emotes/empty_couch_${SIT_VERSION}_emote.glb`
 
 /** Hand the glass back (to a bartender). Mid-drink, the drinking emote would carry on with its own glass until I
  *  moved, so it's ended with an empty-handed one: standing, a moment and then the explorer's idle; sitting, sat on
@@ -184,7 +190,8 @@ export function handBack(): void {
   finishDrink()
   if (!wasDrinking) return
   triggeredAt = clock
-  void triggerSceneEmote({ src: seated ? EMPTY_SIT_EMOTE : EMPTY_EMOTE, loop: seated })
+  const couch = seatPlace()?.kind === 'couch'
+  void triggerSceneEmote({ src: seated ? (couch ? EMPTY_COUCH_EMOTE : EMPTY_SIT_EMOTE) : EMPTY_EMOTE, loop: seated })
 }
 
 /** Where the seat's move actually left me, relative to its seat point (along the way it faces, and up): the sitting
@@ -196,6 +203,9 @@ function logSeatOffset(at: Vector3): void {
   const d = Vector3.subtract(at, seat.seatPos)
   console.log(`[drinks] seated: ${(d.x * f.x + d.z * f.z).toFixed(2)} m in front of the seat point, ${d.y.toFixed(2)} m above it`)
 }
+
+/** The sitting drinking emote for the seat I'm in (a couch's sits further back). */
+const sittingEmote = (d: Drink | null, kind: 'stool' | 'couch' | undefined) => (kind === 'couch' ? d?.couchEmote : d?.sitEmote) ?? null
 
 /** Whether I'm holding a drink. */
 export const holdingDrink = (): boolean => holding !== null
@@ -327,7 +337,7 @@ function othersDrinks(): void {
 
 /** Load every drinking emote's file up front (as hidden models), so none has to be fetched the moment it's played. */
 function preloadEmotes(): void {
-  const files = [EMPTY_EMOTE, EMPTY_SIT_EMOTE, ...DRINKS.flatMap((d) => [d.emote, d.sitEmote]).filter((f): f is string => !!f)]
+  const files = [EMPTY_EMOTE, EMPTY_SIT_EMOTE, EMPTY_COUCH_EMOTE, ...DRINKS.flatMap((d) => [d.emote, d.sitEmote, d.couchEmote]).filter((f): f is string => !!f)]
   for (const src of files) {
     const e = engine.addEntity()
     Transform.create(e, { position: Vector3.create(8, -50, 8), scale: Vector3.Zero() })
@@ -339,13 +349,14 @@ export function startDrinks(): void {
   preloadEmotes()
   // Sitting down with a drink: the seat's own move, then the sitting drinking emote rather than its sit (the emote's
   // laid out like the sit, so nothing moves in between)
-  setSitHook((seatPos, lookAt) => {
-    if (!holding?.sitEmote) return false
+  setSitHook((seatPos, lookAt, kind) => {
+    const sitting = sittingEmote(holding, kind)
+    if (!sitting) return false
     void movePlayerTo({ newRelativePosition: seatPos, cameraTarget: lookAt })
     triggeredAt = clock
     drinkingAt = null
     sitStartedAt = clock
-    void triggerSceneEmote({ src: holding.sitEmote, loop: true })
+    void triggerSceneEmote({ src: sitting, loop: true })
     return true
   })
   let lastPos: Vector3 | null = null
@@ -399,7 +410,7 @@ export function startDrinks(): void {
 
     // Still (standing, or sitting in one of the scene's seats): drink. Moving: hold it.
     still = moved < STILL_METRES * Math.max(1, dt * 60) ? still + dt : 0
-    const emote = isSeated() ? holding.sitEmote : holding.emote
+    const emote = isSeated() ? sittingEmote(holding, seatPlace()?.kind) : holding.emote
     // Just sat down with a drink (the sit hook started the emote as the seat moved me): count it as playing once I'm
     // there, rather than starting it again
     if (sitStartedAt >= 0) {

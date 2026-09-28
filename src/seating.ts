@@ -92,6 +92,8 @@ export type SeatSpec = {
   hitEntity?: Entity
   /** The Silt's per-orb resting yaw, which its hover spin adds onto. */
   baseRotY?: number
+  /** What sort of seat: a couch's deeper cushion has its own sitting drinking emote (bar/drinks.ts). */
+  kind?: 'stool' | 'couch'
 }
 
 type SitSpot = {
@@ -100,6 +102,7 @@ type SitSpot = {
   lookAt: Vector3
   emoteIndex: number
   baseRotY: number
+  kind: 'stool' | 'couch'
 }
 
 const sitSpots: SitSpot[] = []
@@ -110,9 +113,9 @@ let sittingFor = 0
 /** Whether I'm sitting in one of the scene's seats (bar/drinks.ts: no drinking emote over a sitting one). */
 export const isSeated = (): boolean => localSeatIndex >= 0
 /** My seat's position and where it looks, while I'm sitting. */
-export function seatPlace(): { seatPos: Vector3; lookAt: Vector3 } | null {
+export function seatPlace(): { seatPos: Vector3; lookAt: Vector3; kind: 'stool' | 'couch' } | null {
   const spot = localSeatIndex >= 0 ? sitSpots[localSeatIndex] : undefined
-  return spot ? { seatPos: spot.seatPos, lookAt: spot.lookAt } : null
+  return spot ? { seatPos: spot.seatPos, lookAt: spot.lookAt, kind: spot.kind } : null
 }
 
 const orbTargetScales: Map<Entity, number> = new Map()
@@ -171,7 +174,7 @@ export function addSeat(spec: SeatSpec): void {
   registerBlockEntity(orb)
 
   const spotIdx = sitSpots.length
-  sitSpots.push({ orb, seatPos: spec.seatPos, lookAt: spec.lookAt, emoteIndex: 0, baseRotY })
+  sitSpots.push({ orb, seatPos: spec.seatPos, lookAt: spec.lookAt, emoteIndex: 0, baseRotY, kind: spec.kind ?? 'stool' })
 
   // --- the seat hitbox: MeshCollider FIRST, then PointerEvents ---
   // The Silt: "MeshCollider MUST come before PointerEvents". Its couches
@@ -214,15 +217,15 @@ export function addSeat(spec: SeatSpec): void {
 
 /** Someone else can sit the player down instead (bar/drinks.ts, holding a drink: the sitting drinking emote in place
  *  of the sit, laid out the same). Given the seat's position and where it looks; returns whether it did. */
-let sitHook: ((seatPos: Vector3, lookAt: Vector3) => boolean) | null = null
-export function setSitHook(fn: (seatPos: Vector3, lookAt: Vector3) => boolean): void {
+let sitHook: ((seatPos: Vector3, lookAt: Vector3, kind: 'stool' | 'couch') => boolean) | null = null
+export function setSitHook(fn: (seatPos: Vector3, lookAt: Vector3, kind: 'stool' | 'couch') => boolean): void {
   sitHook = fn
 }
 
 function sitIn(spotIdx: number): void {
   const spot = sitSpots[spotIdx]
   const seatState = SeatState.getMutable(spot.orb)
-  if (!sitHook?.(spot.seatPos, spot.lookAt)) {
+  if (!sitHook?.(spot.seatPos, spot.lookAt, spot.kind)) {
     movePlayerTo({
       newRelativePosition: { x: spot.seatPos.x, y: spot.seatPos.y, z: spot.seatPos.z },
       cameraTarget: { x: spot.lookAt.x, y: spot.lookAt.y, z: spot.lookAt.z }

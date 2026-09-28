@@ -29,7 +29,7 @@ from mathutils import Vector, Matrix, Quaternion
 OUT = os.path.abspath(sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'assets/emotes')
 # Bumped with each change to the sitting emotes: the explorer caches emotes by file name, so a changed file under the
 # old name kept playing the old version. drinks.ts must use the same.
-SIT_VERSION = 'v3'
+SIT_VERSION = 'v4'
 DRINKS = {   # drinks.ts ids, and the liquid's colour
     'helium3': (0.2, 0.75, 1.0),
     'plasma': (0.55, 0.2, 0.95),
@@ -46,6 +46,7 @@ UP = Vector((0, 0, 1))
 SEAT_HIPS = 0.60      # sitting: the hips this far above where the seat puts you (its top ~0.47 m up, and the pelvis)
 SEAT_BACK = 0.50      # and this far behind (0.3 by the seat numbers; the avatar's collider seems to push it forward
                       # off the seat by about as much again)
+COUCH_BACK = 0.65     # a couch's cushion is deeper: its own versions (<id>_couch_<v>_emote.glb) sit further back
 
 arm = bpy.data.objects['Armature']
 prop = bpy.data.objects['Armature_Prop']
@@ -217,14 +218,14 @@ def pose_standing(f):
     drinking_arm(sip)
 
 
-def pose_sitting(f, drinking=True):
+def pose_sitting(f, drinking=True, back=SEAT_BACK):
     sip = sip_at(f) if drinking else 0.0
     shift = math.sin(2 * math.pi * f / 120)
     beat = 0.5 - 0.5 * math.cos(2 * math.pi * f / BEAT)
     groove = 1 - 0.7 * sip
     reset()
     hips_rest = REST['Avatar_Hips'].translation
-    move('Avatar_Hips', Vector((0, -F * SEAT_BACK, SEAT_HIPS - hips_rest.z)))   # onto the seat, behind
+    move('Avatar_Hips', Vector((0, -F * back, SEAT_HIPS - hips_rest.z)))   # onto the seat, behind
     tilt('Avatar_Hips', FWD, 0.02 * shift * groove)
     # Thighs forward along the seat, shins hanging, knees a little apart; the right foot taps on the beat, the heel
     # lifting off with the ball of the foot staying put (a quick lift, a softer fall)
@@ -376,7 +377,7 @@ def build(pose, suffix):
         o.animation_data.action = None
     os.makedirs(OUT, exist_ok=True)
     for drink, rgb in DRINKS.items():
-        name = drink.capitalize() + ('Sit' if suffix else '')
+        name = drink.capitalize() + suffix.replace('_', ' ').title().replace(' ', '')
         for o, a, part in ((arm, act, 'Avatar'), (prop, prop_act, 'Prop')):
             for t in list(o.animation_data.nla_tracks):
                 o.animation_data.nla_tracks.remove(t)
@@ -438,5 +439,7 @@ def build_empty(pose, filename, name, length):
 
 build(pose_standing, '')
 build(pose_sitting, '_sit')
+build(lambda f: pose_sitting(f, back=COUCH_BACK), '_couch')
 build_empty(pose_standing_empty, 'empty_emote.glb', 'Empty', EMPTY_LENGTH)
 build_empty(pose_sitting_empty, f'empty_sit_{SIT_VERSION}_emote.glb', 'EmptySit', LENGTH)
+build_empty(lambda f: pose_sitting(f, drinking=False, back=COUCH_BACK), f'empty_couch_{SIT_VERSION}_emote.glb', 'EmptyCouch', LENGTH)

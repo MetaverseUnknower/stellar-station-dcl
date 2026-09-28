@@ -59,7 +59,8 @@ function placeCouch(spec: CouchSpec): void {
       lookAt: Vector3.create(seatPos.x + facing.x * COUCH_LOOK_AHEAD, spec.floorY + COUCH_LOOK_RISE, seatPos.z + facing.z * COUCH_LOOK_AHEAD),
       orbPos,
       hoverText: 'Sit',
-      hitEntity: i === COUCH_BODY_CUSHION_INDEX ? couch : undefined
+      hitEntity: i === COUCH_BODY_CUSHION_INDEX ? couch : undefined,
+      kind: 'couch'
     })
   }
 }
