@@ -27,6 +27,9 @@ import bpy, bmesh, math, os, sys
 from mathutils import Vector, Matrix, Quaternion
 
 OUT = os.path.abspath(sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'assets/emotes')
+# Bumped with each change to the sitting emotes: the explorer caches emotes by file name, so a changed file under the
+# old name kept playing the old version. drinks.ts must use the same.
+SIT_VERSION = 'v3'
 DRINKS = {   # drinks.ts ids, and the liquid's colour
     'helium3': (0.2, 0.75, 1.0),
     'plasma': (0.55, 0.2, 0.95),
@@ -387,7 +390,7 @@ def build(pose, suffix):
         for o in (arm, prop, prop_mesh):
             o.hide_set(False)
             o.select_set(True)
-        path = os.path.join(OUT, f'{drink}{suffix}_emote.glb')
+        path = os.path.join(OUT, f'{drink}{suffix}{"_" + SIT_VERSION if suffix else ""}_emote.glb')
         bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_def_bones=True,
                                   export_animation_mode='NLA_TRACKS', export_force_sampling=True, export_frame_step=1,
                                   export_morph=False, export_skins=True, export_apply=False)
@@ -436,4 +439,4 @@ def build_empty(pose, filename, name, length):
 build(pose_standing, '')
 build(pose_sitting, '_sit')
 build_empty(pose_standing_empty, 'empty_emote.glb', 'Empty', EMPTY_LENGTH)
-build_empty(pose_sitting_empty, 'empty_sit_emote.glb', 'EmptySit', LENGTH)
+build_empty(pose_sitting_empty, f'empty_sit_{SIT_VERSION}_emote.glb', 'EmptySit', LENGTH)

@@ -38,6 +38,9 @@ const GLASS_SCALE = 0.15
 const IN_FIST = 0.09 // metres from the wrist to the middle of the grip
 const IN_HAND = { position: Vector3.create(0, IN_FIST, -0.03), rotation: Quaternion.Identity() }
 
+// build_drink_emote.py SIT_VERSION: the sitting emotes' file names change with them (the explorer caches by name)
+const SIT_VERSION = 'v3'
+
 export type Drink = {
   id: string
   name: string
@@ -70,7 +73,7 @@ export const DRINKS: Drink[] = [
     method: 'Syrup over ice, top with the soda, stir once.',
     glass: 'assets/models/glasses/lumen_rift_highball.glb',
     emote: 'assets/emotes/helium3_emote.glb',
-    sitEmote: 'assets/emotes/helium3_sit_emote.glb',
+    sitEmote: `assets/emotes/helium3_sit_${SIT_VERSION}_emote.glb`,
     colour: Color3.create(0.2, 0.75, 1),
     served: 'One Helium-3 Fizz. Mind the bubbles.'
   },
@@ -84,7 +87,7 @@ export const DRINKS: Drink[] = [
     method: 'Juice over ice, top with sparkling water. Wrap the glow stick round the glass.',
     glass: 'assets/models/glasses/nebula_tear_highball.glb',
     emote: 'assets/emotes/plasma_emote.glb',
-    sitEmote: 'assets/emotes/plasma_sit_emote.glb',
+    sitEmote: `assets/emotes/plasma_sit_${SIT_VERSION}_emote.glb`,
     colour: Color3.create(0.55, 0.2, 0.95),
     served: 'One Plasma Crystal. Do not look directly at it.'
   },
@@ -98,7 +101,7 @@ export const DRINKS: Drink[] = [
     method: 'Glitter into the lemonade, pour over ice, let the grenadine sink. Cotton candy on the rim.',
     glass: 'assets/models/glasses/synapse_highball.glb',
     emote: 'assets/emotes/mythic_emote.glb',
-    sitEmote: 'assets/emotes/mythic_sit_emote.glb',
+    sitEmote: `assets/emotes/mythic_sit_${SIT_VERSION}_emote.glb`,
     colour: Color3.create(1, 0.35, 0.7),
     served: 'One Mythic Bloom. Very rare. Please don’t trade it.'
   },
@@ -170,7 +173,7 @@ export function holdDrink(drink: Drink): void {
 }
 
 const EMPTY_EMOTE = 'assets/emotes/empty_emote.glb' // a moment standing easy, empty-handed
-const EMPTY_SIT_EMOTE = 'assets/emotes/empty_sit_emote.glb' // sitting on the seat, both hands on the thighs (loops)
+const EMPTY_SIT_EMOTE = `assets/emotes/empty_sit_${SIT_VERSION}_emote.glb` // sitting on the seat, both hands on the thighs (loops)
 
 /** Hand the glass back (to a bartender). Mid-drink, the drinking emote would carry on with its own glass until I
  *  moved, so it's ended with an empty-handed one: standing, a moment and then the explorer's idle; sitting, sat on
