@@ -1,9 +1,15 @@
 // The Space Bar's menu: three of the Galaxy Gardeners launch party's Refinery Bar mocktails, with what's in them so
 // players can make them at home, and a fourth that isn't a drink at all (it's how you ask for the back room: see
-// secretDoor.ts). A drink comes as a glass in the right hand, kept upright, from The Silt's glass-in-hand
-// (~/-Decentraland/Venues/The Silt src/venue.ts); The Silt's highball glasses are in assets/models/glasses.
+// secretDoor.ts). A drink comes as a glass in the right hand: The Silt's highball glasses (assets/models/glasses).
+// The Silt copied the hand anchor's Transform onto the glass every frame, but the explorer never writes an attached
+// entity's Transform back to the scene, so that glass never left the scene's origin. Here the glass is a child of the
+// hand anchor instead, and the explorer carries it.
 import { engine, Entity, Transform, GltfContainer, AvatarAttach, AvatarAnchorPointType } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color4 } from '@dcl/sdk/math'
+
+// The glasses are modelled lying along +Z with the base at the origin (0.24 m long at GLASS_SCALE): stand them up.
+const GLASS_SCALE = 0.15
+const IN_HAND = { position: Vector3.create(0, -0.06, 0), rotation: Quaternion.fromEulerDegrees(-90, 0, 0) }
 
 export type Drink = {
   id: string
@@ -82,7 +88,7 @@ export function holdGlass(src: string): void {
   anchor = engine.addEntity()
   AvatarAttach.create(anchor, { anchorPointId: AvatarAnchorPointType.AAPT_RIGHT_HAND })
   glass = engine.addEntity()
-  Transform.create(glass, { scale: Vector3.create(0.15, 0.15, 0.15) })
+  Transform.create(glass, { parent: anchor, ...IN_HAND, scale: Vector3.create(GLASS_SCALE, GLASS_SCALE, GLASS_SCALE) })
   GltfContainer.create(glass, { src })
   left = HOLD_SECONDS
 }
@@ -94,18 +100,10 @@ export function dropGlass(): void {
 }
 
 export function startDrinks(): void {
-  // As at The Silt: follow the hand, but stay upright (a hand-attached glass tips over as the arm swings).
+  // Finished after a while
   engine.addSystem((dt) => {
-    if (!anchor || !glass) return
+    if (!glass) return
     left -= dt
-    if (left <= 0) {
-      dropGlass()
-      return
-    }
-    const hand = Transform.getOrNull(anchor)
-    if (!hand) return
-    const t = Transform.getMutable(glass)
-    t.position = hand.position
-    t.rotation = Quaternion.Identity()
+    if (left <= 0) dropGlass()
   })
 }
