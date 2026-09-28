@@ -1,4 +1,4 @@
-// The black market terminal: its state and actions (panelUi.tsx draws it every frame from `market`).
+// The black market's relay to the Eld: its state and actions (panelUi.tsx draws it every frame from `market`).
 // The server does the work (routes/blackMarket.ts): a quote says whether a purchase can go ahead before any MANA
 // moves; then the wallet pays (fuel/payments.ts payMana, the same transfer the fuel store uses) and the server,
 // once Polygon confirms it, checks again and applies it. A payment still unconfirmed when the scene reloads is
@@ -71,7 +71,7 @@ export async function openMarket(): Promise<void> {
     market.selected = null
   } catch (e) {
     console.log('[black market] open failed', e)
-    say('The line is dead. Try again in a minute.', true)
+    say('The relay is silent. Try again in a minute.', true)
   } finally {
     market.loading = false
   }
@@ -149,23 +149,23 @@ function params(item: MarketItem): MarketParams {
   }
 }
 
-/** Ask the dealer whether it can be done (nothing is paid). */
+/** Ask the Eld whether it can be done (nothing is paid). */
 export async function askQuote(): Promise<void> {
   const item = market.selected
   if (!item || market.busy) return
   if (needsStar(item) && !market.star) {
-    say('Pick a star first.', true)
+    say('Name a star first.', true)
     return
   }
   market.busy = true
-  say('Asking around…')
+  say('Transmitting your petition…')
   try {
     const q = await quoteMarket(item.id, params(item))
     market.summary = q.summary
     market.phase = 'quoted'
     say('')
   } catch (e) {
-    say(e instanceof Error ? e.message : 'The dealer shrugs.', true)
+    say(e instanceof Error ? e.message : 'No answer came.', true)
   } finally {
     market.busy = false
   }
@@ -177,7 +177,7 @@ export async function pay(): Promise<void> {
   if (!item || market.busy || market.phase !== 'quoted') return
   market.busy = true
   market.phase = 'paying'
-  say(`Confirm sending ${item.mana} MANA (Polygon) in your wallet…`)
+  say(`Confirm the offering of ${item.mana} MANA (Polygon) in your wallet…`)
   const sent = params(item)
   let txHash: string
   try {
@@ -195,14 +195,14 @@ export async function pay(): Promise<void> {
 async function settle(itemId: string, sent: MarketParams, txHash: string, resuming = false): Promise<void> {
   market.busy = true
   market.phase = 'confirming'
-  const prefix = resuming ? 'Finishing your last deal: ' : ''
+  const prefix = resuming ? 'Your last petition: ' : ''
   try {
     for (let attempt = 1; attempt <= CONFIRM_MAX_POLLS; attempt++) {
       const r = await buyFromMarket(itemId, sent, txHash)
       if (r.status === 'ok') {
         market.phase = 'done'
         market.summary = r.summary
-        say('Pleasure doing business.')
+        say('It is done.')
         void refreshMine()
         return
       }
@@ -211,11 +211,11 @@ async function settle(itemId: string, sent: MarketParams, txHash: string, resumi
         say(r.message, true)
         return
       }
-      say(`${prefix}Waiting for Polygon to confirm… (${(attempt * CONFIRM_POLL_MS) / 1000}s)`)
+      say(`${prefix}The offering crosses Polygon… (${(attempt * CONFIRM_POLL_MS) / 1000}s)`)
       await delay(CONFIRM_POLL_MS)
     }
     market.phase = 'done'
-    say('Still confirming on Polygon. Come back to the terminal to finish.', true)
+    say('Still crossing Polygon. Return to the relay to finish.', true)
   } finally {
     market.busy = false
   }
@@ -235,7 +235,7 @@ async function resumePending(): Promise<void> {
   }
 }
 
-/** "Another deal" after one is done. */
+/** "Another petition" after one is done. */
 export function again(): void {
   if (market.busy) return
   resetPurchase()
