@@ -313,21 +313,36 @@ function othersDrinks(): void {
   }
 }
 
-/** Stand me on a seat's perch; the sitting drinking emote starts the moment I'm there (waiting any longer, I'd be
- *  seen stood on the seat: the move ends whatever emote was playing). */
-function perchOn(perch: Vector3, lookAt: Vector3): void {
+/** Stand me on a seat's perch, sitting: the sitting drinking emote starts with the move, and again once I'm there
+ *  (in case the move ended it), so I'm not seen stood on the seat in between. */
+function perchOn(perch: Vector3, lookAt: Vector3, emote: string | null): void {
   void movePlayerTo({ newRelativePosition: Vector3.add(perch, Vector3.create(0, 0.05, 0)), cameraTarget: lookAt, avatarTarget: lookAt })
+  if (emote) {
+    triggeredAt = clock
+    void triggerSceneEmote({ src: emote, loop: true })
+  }
   perching = { perch, since: clock }
   perchedThisSit = true
   drinkingAt = null
 }
 
+/** Load every drinking emote's file up front (as hidden models), so none has to be fetched the moment it's played. */
+function preloadEmotes(): void {
+  const files = [EMPTY_EMOTE, EMPTY_SIT_EMOTE, ...DRINKS.flatMap((d) => [d.emote, d.sitEmote]).filter((f): f is string => !!f)]
+  for (const src of files) {
+    const e = engine.addEntity()
+    Transform.create(e, { position: Vector3.create(8, -50, 8), scale: Vector3.Zero() })
+    GltfContainer.create(e, { src, visibleMeshesCollisionMask: 0, invisibleMeshesCollisionMask: 0 })
+  }
+}
+
 export function startDrinks(): void {
+  preloadEmotes()
   // Sitting down with a drink: straight onto the seat's perch and into the sitting drinking emote, rather than the
   // seat's own sit (made for the floor in front of it) and then a hop up
   setSitHook((perch, lookAt) => {
     if (!holding?.sitEmote || !perch) return false
-    perchOn(perch, lookAt)
+    perchOn(perch, lookAt, holding.sitEmote)
     return true
   })
   let lastPos: Vector3 | null = null
@@ -402,7 +417,7 @@ export function startDrinks(): void {
       return
     }
     if (!drinkingAt && seat && off(seat.perch) && !perchedThisSit) {
-      perchOn(seat.perch, seat.lookAt)
+      perchOn(seat.perch, seat.lookAt, holding.sitEmote)
       return
     }
     if (!drinkingAt && still >= STILL_SECONDS && emote) {
