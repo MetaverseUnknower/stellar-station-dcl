@@ -6,6 +6,7 @@ import { getCrew } from './audience'
 import { engine, Entity, Transform, MeshRenderer, Material, TextShape, Billboard, BillboardMode, MaterialTransparencyMode } from '@dcl/sdk/ecs'
 import { Vector3, Color3, Color4 } from '@dcl/sdk/math'
 import { orbitalRadius } from './systemView'
+import { radioTicker } from './blackMarket/radio'
 
 const CYAN = Color3.create(0, 0.9, 1)
 const ICON = 'assets/icons/space-station-icon-clear.png' // the ship's icon with its black made transparent (the original has no alpha)
@@ -72,12 +73,15 @@ export function welcomeSign(detail: any): Entity {
   const starName = sys.name || 'this'
   const sign = engine.addEntity()
   Transform.create(sign, { position: Vector3.create(0, -100, 0) })
-  // A third line: how many ships are docked here (the crews audience.ts tracks), kept current.
-  const text = (docked: number) =>
-    `Welcome To ${stationName}\n<size=65%>Located In ${starName} System</size>\n<size=50%>Ships Docked: ${docked}</size>`
+  // A third line: how many ships are docked here (the crews audience.ts tracks), kept current; and a fourth while a
+  // pirate radio broadcast (black market) is on air, scrolling.
+  const text = (docked: number, radio: string | null) =>
+    `Welcome To ${stationName}\n<size=65%>Located In ${starName} System</size>\n<size=50%>Ships Docked: ${docked}</size>` +
+    (radio ? `\n<size=45%><color=#ff3aa8>${radio}</color></size>` : '')
   let shown = getCrew().length
+  let shownRadio = radioTicker()
   TextShape.create(sign, {
-    text: text(shown),
+    text: text(shown, shownRadio),
     fontSize: 4.5,
     textColor: Color4.create(0, 0.9, 1, 1),
     outlineWidth: 0.12,
@@ -86,9 +90,11 @@ export function welcomeSign(detail: any): Entity {
   Billboard.create(sign, { billboardMode: BillboardMode.BM_Y })
   engine.addSystem(() => {
     const docked = getCrew().length
-    if (docked === shown || !TextShape.has(sign)) return
+    const radio = radioTicker()
+    if ((docked === shown && radio === shownRadio) || !TextShape.has(sign)) return
     shown = docked
-    TextShape.getMutable(sign).text = text(docked)
+    shownRadio = radio
+    TextShape.getMutable(sign).text = text(docked, radio)
   })
   return sign
 }

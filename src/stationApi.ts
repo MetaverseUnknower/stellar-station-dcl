@@ -36,7 +36,7 @@ async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?
     } catch {
       if (response.body) message = response.body
     }
-    throw new Error(message)
+    throw Object.assign(new Error(message), { status: response.status })
   }
   return (response.body ? JSON.parse(response.body) : undefined) as T
 }
@@ -173,4 +173,66 @@ export function getArcadeScores(stationId: string): Promise<ArcadeTables> {
 /** A game over: kept if it beats my best at this game here. */
 export function postArcadeScore(stationId: string, game: string, score: number): Promise<{ best: number; improved: boolean }> {
   return request('POST', `/api/arcade/${stationId}/${game}`, { score })
+}
+
+// ---- the black market (server routes/blackMarket.ts) ----
+
+export type MarketItem = {
+  id: string
+  name: string
+  mana: number
+  blurb: string
+  kind: 'wormhole' | 'destroy' | 'rename' | 'cloak' | 'radio' | 'insurance'
+  hours: number | null
+  exclusive: boolean
+}
+export type MarketParams = { targetSystemId?: string; systemId?: string; guests?: string[]; name?: string; message?: string }
+export type MarketPending = { txHash: string; item: string; params: MarketParams }
+/** A purchase's outcome: done, still waiting for Polygon, or refused with the server's words (`final`: stop asking). */
+export type MarketBuyResult =
+  | { status: 'ok'; summary: string }
+  | { status: 'pending' }
+  | { status: 'error'; message: string; final: boolean }
+export type Friend = { playerId: string; username: string }
+
+export function getMarketCatalog(): Promise<{ items: MarketItem[] }> {
+  return apiGet('/api/black-market/catalog')
+}
+
+/** Whether a purchase can go ahead, and what it will do. Throws the dealer's refusal. */
+export function quoteMarket(item: string, params: MarketParams): Promise<{ summary: string; mana: number }> {
+  return apiPost('/api/black-market/quote', { item, params })
+}
+
+/** Payments sent but not yet settled (to pick one up again after a reload). */
+export function getMarketPending(): Promise<{ pending: MarketPending[] }> {
+  return apiGet('/api/black-market/pending')
+}
+
+export function getMarketMine(): Promise<{ cloakedUntil: string | null; insurancePolicies: number }> {
+  return apiGet('/api/black-market/mine')
+}
+
+export function getPirateRadio(): Promise<{ broadcast: { message: string; by: string; endsAt: string } | null }> {
+  return apiGet('/api/black-market/radio')
+}
+
+export function getFriends(): Promise<{ friends: Friend[] }> {
+  return apiGet('/api/friends')
+}
+
+/**
+ * Settle a payment. Unlike the rest, this reads the status itself: 202 is "not mined yet, ask again", and a network
+ * error or a 5xx isn't the end either (the MANA is already sent), while 400/402/409 are the server's last word.
+ */
+export async function buyFromMarket(item: string, params: MarketParams, txHash: string): Promise<MarketBuyResult> {
+  try {
+    const body = await request<{ status?: string; summary?: string }>('POST', '/api/black-market/buy', { item, params, txHash })
+    if (body?.status === 'ok') return { status: 'ok', summary: body.summary ?? 'Done.' }
+    return { status: 'pending' }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    const status = (e as { status?: number })?.status
+    return { status: 'error', message, final: status === 400 || status === 402 || status === 409 }
+  }
 }
