@@ -143,6 +143,9 @@ let drinkingAt: Vector3 | null = null // where the drinking emote started, while
 let triggeredAt = -Infinity
 let clock = 0
 let perching: { perch: Vector3; since: number } | null = null // on my way onto a seat's perch, to drink there
+// Put on the perch once per sit: after that, moving off it is getting up (it used to put me back on it, every time
+// I tried to walk away). Cleared once I'm no longer seated.
+let perchedThisSit = false
 const PERCH_GIVE_UP = 3 // seconds
 
 /** "You dropped your drink..." while it's showing (menuUi.tsx draws it). */
@@ -315,6 +318,7 @@ function othersDrinks(): void {
 function perchOn(perch: Vector3, lookAt: Vector3): void {
   void movePlayerTo({ newRelativePosition: Vector3.add(perch, Vector3.create(0, 0.05, 0)), cameraTarget: lookAt, avatarTarget: lookAt })
   perching = { perch, since: clock }
+  perchedThisSit = true
   drinkingAt = null
 }
 
@@ -381,6 +385,7 @@ export function startDrinks(): void {
     // The sitting one is made sat on the seat itself; the seat's own sit put me on the floor in front of it. Handed a
     // drink sitting down: onto the seat's perch (facing the way it faces), and drink the moment I'm there.
     // (Distances across the floor only: the player's position may be taken at the feet or higher up the body.)
+    if (!isSeated()) perchedThisSit = false
     const seat = isSeated() ? seatPerch() : null
     const off = (p: Vector3) => Math.hypot(me.position.x - p.x, me.position.z - p.z) > PERCHED_METRES
     if (perching) {
@@ -396,7 +401,7 @@ export function startDrinks(): void {
       showHandGlass(!drinkingAt)
       return
     }
-    if (!drinkingAt && seat && off(seat.perch)) {
+    if (!drinkingAt && seat && off(seat.perch) && !perchedThisSit) {
       perchOn(seat.perch, seat.lookAt)
       return
     }
