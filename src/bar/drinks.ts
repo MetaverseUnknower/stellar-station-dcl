@@ -11,8 +11,8 @@
 // explorer ends emotes on movement) and the hand's glass is back. Play any other emote and you drop it: it smashes on
 // the floor and "You dropped your drink..." (sitting down in one of the scene's seats is fine).
 //
-// Carrying one, you can't run as fast (jogging and running are capped a little: a careful stroll), and if you run
-// anyway, or jump, you spill it: it smashes as if you'd dropped it for an emote. The explorer won't let a scene change
+// Carrying one, running is a walk (the explorer's jog, its ordinary run, is capped at its walking speed), and if you
+// sprint, or jump, you spill it: it smashes as if you'd dropped it for an emote. The explorer won't let a scene change
 // the walk itself (its locomotion always wins over emotes), so this is the walking part.
 //
 // Everyone sees everyone's drinks. The emotes are broadcast by the explorer (to everyone near); the hand's glass is
@@ -139,10 +139,12 @@ const SIT_SETTLE = 0.6 // seconds for the seat's move to land
 const NOTICE_SECONDS = 3.5
 const DROP_SECONDS = 10 // a shared drop lives this long (to reach everyone), then goes
 const GLASS_BREAK = 'assets/audio/glass_break.mp3'
-// Carrying a drink: the explorer's jog and run capped (walking's untouched), and running or jumping anyway spills it.
-const CARRY = { jogSpeed: 2.4, runSpeed: 3.2 } // m/s
-const SPILL_SPEED = 2.9 // m/s across the floor: past a jog, a run
-const SPILL_SECONDS = 0.4 // running this long spills it
+// Carrying a drink: the explorer's jog (its ordinary run) at its walking speed; its sprint is left alone, and spills
+// it. (The explorer's own speeds, CharacterControllerSettings.asset in decentraland/unity-explorer: walk 1.5 m/s,
+// jog 8, run 10.)
+const CARRY = { jogSpeed: 1.5 } // m/s
+const SPILL_SPEED = 3 // m/s across the floor: well past the capped jog, a sprint
+const SPILL_SECONDS = 0.3 // sprinting this long spills it
 const JUMP_SPEED = 3.2 // m/s upward: a jump (a lift climbs at 2.5, lift/lifts.ts SPEED)
 const TELEPORT_METRES = 2 // moved this far in a frame: a teleport (a seat, a lift's arrival), not running
 const GLASS_SRC = new Map(DRINKS.filter((d) => d.glass).map((d) => [d.id, d.glass as string]))
@@ -427,7 +429,7 @@ export function startDrinks(): void {
     const me = Transform.getOrNull(engine.PlayerEntity)
     if (!me) return
 
-    // Running or jumping with it: spilled. (Not while seated, or when a seat or a lift's arrival has just moved me.)
+    // Sprinting or jumping with it: spilled. (Not while seated, or when a seat or a lift's arrival has just moved me.)
     if (prev && dt > 0) {
       const d = Vector3.subtract(me.position, prev)
       const across = Math.hypot(d.x, d.z)
@@ -436,7 +438,7 @@ export function startDrinks(): void {
         if (running >= SPILL_SECONDS || d.y / dt > JUMP_SPEED) {
           prev = null
           running = 0
-          dropDrink(d.y / dt > JUMP_SPEED ? 'You spilled your drink\u2026 (no jumping with a drink!)' : 'You spilled your drink\u2026 (no running with a drink!)')
+          dropDrink(d.y / dt > JUMP_SPEED ? 'You spilled your drink\u2026 (no jumping with a drink!)' : 'You spilled your drink\u2026 (no sprinting with a drink!)')
           return
         }
       }
