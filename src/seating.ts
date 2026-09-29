@@ -230,7 +230,9 @@ function sitIn(spotIdx: number): void {
   if (!sitHook?.(spot.seatPos, spot.lookAt, spot.kind)) {
     movePlayerTo({
       newRelativePosition: { x: spot.seatPos.x, y: spot.seatPos.y, z: spot.seatPos.z },
-      cameraTarget: { x: spot.lookAt.x, y: spot.lookAt.y, z: spot.lookAt.z }
+      cameraTarget: { x: spot.lookAt.x, y: spot.lookAt.y, z: spot.lookAt.z },
+      // Facing the way the seat faces (the sit emote sits back from however the avatar faces)
+      avatarTarget: { x: spot.lookAt.x, y: spot.lookAt.y, z: spot.lookAt.z }
     })
     triggerEmote({ predefinedEmote: SIT_EMOTES[spot.emoteIndex] })
     spot.emoteIndex = (spot.emoteIndex + 1) % SIT_EMOTES.length

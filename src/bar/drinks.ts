@@ -201,7 +201,8 @@ function logSeatOffset(at: Vector3): void {
   if (!seat) return
   const f = Vector3.normalize(Vector3.create(seat.lookAt.x - seat.seatPos.x, 0, seat.lookAt.z - seat.seatPos.z))
   const d = Vector3.subtract(at, seat.seatPos)
-  console.log(`[drinks] seated: ${(d.x * f.x + d.z * f.z).toFixed(2)} m in front of the seat point, ${d.y.toFixed(2)} m above it`)
+  const side = d.x * f.z - d.z * f.x
+  console.log(`[drinks] seated: ${(d.x * f.x + d.z * f.z).toFixed(2)} m in front of the seat point, ${side.toFixed(2)} m to its side, ${d.y.toFixed(2)} m above it`)
 }
 
 /** The sitting drinking emote for the seat I'm in (a couch's sits further back). */
@@ -352,7 +353,9 @@ export function startDrinks(): void {
   setSitHook((seatPos, lookAt, kind) => {
     const sitting = sittingEmote(holding, kind)
     if (!sitting) return false
-    void movePlayerTo({ newRelativePosition: seatPos, cameraTarget: lookAt })
+    // Turned to face the way the seat faces, not just the camera: the emote sits back from however I'm facing, so a
+    // skew put me left or right of the seat's middle
+    void movePlayerTo({ newRelativePosition: seatPos, cameraTarget: lookAt, avatarTarget: lookAt })
     triggeredAt = clock
     drinkingAt = null
     sitStartedAt = clock
