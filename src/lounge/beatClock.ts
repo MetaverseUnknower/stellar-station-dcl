@@ -25,8 +25,17 @@ export function startBeatClock(): void {
   let bands: number[] = new Array(BANDS).fill(0)
   let attached = false
   let armed = true // a live hit counts once, until the level falls back
+  // Say which it is (the console): following the stream's audio, or the steady clock. Once it's had a few seconds to
+  // hear something, and again whenever it changes.
+  let reported: boolean | null = null
   engine.addSystem((dt) => {
     elapsed += dt
+    if (elapsed > 5 && live !== reported) {
+      reported = live
+      console.log(live
+        ? '[beat] following the music: the Relay Radio stream reports its audio, so the club lights hit on its bass'
+        : `[beat] not hearing the music (the stream reports no audio levels): the club lights run on a steady ${DEFAULT_BPM} BPM clock`)
+    }
     const speaker = loungeSpeaker()
     if (speaker && !attached) {
       attached = true
