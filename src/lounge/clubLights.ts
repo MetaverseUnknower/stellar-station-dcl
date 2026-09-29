@@ -1,7 +1,9 @@
 // Club lights for the lounge, on the beat (beatClock.ts): four moving spotlights hung from the ceiling, sweeping the
 // dance floor with visible beams and changing colour on the beat; a mirror ball (disco_ball.glb, from
 // tools/build_disco_ball.py) turning over the central opening and throwing specks of light that sweep over the dome
-// and the floor; and a kinetic chandelier of light tubes round it that ripple and rise and fall with the music.
+// and the floor; a kinetic chandelier of light tubes round it that ripple and rise and fall with the music; and a laser
+// show: a fan of beams from an emitter under the ball, turning and scanning above head height, flashing on the beat and
+// changing colour every bar, and throwing itself up into a tunnel of light on the big beats.
 // The spots are real LightSources, so they light avatars and the floor, not just themselves.
 import {
   engine, Entity, Transform, MeshRenderer, Material, MaterialTransparencyMode, LightSource, GltfContainer
@@ -66,6 +68,7 @@ export function buildClubLights(): void {
   GltfContainer.create(ball, { src: 'assets/models/disco_ball.glb' })
   const specks = buildSpecks()
   const chandelier = buildChandelier()
+  const lasers = buildLasers()
 
   onBeat((beat) => {
     // Every other beat, each spot moves on to the next colour.
@@ -131,6 +134,7 @@ export function buildClubLights(): void {
     Transform.getMutable(ball).rotation = Quaternion.fromEulerDegrees(0, spin, 0)
     specks(dt, spin, level)
     chandelier(dt, level)
+    lasers(dt, level)
   })
 }
 
@@ -293,5 +297,99 @@ function buildChandelier(): (dt: number, level: number) => void {
       const ripple = TUBE_RIPPLE * (0.5 + 0.5 * Math.sin(t * 1.4 + (i / TUBES) * Math.PI * 4)) * (0.7 + 0.3 * energy)
       Transform.getMutable(tube).position.y = -TUBE_LENGTH / 2 - ripple
     })
+  }
+}
+
+// ---- the lasers ------------------------------------------------------------------------------------------------
+const LASER_HEIGHT = 5 // the emitter, above the lounge floor: under the ball (7) and the chandelier's lowest tubes (~5.4)
+const LASERS = 16
+const LASER_THICK = 0.025
+const LASER_SPIN = 18 // degrees a second the fan turns
+const SCAN_LOW = -4.5 // degrees: the fan tips this far down (its ends stay above head height at the dome) ...
+const SCAN_HIGH = 9 // ... and this far up, scanning slowly between
+const SCAN_SECONDS = 7
+const TUNNEL_UP = 38 // degrees: the fan throws itself up into a cone on the big beats ...
+const TUNNEL_SECONDS = 0.9 // ... and falls back over this long
+const HEAD_ROOM = 2.6 // no laser ends lower than this above the floor
+
+/** How far a laser from the emitter goes along `dir` before it meets the dome (or would drop below head room). */
+function laserReach(from: Vector3, dir: Vector3): number {
+  for (let d = 1; d < 40; d += 0.25) {
+    const x = from.x + dir.x * d - CENTER.x
+    const z = from.z + dir.z * d - CENTER.z
+    const hFloor = from.y + dir.y * d - (FLOOR_Y + LOUNGE)
+    if (hFloor < HEAD_ROOM) return d
+    if (Math.hypot(x, z) >= domeRadius(LOUNGE + hFloor) - 0.15) return d
+  }
+  return 40
+}
+
+/** A fan of lasers from under the mirror ball: turning, scanning up and down, flashing on the beat, all one colour
+ *  one bar and alternating the next, and on every eighth beat thrown up into a tunnel of light that falls back. */
+function buildLasers(): (dt: number, level: number) => void {
+  const origin = Vector3.create(CENTER.x, FLOOR_Y + LOUNGE + LASER_HEIGHT, CENTER.z)
+  const emitter = engine.addEntity()
+  Transform.create(emitter, { position: origin, scale: Vector3.create(0.35, 0.18, 0.35) })
+  MeshRenderer.setSphere(emitter)
+  Material.setPbrMaterial(emitter, { albedoColor: Color4.create(0.05, 0.05, 0.08, 1), metallic: 0.9, roughness: 0.2, emissiveColor: Color3.create(0.3, 0.3, 0.5), emissiveIntensity: 0.6 })
+  const beams: Entity[] = []
+  for (let i = 0; i < LASERS; i++) {
+    const e = engine.addEntity()
+    Transform.create(e, { position: origin, scale: Vector3.Zero() })
+    MeshRenderer.setBox(e)
+    beams.push(e)
+  }
+
+  let t = 0
+  let tunnel = 0 // 1 at the hit, falling to 0
+  let flash = 0
+  let palette = 0
+  let alternate = false
+  let dirty = true
+  onBeat((beat) => {
+    flash = 1
+    if (beat % 8 === 0) tunnel = 1
+    if (beat % 4 === 0) {
+      palette = (palette + 1) % PALETTE.length
+      alternate = !alternate
+    }
+    dirty = true
+  })
+
+  let shownLevel = -1
+  return (dt: number, level: number) => {
+    t += dt
+    tunnel = Math.max(0, tunnel - dt / TUNNEL_SECONDS)
+    flash = Math.max(0, flash - dt * 4)
+    const spin = t * LASER_SPIN
+    const scan = SCAN_LOW + (SCAN_HIGH - SCAN_LOW) * (0.5 - 0.5 * Math.cos((2 * Math.PI * t) / SCAN_SECONDS))
+    const ease = tunnel * tunnel * (3 - 2 * tunnel)
+    const elevation = scan + (TUNNEL_UP - scan) * ease
+    const up = (elevation * Math.PI) / 180
+    for (let i = 0; i < LASERS; i++) {
+      const yaw = ((spin + (i * 360) / LASERS) * Math.PI) / 180
+      const dir = Vector3.create(Math.cos(up) * Math.sin(yaw), Math.sin(up), Math.cos(up) * Math.cos(yaw))
+      const reach = laserReach(origin, dir)
+      const tr = Transform.getMutable(beams[i])
+      tr.position = Vector3.add(origin, Vector3.scale(dir, reach / 2))
+      tr.rotation = Quaternion.fromToRotation(Vector3.Forward(), dir)
+      tr.scale = Vector3.create(LASER_THICK, LASER_THICK, reach)
+    }
+    // Brightness with the music and the beat's flash; colour writes only when it changes noticeably
+    const glow = Math.round((0.4 + 0.4 * level + 0.6 * flash) * 10) / 10
+    if (dirty || glow !== shownLevel) {
+      dirty = false
+      shownLevel = glow
+      beams.forEach((e, i) => {
+        const c = PALETTE[alternate && i % 2 ? (palette + 2) % PALETTE.length : palette]
+        Material.setPbrMaterial(e, {
+          albedoColor: Color4.create(c.r, c.g, c.b, 0.85),
+          emissiveColor: c,
+          emissiveIntensity: 3 + 6 * glow,
+          transparencyMode: MaterialTransparencyMode.MTM_ALPHA_BLEND,
+          castShadows: false
+        })
+      })
+    }
   }
 }
