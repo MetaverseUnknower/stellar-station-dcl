@@ -17,6 +17,8 @@ const RIG_RADIUS = 9 // over the dance floor ring (7..13 m out)
 const SPOTS = 4
 const RANGE = 13 // the spots' furthest reach: the dance floor at the shallowest tilt
 const RANGE_PAST_FLOOR = 1.2 // each frame, a spot reaches this far along its beam: past the floor's level, not far
+const BEAM_END_R = 2.2 // the beam cone's radius at its wide end, at full length
+const END_SPREAD = BEAM_END_R / 11 // that end radius per metre of beam (the cone scales as a whole)
 const BEAM_LENGTH = 11 // at most; each frame a beam is cut to end at the lounge floor, or it pokes through into the deck below
 const PALETTE = [
   Color3.create(1, 0.1, 0.7),
@@ -54,7 +56,7 @@ export function buildClubLights(): void {
       rotation: Quaternion.fromEulerDegrees(90, 0, 0),
       scale: Vector3.create(1, BEAM_LENGTH, 1)
     })
-    MeshRenderer.setCylinder(beam, 0.12, 2.2)
+    MeshRenderer.setCylinder(beam, 0.12, BEAM_END_R)
     spots.push({ light, beam, phase: i * 1.7, colour: i % PALETTE.length })
   }
 
@@ -85,9 +87,13 @@ export function buildClubLights(): void {
       const yaw = ((t * 25 + s.phase * 57) % 360)
       const pitch = 62 + Math.sin(t * 0.9 + s.phase) * 14
       Transform.getMutable(s.light).rotation = Quaternion.fromEulerDegrees(pitch, yaw, 0)
-      // The beam reaches down to the floor and no further (keeping its spread: the cone scales as a whole).
-      const toFloor = RIG_HEIGHT / Math.sin((pitch * Math.PI) / 180)
-      const length = Math.min(BEAM_LENGTH, toFloor - 0.05 / Math.sin((pitch * Math.PI) / 180))
+      // The beam reaches down to the floor and no further (keeping its spread: the cone scales as a whole). Not just its
+      // middle: its wide end is a disc square to the beam, so on a slant its low side hangs below where the middle
+      // stops, by the end's radius (BEAM_END_R at full length, so END_SPREAD x the length) times cos(pitch). Cut so that
+      // low side just meets the floor: RIG_HEIGHT = length * (sin(pitch) + END_SPREAD * cos(pitch)).
+      const rad = (pitch * Math.PI) / 180
+      const toFloor = RIG_HEIGHT / Math.sin(rad)
+      const length = Math.min(BEAM_LENGTH, (RIG_HEIGHT - 0.05) / (Math.sin(rad) + END_SPREAD * Math.cos(rad)))
       // And so does the light itself. Shadows alone didn't hold it (the explorer only shadows some lights, depending
       // on its settings), and over the central opening there's no floor to cast one: at its full range the light went
       // on down onto the balconies below. So its range ends a little past the floor's level along the beam (the
