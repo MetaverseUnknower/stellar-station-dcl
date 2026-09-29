@@ -28,9 +28,13 @@ export function buildLab(): void {
 
   // The "coming soon" line breathes, slowly.
   let t = 0
+  let lastK = -1
   engine.addSystem((dt) => {
     t += dt
-    const k = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 1.6))
+    // In 12 steps, written only when the step changes: the whole TextShape is re-sent on every write
+    const k = Math.round((0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 1.6))) * 12) / 12
+    if (k === lastK) return
+    lastK = k
     TextShape.getMutable(soon).textColor = Color4.create(1 * k, 0.7 * k, 0.3 * k, 1)
   })
 }

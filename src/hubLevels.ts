@@ -4,6 +4,7 @@
 import { engine, Entity, Transform, MeshRenderer, Material } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color4, Color3 } from '@dcl/sdk/math'
 import { onBeat } from './lounge/beatClock'
+import { loungeFade } from './lounge/music'
 import { CENTER, FLOOR_Y } from './station'
 import { buildLifts, FLOORS } from './lift/lifts'
 
@@ -61,6 +62,8 @@ function buildDanceFloor(): void {
   paint(0, 1.2)
   onBeat((beat) => {
     current = beat
+    // Only while the player is up in the lounge: 208 tiles x 2 writes a beat otherwise ran all session, unseen
+    if (loungeFade() <= 0) return
     paint(beat, 2.8)
     dimIn = 0.16
   })

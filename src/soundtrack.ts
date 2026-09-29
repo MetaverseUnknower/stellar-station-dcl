@@ -126,6 +126,7 @@ export function applySavedMute(): void {
 
 /** Station addition: scale the soundtrack's volume (0..1), e.g. down to nothing as the player climbs to the club. */
 export function setSoundtrackFade(f: number): void {
+  if (f === fade) return   // unchanged (outside the lounge it's 1 every frame): don't touch the live stream
   if (Math.abs(f - fade) < 0.01 && f !== 0 && f !== 1) return
   fade = f
   if (player && AudioStream.has(player)) AudioStream.getMutable(player).volume = VOLUME * fade

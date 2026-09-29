@@ -385,11 +385,9 @@ export function systemViewAnimationSystem(dt: number): void {
   if (starGlowEntity && systemRoot) {
     const pulse = 0.5 + 0.5 * Math.sin(systemTime * 2)
     const s = 1.2 + pulse * 0.3
-    Transform.createOrReplace(starGlowEntity, { position: Vector3.create(0, 0, 0), scale: Vector3.create(s, s, s), parent: systemRoot })
-    Material.setPbrMaterial(starGlowEntity, {
-      albedoColor: Color4.create(starBaseEmissive.r, starBaseEmissive.g, starBaseEmissive.b, 0.04 + pulse * 0.04),
-      emissiveColor: starBaseEmissive, emissiveIntensity: 1.5 + pulse, transparencyMode: MaterialTransparencyMode.MTM_ALPHA_BLEND
-    })
+    // Pulse by size only: the glow's material is set once when it's created (a new material every frame before)
+    const glow = Transform.getMutableOrNull(starGlowEntity)
+    if (glow) glow.scale = Vector3.create(s, s, s)
   }
 
   for (const body of orbitingPlanets) {

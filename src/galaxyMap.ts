@@ -486,12 +486,19 @@ export function galaxyAnimationSystem(dt: number): void {
   // turn in opposite directions at different speeds; a gentle shared pulse on top.
   if (beamEntity && beamOuterEntity) {
     beamTime += dt
-    const pulse = 0.5 + 0.5 * Math.sin(beamTime * 1.5)
+    // The pulse and fade-in move in visible steps, and the materials are written only when a step changes: a few
+    // writes a second from a small set of looks, instead of two brand-new materials every frame.
+    const step = (v: number, n: number) => Math.round(v * n) / n
+    const pulse = step(0.5 + 0.5 * Math.sin(beamTime * 1.5), 10)
     const k = Math.max(0, Math.min(1, (beamTime - HOLO_WARMUP_SECONDS) / HOLO_FADE_IN_SECONDS))
-    const fadeIn = k * k * (3 - 2 * k)
+    const fadeIn = step(k * k * (3 - 2 * k), 20)
+    const key = `${pulse}|${fadeIn}`
+    const repaint = key !== beamMaterialKey
+    beamMaterialKey = key
     const layers: [Entity, typeof HOLO_LAYERS[number]][] = [[beamEntity, HOLO_LAYERS[0]], [beamOuterEntity, HOLO_LAYERS[1]]]
     for (const [entity, L] of layers) {
       Transform.getMutable(entity).rotation = Quaternion.fromEulerDegrees(0, (beamTime * L.spin) % 360, 0)
+      if (!repaint) continue
       const tex = { src: HOLO_TEXTURE, wrapMode: TextureWrapMode.TWM_REPEAT, tiling: L.tiling }
       Material.setPbrMaterial(entity, {
         texture: Material.Texture.Common(tex),
@@ -506,6 +513,8 @@ export function galaxyAnimationSystem(dt: number): void {
   }
 
 }
+
+let beamMaterialKey = ''  // the stepped look the beam materials were last written with
 
 const mapHooks: { rendered?: () => void; cleared?: () => void }[] = []
 /** Overlays (the heat map, the travel route) redraw after the stars render and clear with the map. */
