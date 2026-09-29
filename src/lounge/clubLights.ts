@@ -82,7 +82,18 @@ export function buildClubLights(): void {
 
   let t = 0
   let shown = -1
+  let lit = true
   engine.addSystem((dt) => {
+    // Nothing up here runs while the player is away from the lounge (fade 0): the rig's ~3,000 writes a second went
+    // on all session, unseen. One last write switches the spots off; the show picks up where it is on return.
+    if (loungeFade() <= 0) {
+      if (lit) {
+        lit = false
+        for (const s of spots) { const light = LightSource.getMutable(s.light); light.intensity = 0; light.active = false }
+      }
+      return
+    }
+    lit = true
     t += dt
     const level = beatLevel()
     for (const s of spots) {
@@ -278,6 +289,7 @@ function buildChandelier(): (dt: number, level: number) => void {
   paint(0, 1.2)
   let dimIn = -1
   onBeat((beat) => {
+    if (loungeFade() <= 0) return   // unseen: skip the repaint (the rig pauses away from the lounge)
     paint(beat, 3)
     dimIn = 0.18
   })

@@ -237,6 +237,8 @@ function buildGlitches(room: Room): (dt: number) => void {
 
 // ---- together ----------------------------------------------------------------------------------------------------
 
+const TERRA_NEAR = 20 // metres from the room's centre: inside Terra (its shell is ~15 m round)
+
 export function buildHolo(room: Room): void {
   buildFalls(room)
   buildWisps(room)
@@ -266,7 +268,10 @@ export function buildHolo(room: Room): void {
   let scanWait = 6
   let scanLeft = -1
   engine.addSystem((dt) => {
-    glitch(dt)
+    // Glitches only while the player is in Terra: each one sets fresh random UVs on a dozen meshes, and they ran all
+    // session wherever the player was (about 17,000 unique meshes an hour)
+    const p = Transform.getOrNull(engine.PlayerEntity)?.position
+    if (p && Math.hypot(p.x - room.centre.x, p.z - room.centre.z) < TERRA_NEAR) glitch(dt)
     if (scanLeft >= 0) {
       scanLeft -= dt
       if (scanLeft < 0) {

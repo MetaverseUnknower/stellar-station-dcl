@@ -59,7 +59,7 @@ const SCREEN_COLOURS = [
   Color3.create(1, 0.7, 0.1)
 ]
 
-type Cabinet = { screen: Entity; coin: Entity; phase: number; title: string }
+type Cabinet = { screen: Entity; coin: Entity; phase: number; title: string; shownKey: number }
 const STAND_OFF = 1.1 // how far in front of a cabinet the player stands to play
 
 export function buildArcade(): void {
@@ -124,7 +124,7 @@ export function buildArcade(): void {
       textColor: Color4.create(0.15, 0.02, 0.2, 1)
     })
 
-    return { screen, coin, phase: i * 1.3, title: TITLES[i] }
+    return { screen, coin, phase: i * 1.3, title: TITLES[i], shownKey: -1 }
   })
 
   // Attract mode: each screen drifts through the palette (a material write every 0.15 s per screen), and INSERT
@@ -141,7 +141,12 @@ export function buildArcade(): void {
       const k = (t * 0.6 + c.phase) % SCREEN_COLOURS.length
       const from = SCREEN_COLOURS[Math.floor(k)]
       const to = SCREEN_COLOURS[(Math.floor(k) + 1) % SCREEN_COLOURS.length]
-      const f = k - Math.floor(k)
+      // In 8 steps between palette colours, written only when the step changes: a small fixed set of looks, where the
+      // smooth blend made a never-repeating colour (a new material) for every write, all session
+      const f = Math.floor((k - Math.floor(k)) * 8) / 8
+      const key = Math.floor(k) * 8 + f * 8
+      if (key === c.shownKey) continue
+      c.shownKey = key
       const colour = Color3.create(from.r + (to.r - from.r) * f, from.g + (to.g - from.g) * f, from.b + (to.b - from.b) * f)
       Material.setPbrMaterial(c.screen, { albedoColor: Color4.create(0, 0, 0, 1), emissiveColor: colour, emissiveIntensity: 1.6, roughness: 0.2 })
     }
