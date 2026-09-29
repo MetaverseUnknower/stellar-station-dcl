@@ -7,7 +7,8 @@
 import { engine, Entity, Transform, AudioStream } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
-import { startSoundtrack, setSoundtrackContext, setSoundtrackFade, applySavedMute } from '../soundtrack'
+import { startSoundtrack, setSoundtrackContext, setSoundtrackFade, applySavedMute, setPlaceTheme } from '../soundtrack'
+import { inTheEldsPlace } from '../bar/secretDoor'
 import { startRadioNowPlaying } from './radioNow'
 import { getPref, setPref, loadPrefs } from '../prefs'
 import { onGateChanged } from '../gate'
@@ -43,8 +44,18 @@ export function loungeFade(): number {
 function startStationSoundtrack(): void {
   setSoundtrackContext({ docked: true, system: null })
   void startSoundtrack()
+  // Through the back bar, the Eld's own tracks (the 'the-eld' theme), at full volume though it's the lounge's level;
+  // back out, the station's, fading under the club's radio as you climb to it
+  let eld = false
   engine.addSystem(() => {
-    if (Transform.has(engine.PlayerEntity)) setSoundtrackFade(1 - loungeFade())
+    if (!Transform.has(engine.PlayerEntity)) return
+    const here = inTheEldsPlace()
+    if (here !== eld) {
+      eld = here
+      setPlaceTheme(here ? 'the-eld' : null)
+      radioMuteChanged = true
+    }
+    setSoundtrackFade(eld ? 1 : 1 - loungeFade())
   })
 }
 
@@ -115,7 +126,7 @@ export function buildLoungeMusic(): void {
   let shown = -1
   engine.addSystem(() => {
     if (!Transform.has(engine.PlayerEntity)) return
-    const gain = radioMuted || !musicReady ? 0 : loungeFade()
+    const gain = radioMuted || !musicReady || inTheEldsPlace() ? 0 : loungeFade()
     if (!radioMuteChanged && Math.abs(gain - shown) < 0.01 && !(gain === 0 && shown !== 0) && !(gain === 1 && shown !== 1)) return
     radioMuteChanged = false
     shown = gain

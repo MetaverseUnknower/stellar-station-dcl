@@ -75,6 +75,13 @@ function swing(to: boolean): void {
   }
 }
 
+/** Through the back bar: in the corridor or the Eld's pod (the music's theirs there: lounge/music.ts). */
+export function inTheEldsPlace(): boolean {
+  const me = Transform.getOrNull(engine.PlayerEntity)
+  const r = me ? behindAt(me.position) : null
+  return r !== null && r > THROUGH_R
+}
+
 /** The secret's been asked for: one way in. */
 export function unlockBackRoom(): void {
   if (state === 'closed') become('invited')

@@ -12,7 +12,7 @@ import { getPref, setPref } from './prefs'
 import { StarSystem } from './types'
 
 export type Track = { id: string; title: string; artist: string | null; url: string; theme: string | null; durationSeconds: number }
-export type Theme = 'theme' | 'inner-galaxy' | 'central-ring' | 'outer-rim' | 'black-hole' | 'space-station'
+export type Theme = 'theme' | 'inner-galaxy' | 'central-ring' | 'outer-rim' | 'black-hole' | 'space-station' | 'the-eld'
 
 const VOLUME = 0.5
 let fade = 1   // station addition: the station fades the soundtrack out where the club's music takes over
@@ -60,8 +60,10 @@ export async function startSoundtrack(): Promise<void> {
 }
 
 /** Call whenever the player's situation changes; only a theme change interrupts the current track. */
+let placeBase: Theme = 'theme' // station addition: the context's theme, to go back to from a place's own
 export function setSoundtrackContext(ctx: { docked: boolean; system: StarSystem | null }): void {
   const next = themeFor(ctx.docked, ctx.system)
+  placeBase = next
   if (next === theme && started && queue.length) return
   theme = next
   if (started) applyTheme(next, false)
@@ -106,6 +108,15 @@ export function setMuted(on: boolean): void {
 }
 
 export function toggleMuted(): void { setMuted(!muted) }
+
+/** Station addition: a place with a theme of its own (the Eld's pod: 'the-eld'), or back to the context's. Only if
+ *  there are tracks for it: an empty theme would otherwise play anything. */
+export function setPlaceTheme(t: Theme | null): void {
+  const next = t && tracks.some((x) => x.theme === t) ? t : placeBase
+  if (next === theme && started && queue.length) return
+  theme = next
+  if (started) applyTheme(next, false)
+}
 
 /** Station addition: once the saved settings have loaded (prefs.ts), take up the saved mute. */
 export function applySavedMute(): void {
