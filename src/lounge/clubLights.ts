@@ -11,7 +11,7 @@ import {
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
 import { loungeFade } from './music'
-import { beatLevel, onBeat, beatCount } from './beatClock'
+import { beatLevel, midLevel, highLevel, onBeat, beatCount } from './beatClock'
 
 const LOUNGE = 25 // build_station_models.py LOUNGE
 const RIG_HEIGHT = 9.5 // above the lounge floor (the dome is ~12 m up over the dance floor)
@@ -132,9 +132,11 @@ export function buildClubLights(): void {
     }
     const spin = (t * BALL_SPIN) % 360
     Transform.getMutable(ball).rotation = Quaternion.fromEulerDegrees(0, spin, 0)
-    specks(dt, spin, level)
-    chandelier(dt, level)
-    lasers(dt, level)
+    // Each follows its own part of the music: the spots (above) the bass, the chandelier the mids, the ball's specks
+    // the highs, and the lasers flash on the kick, turn with the mids and shimmer with the highs
+    specks(dt, spin, highLevel())
+    chandelier(dt, midLevel())
+    lasers(dt, highLevel())
   })
 }
 
@@ -341,6 +343,7 @@ function buildLasers(): (dt: number, level: number) => void {
   }
 
   let t = 0
+  let turned = 0
   let tunnel = 0 // 1 at the hit, falling to 0
   let flash = 0
   let palette = 0
@@ -361,7 +364,8 @@ function buildLasers(): (dt: number, level: number) => void {
     t += dt
     tunnel = Math.max(0, tunnel - dt / TUNNEL_SECONDS)
     flash = Math.max(0, flash - dt * 4)
-    const spin = t * LASER_SPIN
+    turned += dt * LASER_SPIN * (0.6 + 1.2 * midLevel()) // turning faster as the mids build
+    const spin = turned
     const scan = SCAN_LOW + (SCAN_HIGH - SCAN_LOW) * (0.5 - 0.5 * Math.cos((2 * Math.PI * t) / SCAN_SECONDS))
     const ease = tunnel * tunnel * (3 - 2 * tunnel)
     const elevation = scan + (TUNNEL_UP - scan) * ease
@@ -376,7 +380,7 @@ function buildLasers(): (dt: number, level: number) => void {
       tr.scale = Vector3.create(LASER_THICK, LASER_THICK, reach)
     }
     // Brightness with the music and the beat's flash; colour writes only when it changes noticeably
-    const glow = Math.round((0.4 + 0.4 * level + 0.6 * flash) * 10) / 10
+    const glow = Math.round((0.3 + 0.5 * level + 0.6 * flash) * 10) / 10 // level: the highs
     if (dirty || glow !== shownLevel) {
       dirty = false
       shownLevel = glow
