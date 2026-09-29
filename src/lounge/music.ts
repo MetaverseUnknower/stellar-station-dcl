@@ -68,17 +68,31 @@ export function applySavedRadioMute(): void {
   radioMuteChanged = true
 }
 
+const PREFS_WAIT = 8 // seconds: start the music anyway if the saved settings haven't come (or I'm never let aboard)
+let musicReady = false // the saved mutes are in: the music may play
+
 export function buildLoungeMusic(): void {
-  startStationSoundtrack()
-  // The saved mutes (the soundtrack's and the radio's), once signed in and aboard
+  // The saved mutes (the soundtrack's and the radio's) first, once signed in and aboard, and only then the music, so
+  // a muted player never hears it start. The radio's stream connects straight away but stays silent till then.
   let loadedPrefs = false
+  const begin = () => {
+    if (musicReady) return
+    musicReady = true
+    applySavedRadioMute()
+    radioMuteChanged = true
+    startStationSoundtrack()
+    applySavedMute()
+  }
   onGateChanged((gate) => {
     if (gate.kind !== 'aboard' || loadedPrefs) return
     loadedPrefs = true
-    void loadPrefs().then(() => {
-      applySavedMute()
-      applySavedRadioMute()
-    })
+    void loadPrefs().then(begin)
+  })
+  let waited = 0
+  engine.addSystem(function prefsWait(dt) {
+    waited += dt
+    if (musicReady) engine.removeSystem(prefsWait)
+    else if (waited >= PREFS_WAIT) begin()
   })
   startRadioNowPlaying()
   const base = () => Vector3.create(CENTER.x, FLOOR_Y + LOUNGE + SOURCE_ABOVE_FLOOR, CENTER.z)
@@ -101,7 +115,7 @@ export function buildLoungeMusic(): void {
   let shown = -1
   engine.addSystem(() => {
     if (!Transform.has(engine.PlayerEntity)) return
-    const gain = radioMuted ? 0 : loungeFade()
+    const gain = radioMuted || !musicReady ? 0 : loungeFade()
     if (!radioMuteChanged && Math.abs(gain - shown) < 0.01 && !(gain === 0 && shown !== 0) && !(gain === 1 && shown !== 1)) return
     radioMuteChanged = false
     shown = gain
