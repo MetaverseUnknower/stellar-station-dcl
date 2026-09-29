@@ -29,7 +29,7 @@ from mathutils import Vector, Matrix, Quaternion
 OUT = os.path.abspath(sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'assets/emotes')
 # Bumped with each change to the sitting emotes: the explorer caches emotes by file name, so a changed file under the
 # old name kept playing the old version. drinks.ts must use the same.
-SIT_VERSION = 'v6'
+SIT_VERSION = 'v7'
 DRINKS = {   # drinks.ts ids, and the liquid's colour
     'helium3': (0.2, 0.75, 1.0),
     'plasma': (0.55, 0.2, 0.95),
@@ -229,7 +229,8 @@ def pose_sitting(f, drinking=True, back=SEAT_BACK, hips=SEAT_HIPS):
     reset()
     hips_rest = REST['Avatar_Hips'].translation
     move('Avatar_Hips', Vector((0, -F * back, hips - hips_rest.z)))   # onto the seat, behind
-    tilt('Avatar_Hips', FWD, 0.02 * shift * groove)
+    # The pelvis stays put on the seat (rolling it with the music swung you from one side of the seat to the other);
+    # the sway is all above the waist
     # Thighs forward along the seat, shins hanging, knees a little apart; the right foot taps on the beat, the heel
     # lifting off with the ball of the foot staying put (a quick lift, a softer fall)
     tap = beat ** 2 * 0.016
@@ -248,7 +249,7 @@ def pose_sitting(f, drinking=True, back=SEAT_BACK, hips=SEAT_HIPS):
             tilt(f'Avatar_{s}Foot', SIDE, toe)
             tilt(f'Avatar_{s}ToeBase', SIDE, -toe)
     tilt('Avatar_Spine', SIDE, 0.07)   # leaning in a little, as you do on a stool
-    tilt('Avatar_Spine1', FWD, -0.03 * shift * groove)
+    tilt('Avatar_Spine1', FWD, -0.015 * shift * groove)
     tilt('Avatar_Spine2', SIDE, 0.012 * math.sin(2 * math.pi * f / 80))
     tilt('Avatar_Neck', SIDE, 0.045 * beat * groove - 0.05)
     tilt('Avatar_Head', FWD, 0.03 * shift * groove)
