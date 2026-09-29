@@ -8,7 +8,7 @@ import { createStation, ViewDefinition, StationContext, Screens } from '../stati
 import { Bag, clearBag, text, frame, header, button, fitSize, CYAN, MAGENTA, MAGENTA3, WHITE, DIM, MUTED } from '../stations/draw'
 import { showNotification } from '../shipDialogs'
 import { onGateChanged } from '../gate'
-import { hubDesk, HUB_DESK_ANGLES } from '../station'
+import { hubDesk, HUB_DESK_ANGLES, playerNear } from '../station'
 
 const REFRESH_SECONDS = 60
 const CYCLE_SECONDS = 10
@@ -155,15 +155,21 @@ export function buildHallOfRecords(): void {
     void load().then(() => desk.refresh())
   })
 
+  // Refresh and cycle only while someone's near enough to read it (it rebuilt ~175 entities every 10 s all session);
+  // the timers keep running, so walking up refreshes at once. One load at a time.
+  const at = hubDesk(HUB_DESK_ANGLES.hallOfRecords).position
+  let loading = false
   let refreshTimer = 0
   let cycleTimer = 0
   engine.addSystem((dt) => {
     if (!started) return
     refreshTimer += dt
     cycleTimer += dt
-    if (refreshTimer >= REFRESH_SECONDS) {
+    if (!playerNear(at)) return
+    if (refreshTimer >= REFRESH_SECONDS && !loading) {
       refreshTimer = 0
-      void load()
+      loading = true
+      void load().finally(() => { loading = false })
     }
     if (cycleTimer >= CYCLE_SECONDS) {
       cycleTimer = 0

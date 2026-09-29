@@ -58,7 +58,19 @@ export function returnToShip(message: string): void {
   void changeRealm({ realm: SHIP_WORLD, message }).catch((err) => console.log('[gate] changeRealm failed', err))
 }
 
+// One status check at a time: a slow server otherwise stacks one up every 10-30 s
+let checking = false
 async function check(): Promise<void> {
+  if (checking) return
+  checking = true
+  try {
+    await checkOnce()
+  } finally {
+    checking = false
+  }
+}
+
+async function checkOnce(): Promise<void> {
   try {
     const status = await getStationStatus()
     shipDocked = status.isDocked

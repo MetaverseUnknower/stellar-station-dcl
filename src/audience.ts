@@ -50,11 +50,14 @@ export function startAudienceFilter(): void {
 
   apply([])
   onGateChanged(() => void refresh())
+  // One refresh at a time: a slow server otherwise stacks one up every 10 s
+  let refreshing = false
   let timer = 0
   engine.addSystem((dt) => {
     timer += dt
-    if (timer < REFRESH_SECONDS) return
+    if (timer < REFRESH_SECONDS || refreshing) return
     timer = 0
-    void refresh()
+    refreshing = true
+    void refresh().finally(() => { refreshing = false })
   })
 }

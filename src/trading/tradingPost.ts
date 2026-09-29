@@ -12,7 +12,7 @@ import { Bag, clearBag, clickable, text, frame, header, button, listRow, image, 
 import { cargoUsed, titleCase } from '../stations/data'
 import { showNotification } from '../shipDialogs'
 import { onGateChanged } from '../gate'
-import { hubDesk, HUB_DESK_ANGLES } from '../station'
+import { hubDesk, HUB_DESK_ANGLES, playerNear } from '../station'
 import {
   Specimen, RARITY_ORDER, RESOURCE_TYPES, resourceName, requestText, offerText, listText, summaryText,
   matchesRequest, daysLeft, shortDate
@@ -674,14 +674,18 @@ export function buildTradingPost(): void {
   })
 
   // Keep the board current while someone is looking at it.
+  // Only for someone near enough to read it, one load at a time; the timer keeps running, so walking up refreshes at once
+  const at = hubDesk(HUB_DESK_ANGLES.tradingPost).position
+  let loading = false
   let timer = 0
   engine.addSystem((dt) => {
     timer += dt
-    if (timer < POLL_SECONDS) return
+    if (timer < POLL_SECONDS || loading || !playerNear(at)) return
     timer = 0
     const view = desk.currentView()
     if (!stationId || (view !== 'board' && view !== 'mine') || !redrawActive) return
     const redraw = redrawActive
-    void loadBoard().then(() => redraw()).catch(() => {})
+    loading = true
+    void loadBoard().then(() => redraw()).catch(() => {}).finally(() => { loading = false })
   })
 }

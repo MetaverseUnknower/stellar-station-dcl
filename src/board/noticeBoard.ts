@@ -10,7 +10,7 @@ import { createStation, ViewDefinition, StationContext, Screens } from '../stati
 import { Bag, clearBag, clickable, text, frame, header, button, fitSize, CYAN, MAGENTA, MAGENTA3, WHITE, DIM, MUTED } from '../stations/draw'
 import { showNotification } from '../shipDialogs'
 import { onGateChanged } from '../gate'
-import { hubDesk, HUB_DESK_ANGLES } from '../station'
+import { hubDesk, HUB_DESK_ANGLES, playerNear } from '../station'
 import { openCompose } from './compose'
 import { shortDate } from '../trading/tradeText'
 
@@ -265,13 +265,17 @@ export function buildNoticeBoard(): void {
   })
 
   // New posts show up while someone's reading.
+  // Only for someone near enough to read it, one load at a time; the timer keeps running, so walking up refreshes at once
+  const at = hubDesk(HUB_DESK_ANGLES.noticeBoard).position
+  let loading = false
   let timer = 0
   engine.addSystem((dt) => {
     timer += dt
-    if (timer < POLL_SECONDS) return
+    if (timer < POLL_SECONDS || loading || !playerNear(at)) return
     timer = 0
     const redraw = redrawActive
     if (!stationId || !redraw) return
-    void load().then(() => redraw()).catch(() => {})
+    loading = true
+    void load().then(() => redraw()).catch(() => {}).finally(() => { loading = false })
   })
 }

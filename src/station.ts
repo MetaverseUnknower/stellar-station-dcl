@@ -85,6 +85,13 @@ export function hubDesk(deg: number): { position: Vector3; yaw: number } {
   }
 }
 
+/** The player is within `metres` of `at`: desks poll and redraw only for someone close enough to read them. */
+export const DESK_NEAR = 15
+export function playerNear(at: Vector3, metres: number = DESK_NEAR): boolean {
+  const p = Transform.getOrNull(engine.PlayerEntity)?.position
+  return !!p && Vector3.distance(p, at) < metres
+}
+
 /** Where a player arrives in their pod: across from its airlock (the hatch is 90 degrees clockwise from the pod's
  *  outward direction, seen from above; see airlock.ts), looking over the system map at it. */
 export function podSpawn(index: number): { position: Vector3; cameraTarget: Vector3 } {
