@@ -124,6 +124,18 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
   The explorer asks the player to confirm. The station scene learns which station from `/api/stations/status`,
   so nothing needs to travel in the URL.
 
+## Tests
+
+- `npm test` runs vitest with the real @dcl/ecs engine headless in Node. The explorer-only `~system/*` modules resolve
+  to stand-ins in `test/system/` (vitest.config.ts); `test/helpers.ts` steps the engine (`tick`) and counts entities.
+- `npm run deploy` runs the tests first (`predeploy`): a failing test stops the deploy.
+- The tests pin the explorer-load fixes of 2026-09-29 (lounge, Terra, arcade, lab, hub desks, gate, soundtrack,
+  holograms): anything running every frame must not re-set materials, meshes or text every frame, and pollers keep
+  one request in flight. Each test failed against the code before those fixes. Add a test with every change to a
+  per-frame system or a poller.
+- Module-level state (the gate, the soundtrack) is per test file: put tests that need a fresh module in their own
+  file rather than using vi.resetModules (the engine would no longer be the one the test steps).
+
 ## Build and deploy
 
 - Node 20 is required: `source ~/.nvm/nvm.sh && nvm use 20`, then `npm install` and `npm run build`.
