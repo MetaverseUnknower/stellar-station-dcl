@@ -201,8 +201,8 @@ function Petition() {
       <UiEntity uiTransform={{ flexDirection: 'column', width: '100%' }}>
         <Label value={decoded('hello', 'WE ARE LISTENING.')} fontSize={px(22)} font={MONO} color={LAVENDER} textAlign="top-left" uiTransform={{ height: px(40) }} />
         <Label
-          value="The Eld were old when your sun was young. They do not trade in cells or seeds, only in favours, and they take MANA on Polygon. Petition them first: they will say whether a thing can be done before anything is offered."
-          fontSize={px(15)} font={MONO} color={DIM} textAlign="top-left" textWrap="wrap" uiTransform={{ width: '100%', height: px(110) }}
+          value="The Eld were old when your sun was young. They usually trade in folded probabilities, borrowed futures and favours owed across eleven dimensions. You have none of these. They will, with enormous patience, accept MANA on Polygon, the way you might accept a nice rock from a child. Petition first: they say whether a thing can be done before anything changes hands."
+          fontSize={px(15)} font={MONO} color={DIM} textAlign="top-left" textWrap="wrap" uiTransform={{ width: '100%', height: px(150) }}
         />
       </UiEntity>
     )
