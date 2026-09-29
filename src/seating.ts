@@ -223,6 +223,8 @@ export function setSitHook(fn: (seatPos: Vector3, lookAt: Vector3, kind: 'stool'
 }
 
 function sitIn(spotIdx: number): void {
+  // Moving seat to seat without standing up: let the one I was in go (it stayed occupied, its orb hidden, for good)
+  if (localSeatIndex >= 0 && localSeatIndex !== spotIdx) SeatState.getMutable(sitSpots[localSeatIndex].orb).occupied = false
   const spot = sitSpots[spotIdx]
   const seatState = SeatState.getMutable(spot.orb)
   if (!sitHook?.(spot.seatPos, spot.lookAt, spot.kind)) {

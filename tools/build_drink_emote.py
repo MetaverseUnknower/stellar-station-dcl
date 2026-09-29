@@ -29,7 +29,7 @@ from mathutils import Vector, Matrix, Quaternion
 OUT = os.path.abspath(sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'assets/emotes')
 # Bumped with each change to the sitting emotes: the explorer caches emotes by file name, so a changed file under the
 # old name kept playing the old version. drinks.ts must use the same.
-SIT_VERSION = 'v5'
+SIT_VERSION = 'v6'
 DRINKS = {   # drinks.ts ids, and the liquid's colour
     'helium3': (0.2, 0.75, 1.0),
     'plasma': (0.55, 0.2, 0.95),
@@ -43,11 +43,11 @@ F = -1                # the avatar faces -Y
 SIDE = Vector((1, 0, 0))   # the avatar's left-right axis
 FWD = Vector((0, F, 0))
 UP = Vector((0, 0, 1))
-# Where to put the hips, above and behind where the seat's move leaves you. Measured in the explorer (drinks.ts logs it):
-# on a stool you settle at its seat point's height, 0.1-0.14 m behind it, so 0.18 m in front of the stool's middle with
-# its cushion (0.25 m across the middle) 0.455 m up; the hip joint sits ~0.17 m above the bottom of the seat.
-SEAT_HIPS = 0.64      # a stool: the cushion's top and the pelvis
-SEAT_BACK = 0.15      # over the cushion's middle (0.5, before, was off the back of it)
+# Where to put the hips, above and behind where the seat's move leaves you: exactly where Decentraland's own sit puts
+# them (its sittingChair1 and 2 both: the hips 0.641 m up and 0.365 m back; decentraland/avatar-assets,
+# emotes/base-scene-emotes/sittingChair*/SittingChair_v0*.glb), since the scene's seats are laid out for that sit.
+SEAT_HIPS = 0.641     # a stool
+SEAT_BACK = 0.365
 COUCH_HIPS = 0.60     # a couch (you settle ~0.28 m in front of its seat point, its cushion ~0.47 m up and deeper):
 COUCH_BACK = 0.65     # its own versions (<id>_couch_<v>_emote.glb)
 
