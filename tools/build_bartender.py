@@ -1,15 +1,15 @@
 # Builds the Space Bar's robot bartenders (src/bar/bartender.ts). DEX: a mid-century hover-bot in ivory, brass and navy
-# lacquer to match the bar (build_space_bar.py), with a bow tie. PIP: small, round and pastel, with blushing cheeks, a
+# lacquer to match the bar (build_space_bar.py), with a bow tie. BLIP: small, round and pastel, with blushing cheeks, a
 # smile and a heart on her antenna. Each in parts, so the scene can move them:
 #   bartender_body.glb    hover skirt, torso, arms, bow tie; origin on the floor under it
 #   bartender_head.glb    the head (no eyes: bartender.ts draws them, to blink); origin at the neck's top
 #   bartender_shaker.glb  a cocktail shaker; origin at its middle (the scene holds it in the right hand and shakes it)
-#   blip_body.glb, blip_head.glb   PIP's, the same way (her head's origin at BLIP_NECK; no eyes either)
+#   blip_body.glb, blip_head.glb   BLIP's, the same way (her head's origin at BLIP_NECK; no eyes either)
 #
 #   /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python tools/build_bartender.py -- assets/models
 #
 # Built facing Blender -Y (scene +Z, once exported); the right hand is at Blender -X. Heights here must match
-# bartender.ts (NECK, HAND, and PIP's).
+# bartender.ts (NECK, HAND, and BLIP's).
 import bpy, bmesh, math, os, sys
 from mathutils import Vector, Matrix
 
@@ -168,26 +168,26 @@ def heart(coll, name, centre, size, m):
     piece(coll, f'{name}Point', m, cyl((x, y, z - 0.55 * size), 0.95 * size, 0.0, 1.1 * size, Matrix.Rotation(math.pi, 4, 'X') @ Matrix.Scale(1, 4), 14))
 
 
-# ── PIP ──
-pip = new_coll('BlipBody')
-piece(pip, 'Base', BUBBLEGUM, cyl((0, 0, 0.82), 0.1, 0.17, 0.16))
-piece(pip, 'BaseGlow', BLUSH, torus((0, 0, 0.74), 0.11, 0.014))
-piece(pip, 'Body', MINT, ellipsoid((0, 0, 1.12), (0.27, 0.25, 0.27)))
-piece(pip, 'Belly', WHITE, ellipsoid((0, -0.17, 1.08), (0.17, 0.09, 0.15)))
-heart(pip, 'BellyHeart', (0, -0.258, 1.1), 0.035, BLUSH)
-piece(pip, 'Neck', WHITE, cyl((0, 0, 1.41), 0.06, 0.06, 0.06))
+# ── BLIP ──
+blip = new_coll('BlipBody')
+piece(blip, 'Base', BUBBLEGUM, cyl((0, 0, 0.82), 0.1, 0.17, 0.16))
+piece(blip, 'BaseGlow', BLUSH, torus((0, 0, 0.74), 0.11, 0.014))
+piece(blip, 'Body', MINT, ellipsoid((0, 0, 1.12), (0.27, 0.25, 0.27)))
+piece(blip, 'Belly', WHITE, ellipsoid((0, -0.17, 1.08), (0.17, 0.09, 0.15)))
+heart(blip, 'BellyHeart', (0, -0.258, 1.1), 0.035, BLUSH)
+piece(blip, 'Neck', WHITE, cyl((0, 0, 1.41), 0.06, 0.06, 0.06))
 for sgn in (-1, 1):
     shoulder, hand = (sgn * 0.25, -0.02, 1.18), (sgn * 0.29, -0.25, 1.03)
-    piece(pip, f'Arm{sgn}', MINT, between(shoulder, hand, 0.04))
-    piece(pip, f'Hand{sgn}', WHITE, ellipsoid(hand, (0.048, 0.048, 0.048), 16, 10))
-export(pip, 'blip_body.glb')
+    piece(blip, f'Arm{sgn}', MINT, between(shoulder, hand, 0.04))
+    piece(blip, f'Hand{sgn}', WHITE, ellipsoid(hand, (0.048, 0.048, 0.048), 16, 10))
+export(blip, 'blip_body.glb')
 
-pip_head = new_coll('BlipHead')
-piece(pip_head, 'Dome', WHITE, ellipsoid((0, 0, 0.19), (0.22, 0.2, 0.2)))
-piece(pip_head, 'Face', SCREEN, ellipsoid((0, -0.08, 0.18), (0.18, 0.14, 0.13)))
+blip_head = new_coll('BlipHead')
+piece(blip_head, 'Dome', WHITE, ellipsoid((0, 0, 0.19), (0.22, 0.2, 0.2)))
+piece(blip_head, 'Face', SCREEN, ellipsoid((0, -0.08, 0.18), (0.18, 0.14, 0.13)))
 for sgn in (-1, 1):
-    piece(pip_head, f'Cheek{sgn}', BLUSH, ellipsoid((sgn * 0.11, -0.172, 0.12), (0.032, 0.012, 0.02), 14, 8))
-    piece(pip_head, f'Ear{sgn}', BUBBLEGUM, ellipsoid((sgn * 0.215, 0, 0.21), (0.03, 0.05, 0.05), 14, 10))
+    piece(blip_head, f'Cheek{sgn}', BLUSH, ellipsoid((sgn * 0.11, -0.172, 0.12), (0.032, 0.012, 0.02), 14, 8))
+    piece(blip_head, f'Ear{sgn}', BUBBLEGUM, ellipsoid((sgn * 0.215, 0, 0.21), (0.03, 0.05, 0.05), 14, 10))
 # A smile: a little arc of light under the eyes
 def smile(bm):
     rows = []
@@ -199,8 +199,8 @@ def smile(bm):
     for i in range(n):
         for j in range(m_):
             bm.faces.new((rows[i][j], rows[i + 1][j], rows[i + 1][(j + 1) % m_], rows[i][(j + 1) % m_]))
-piece(pip_head, 'Smile', BLUSH, smile)
-piece(pip_head, 'Stem', WHITE, cyl((0, 0, 0.43), 0.007, 0.007, 0.1, seg=8))
-heart(pip_head, 'AntennaHeart', (0, 0, 0.51), 0.032, BLUSH)
-export(pip_head, 'blip_head.glb')
+piece(blip_head, 'Smile', BLUSH, smile)
+piece(blip_head, 'Stem', WHITE, cyl((0, 0, 0.43), 0.007, 0.007, 0.1, seg=8))
+heart(blip_head, 'AntennaHeart', (0, 0, 0.51), 0.032, BLUSH)
+export(blip_head, 'blip_head.glb')
 print('HAND (blender)', HAND, 'NECK', NECK, 'BLIP_HAND', BLIP_HAND, 'BLIP_NECK', BLIP_NECK)

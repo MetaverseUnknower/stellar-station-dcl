@@ -6,7 +6,7 @@
 //   DEX, the mid-century one with the bow tie: gives you a dirty look, then gets shifty (checks nobody's watching,
 //        drops his voice, asks if you were followed) before opening up; afterwards he never saw you, and he mutters
 //        that the shelves are just shelves.
-//   PIP, small, round and pastel: thrilled someone ordered the special, waves you through, asks how it went, and all
+//   BLIP, small, round and pastel: thrilled someone ordered the special, waves you through, asks how it went, and all
 //        but tells everyone about the secret menu.
 import { engine, Entity, Transform, GltfContainer, ColliderLayer, MeshRenderer, Material, pointerEventsSystem, InputAction } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
@@ -33,8 +33,8 @@ type Beat = { at: number; say?: Line; nervous?: number; glare?: number; happy?: 
 type Personality = {
   name: string
   angle: number // scene degrees, behind the counter, 2 m either side of the centre bay (clear of its leaves' swing)
-  neck: number // build_bartender.py NECK / PIP_NECK
-  hand: Vector3 // HAND / PIP_HAND, (x, y, z) Blender as (-x, z, -y)
+  neck: number // build_bartender.py NECK / BLIP_NECK
+  hand: Vector3 // HAND / BLIP_HAND, (x, y, z) Blender as (-x, z, -y)
   body: string
   head: string
   eyes: 'visor' | 'round'
@@ -96,7 +96,7 @@ const DEX: Personality = {
     'I’ve never heard of anyone called the Eld.',
     'Lovely evening. Nothing unusual.',
     'The back bar is load-bearing. Probably.',
-    'Don’t listen to PIP. She tells everyone everything.'
+    'Don’t listen to BLIP. She tells everyone everything.'
   ],
   jittery: true
 }
@@ -107,15 +107,15 @@ const BLIP_SERVED: Record<string, string> = {
   mythic: 'A Mythic Bloom! I put extra glitter in it.'
 }
 
-const PIP: Personality = {
-  name: 'PIP',
+const BLIP: Personality = {
+  name: 'BLIP',
   angle: 230.6,
   neck: 1.44,
   hand: Vector3.create(0.29, 1.03, 0.25),
   body: 'assets/models/blip_body.glb',
   head: 'assets/models/blip_head.glb',
   eyes: 'round',
-  bubble: { tag: 'PIP // hi!!', edge: Color3.create(1, 0.45, 0.65), text: Color4.create(1, 0.93, 0.96, 1), panel: Color4.create(0.1, 0.03, 0.08, 1) },
+  bubble: { tag: 'BLIP // hi!!', edge: Color3.create(1, 0.45, 0.65), text: Color4.create(1, 0.93, 0.96, 1), panel: Color4.create(0.1, 0.03, 0.08, 1) },
   bob: 0.035,
   greetings: ['Hi hi! What can I get you?', 'Welcome to the Space Bar!', 'Hello, friend! Thirsty?', 'Ooh, a customer! Hi!'],
   preparing: 'Ooh, good choice!',
@@ -188,7 +188,7 @@ export function buildBartenders(): void {
   onDoorChanged((from, to) => {
     if (from === 'leaving' && to === 'closed') lastExit = clock
   })
-  for (const p of [DEX, PIP]) bartenders.set(p.name, buildBartender(p))
+  for (const p of [DEX, BLIP]) bartenders.set(p.name, buildBartender(p))
 }
 
 function buildBartender(p: Personality): Bartender {
@@ -210,7 +210,7 @@ function buildBartender(p: Personality): Bartender {
   Transform.create(shaker, { parent: root, position: p.hand })
   GltfContainer.create(shaker, { src: 'assets/models/bartender_shaker.glb' })
 
-  // Eyes, drawn here so they can blink (and scowl, or squint with joy). DEX's are bars on his visor; PIP's are big
+  // Eyes, drawn here so they can blink (and scowl, or squint with joy). DEX's are bars on his visor; BLIP's are big
   // glowing ovals on her face screen, with a highlight each.
   const EYE = p.eyes === 'visor'
     ? { y: 0.15, z: 0.2, x: 0.065, w: 0.06, h: 0.035, d: 0.01 }
@@ -310,10 +310,10 @@ function buildBartender(p: Personality): Bartender {
     if (happy > 0) happy -= dt
     want = Math.max(-MAX_TURN, Math.min(MAX_TURN, want))
     headYaw += (want - headYaw) * Math.min(1, dt * (nervous > 0 || glare > 0 ? 9 : 4))
-    const roll = happy > 0 ? Math.sin(t * 7) * 12 : p.eyes === 'round' ? Math.sin(t * 0.8) * 5 : 0 // PIP tilts her head
+    const roll = happy > 0 ? Math.sin(t * 7) * 12 : p.eyes === 'round' ? Math.sin(t * 0.8) * 5 : 0 // BLIP tilts her head
     Transform.getMutable(head).rotation = Quaternion.fromEulerDegrees(0, headYaw, roll)
 
-    // Eyes: a blink now and then; DEX's narrow when he's shifty, and narrow and tilt for a dirty look; PIP's squeeze
+    // Eyes: a blink now and then; DEX's narrow when he's shifty, and narrow and tilt for a dirty look; BLIP's squeeze
     // into happy arcs
     blink -= dt
     const shut = blink < 0.12
