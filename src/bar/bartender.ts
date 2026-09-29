@@ -101,7 +101,7 @@ const DEX: Personality = {
   jittery: true
 }
 
-const PIP_SERVED: Record<string, string> = {
+const BLIP_SERVED: Record<string, string> = {
   helium3: 'One Helium-3 Fizz! Extra bubbles, just for you.',
   plasma: 'A Plasma Crystal! It glows, see?',
   mythic: 'A Mythic Bloom! I put extra glitter in it.'
@@ -112,14 +112,14 @@ const PIP: Personality = {
   angle: 230.6,
   neck: 1.44,
   hand: Vector3.create(0.29, 1.03, 0.25),
-  body: 'assets/models/pip_body.glb',
-  head: 'assets/models/pip_head.glb',
+  body: 'assets/models/blip_body.glb',
+  head: 'assets/models/blip_head.glb',
   eyes: 'round',
   bubble: { tag: 'PIP // hi!!', edge: Color3.create(1, 0.45, 0.65), text: Color4.create(1, 0.93, 0.96, 1), panel: Color4.create(0.1, 0.03, 0.08, 1) },
   bob: 0.035,
   greetings: ['Hi hi! What can I get you?', 'Welcome to the Space Bar!', 'Hello, friend! Thirsty?', 'Ooh, a customer! Hi!'],
   preparing: 'Ooh, good choice!',
-  served: (d) => PIP_SERVED[d.id] ?? d.served,
+  served: (d) => BLIP_SERVED[d.id] ?? d.served,
   secret: (open, recent) =>
     open
       ? [{ at: 0, say: 'It’s already open, silly! Go on!', happy: 1.2 }]
