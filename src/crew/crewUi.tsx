@@ -70,7 +70,7 @@ export function CrewPanel() {
           fontSize={px(15)}
           color={CYAN}
           textAlign="middle-left"
-          uiTransform={{ flexGrow: 1, height: px(32), padding: { left: px(8) } }}
+          uiTransform={{ flexGrow: 1, height: px(42), padding: { left: px(10), top: px(4), bottom: px(4) } }}
           uiBackground={{ color: FIELD }}
         />
         <SmallButton label="ADD" filled onClick={addByCode} />
