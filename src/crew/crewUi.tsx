@@ -18,11 +18,13 @@ const DARK = Color4.create(0.02, 0.05, 0.1, 1)
 const FIELD = Color4.create(0.05, 0.12, 0.2, 1)
 const SHOW = 6 // rows per list before "+N more"
 
-function SmallButton(props: { label: string; onClick: () => void; filled?: boolean }) {
+const FIELD_H = 42 // the friend-code field, and the ADD button beside it
+
+function SmallButton(props: { label: string; onClick: () => void; filled?: boolean; height?: number }) {
   const on = !crew.busy
   return (
     <UiEntity
-      uiTransform={{ height: px(26), padding: { left: px(10), right: px(10) }, margin: { left: px(6) }, justifyContent: 'center', alignItems: 'center', borderWidth: px(1), borderColor: on ? CYAN : FAINT }}
+      uiTransform={{ height: px(props.height ?? 26), padding: { left: px(10), right: px(10) }, margin: { left: px(6) }, justifyContent: 'center', alignItems: 'center', borderWidth: px(1), borderColor: on ? CYAN : FAINT }}
       uiBackground={{ color: props.filled && on ? CYAN : DARK }}
       onMouseDown={() => on && props.onClick()}
     >
@@ -70,10 +72,10 @@ export function CrewPanel() {
           fontSize={px(15)}
           color={CYAN}
           textAlign="middle-left"
-          uiTransform={{ flexGrow: 1, height: px(42), padding: { left: px(10), top: px(4), bottom: px(4) } }}
+          uiTransform={{ flexGrow: 1, height: px(FIELD_H), padding: { left: px(10), top: px(4), bottom: px(4) } }}
           uiBackground={{ color: FIELD }}
         />
-        <SmallButton label="ADD" filled onClick={addByCode} />
+        <SmallButton label="ADD" filled height={FIELD_H} onClick={addByCode} />
       </UiEntity>
 
       {crew.incoming.length > 0 && <Heading text={`REQUESTS (${crew.incoming.length})`} />}
