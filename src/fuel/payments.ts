@@ -74,7 +74,7 @@ const walletRpc = (method: string, params: unknown[]) => withTimeout(rpc(method,
 
 /**
  * Asks the wallet to send `mana` MANA on Polygon to the game wallet. Resolves with the transaction hash.
- * `onSending` fires right before the wallet is asked to send, once the pre-flight chain checks are done.
+ * `onSending` fires right before the wallet is asked to send, once the wallet has been asked to switch to Polygon.
  */
 export async function payMana(mana: number, onSending?: () => void): Promise<string> {
   const from = getPlayer()?.userId
@@ -83,13 +83,10 @@ export async function payMana(mana: number, onSending?: () => void): Promise<str
   try {
     await walletRpc('wallet_switchEthereumChain', [{ chainId: POLYGON_CHAIN_ID }])
   } catch {
-    // the wallet may already be on Polygon or refuse; verified below with eth_chainId
+    // the wallet may already be on Polygon or refuse; the server rejects wrong-chain payments
   }
-
-  const chainId = await walletRpc('eth_chainId', [])
-  if (typeof chainId !== 'string' || chainId.toLowerCase() !== POLYGON_CHAIN_ID) {
-    throw new Error('Switch your wallet to Polygon to buy with MANA')
-  }
+  // No eth_chainId check: Decentraland's wallet sends Polygon transactions while reporting Ethereum as its chain,
+  // so a check here turned away players whose payment would have gone through (as it does in the ship scene).
 
   const wei = BigInt(Math.round(mana * 1000)) * 10n ** 15n
   const data = TRANSFER_SELECTOR + pad32(MANA_BENEFICIARY) + pad32(wei.toString(16))
