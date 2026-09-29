@@ -21,7 +21,7 @@ let fade = 1   // station addition: the station fades the soundtrack out where t
 // just before the end, before a restart can happen.
 const END_LEAD_SECONDS = 0.75
 let wasPlaying = false
-const MUTED_PREF = 'soundtrackMuted'
+const MUTED_PREF = 'stationSoundtrackMuted' // the station's own (prefs.ts saves it), not the ship's soundtrackMuted
 
 let tracks: Track[] = []
 let queue: Track[] = []          // shuffled tracks of the active theme
@@ -106,6 +106,12 @@ export function setMuted(on: boolean): void {
 }
 
 export function toggleMuted(): void { setMuted(!muted) }
+
+/** Station addition: once the saved settings have loaded (prefs.ts), take up the saved mute. */
+export function applySavedMute(): void {
+  const want = getPref<boolean>(MUTED_PREF, false)
+  if (want !== muted) setMuted(want)
+}
 
 /** Station addition: scale the soundtrack's volume (0..1), e.g. down to nothing as the player climbs to the club. */
 export function setSoundtrackFade(f: number): void {

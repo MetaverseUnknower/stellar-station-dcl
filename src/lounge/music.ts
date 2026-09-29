@@ -7,8 +7,10 @@
 import { engine, Entity, Transform, AudioStream } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
-import { startSoundtrack, setSoundtrackContext, setSoundtrackFade } from '../soundtrack'
+import { startSoundtrack, setSoundtrackContext, setSoundtrackFade, applySavedMute } from '../soundtrack'
 import { startRadioNowPlaying } from './radioNow'
+import { getPref, setPref, loadPrefs } from '../prefs'
+import { onGateChanged } from '../gate'
 
 export const RELAY_RADIO_URL = 'https://relayradio.org/api/live/stream.mp3' // as rebel-radio's STREAM_URL
 const LOUNGE = 25 // metres above the deck (build_station_models.py LOUNGE)
@@ -49,15 +51,35 @@ function startStationSoundtrack(): void {
 let radioMuted = false
 let radioMuteChanged = false
 export const isRadioMuted = () => radioMuted
+const RADIO_PREF = 'stationRadioMuted' // remembered between visits (prefs.ts)
 /** Mute or unmute the club's radio (the HUD's MUTE in the lounge). The stream keeps playing, silent, so unmuting
- *  picks up live; it isn't remembered between visits. */
+ *  picks up live. */
 export function toggleRadioMuted(): void {
   radioMuted = !radioMuted
+  radioMuteChanged = true
+  setPref(RADIO_PREF, radioMuted)
+}
+
+/** Once the saved settings have loaded (prefs.ts), take up the saved mute. */
+export function applySavedRadioMute(): void {
+  const want = getPref<boolean>(RADIO_PREF, false)
+  if (want === radioMuted) return
+  radioMuted = want
   radioMuteChanged = true
 }
 
 export function buildLoungeMusic(): void {
   startStationSoundtrack()
+  // The saved mutes (the soundtrack's and the radio's), once signed in and aboard
+  let loadedPrefs = false
+  onGateChanged((gate) => {
+    if (gate.kind !== 'aboard' || loadedPrefs) return
+    loadedPrefs = true
+    void loadPrefs().then(() => {
+      applySavedMute()
+      applySavedRadioMute()
+    })
+  })
   startRadioNowPlaying()
   const base = () => Vector3.create(CENTER.x, FLOOR_Y + LOUNGE + SOURCE_ABOVE_FLOOR, CENTER.z)
   const at = (gain: number) => {

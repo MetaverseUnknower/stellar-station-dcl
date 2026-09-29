@@ -70,7 +70,7 @@ export function buildGalaxyHologram(): void {
         const systems = await api.getSystems(me.galaxy_id)
         Transform.getMutable(getGalaxyRoot()).parent = inner
         setMapView({ scale: MAP_SCALE })
-        setPref('heatMap', true) // in memory only: preferences aren't loaded in the station
+        setPref('heatMap', true) // for this session only: the station saves just its own settings (prefs.ts)
         setupHeatMap(me.galaxy_id)
         renderStarSystems(systems, me.home_system_id, me.current_system_id)
       } catch (err) {
