@@ -132,8 +132,9 @@ The Decentraland scene for the inside of a Galaxy Gardeners space station. Playe
 - Deploy: `npm run deploy -- --target-content https://worlds-content-server.decentraland.org`, signing with
   the MetaPetal wallet `0x7e56…374C`. That wallet must own `stellarstation.dcl.eth` (or be granted deploy
   permission) first.
-- Last deployed 2026-09-28 from `b41b034` (the fuel cell dispenser in the hub, the newcomer welcome banner, and
-  everything before). The signature must be made within 5 minutes of
+- Last deployed 2026-09-29 from `2be7d3d` (the Space Bar's bartenders BETA and BLIP, drinks and their emotes, the
+  hidden pod behind the back bar with the Eld relay and its music, the Crew panel, the club's lasers and
+  frequency-driven lights, remembered mutes, and everything before). The signature must be made within 5 minutes of
   the signing page opening.
 - The ship scene's `.editor/project.json` and its `scene.json` `source.projectId` belong to that project; don't
   copy them here. Creator Hub assigns this project its own on import.
