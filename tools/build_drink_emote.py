@@ -29,7 +29,7 @@ from mathutils import Vector, Matrix, Quaternion
 OUT = os.path.abspath(sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'assets/emotes')
 # Bumped with each change to the sitting emotes: the explorer caches emotes by file name, so a changed file under the
 # old name kept playing the old version. drinks.ts must use the same.
-SIT_VERSION = 'v4'
+SIT_VERSION = 'v5'
 DRINKS = {   # drinks.ts ids, and the liquid's colour
     'helium3': (0.2, 0.75, 1.0),
     'plasma': (0.55, 0.2, 0.95),
@@ -43,10 +43,13 @@ F = -1                # the avatar faces -Y
 SIDE = Vector((1, 0, 0))   # the avatar's left-right axis
 FWD = Vector((0, F, 0))
 UP = Vector((0, 0, 1))
-SEAT_HIPS = 0.60      # sitting: the hips this far above where the seat puts you (its top ~0.47 m up, and the pelvis)
-SEAT_BACK = 0.50      # and this far behind (0.3 by the seat numbers; the avatar's collider seems to push it forward
-                      # off the seat by about as much again)
-COUCH_BACK = 0.65     # a couch's cushion is deeper: its own versions (<id>_couch_<v>_emote.glb) sit further back
+# Where to put the hips, above and behind where the seat's move leaves you. Measured in the explorer (drinks.ts logs it):
+# on a stool you settle at its seat point's height, 0.1-0.14 m behind it, so 0.18 m in front of the stool's middle with
+# its cushion (0.25 m across the middle) 0.455 m up; the hip joint sits ~0.17 m above the bottom of the seat.
+SEAT_HIPS = 0.64      # a stool: the cushion's top and the pelvis
+SEAT_BACK = 0.15      # over the cushion's middle (0.5, before, was off the back of it)
+COUCH_HIPS = 0.60     # a couch (you settle ~0.28 m in front of its seat point, its cushion ~0.47 m up and deeper):
+COUCH_BACK = 0.65     # its own versions (<id>_couch_<v>_emote.glb)
 
 arm = bpy.data.objects['Armature']
 prop = bpy.data.objects['Armature_Prop']
@@ -218,14 +221,14 @@ def pose_standing(f):
     drinking_arm(sip)
 
 
-def pose_sitting(f, drinking=True, back=SEAT_BACK):
+def pose_sitting(f, drinking=True, back=SEAT_BACK, hips=SEAT_HIPS):
     sip = sip_at(f) if drinking else 0.0
     shift = math.sin(2 * math.pi * f / 120)
     beat = 0.5 - 0.5 * math.cos(2 * math.pi * f / BEAT)
     groove = 1 - 0.7 * sip
     reset()
     hips_rest = REST['Avatar_Hips'].translation
-    move('Avatar_Hips', Vector((0, -F * back, SEAT_HIPS - hips_rest.z)))   # onto the seat, behind
+    move('Avatar_Hips', Vector((0, -F * back, hips - hips_rest.z)))   # onto the seat, behind
     tilt('Avatar_Hips', FWD, 0.02 * shift * groove)
     # Thighs forward along the seat, shins hanging, knees a little apart; the right foot taps on the beat, the heel
     # lifting off with the ball of the foot staying put (a quick lift, a softer fall)
@@ -439,7 +442,7 @@ def build_empty(pose, filename, name, length):
 
 build(pose_standing, '')
 build(pose_sitting, '_sit')
-build(lambda f: pose_sitting(f, back=COUCH_BACK), '_couch')
+build(lambda f: pose_sitting(f, back=COUCH_BACK, hips=COUCH_HIPS), '_couch')
 build_empty(pose_standing_empty, 'empty_emote.glb', 'Empty', EMPTY_LENGTH)
 build_empty(pose_sitting_empty, f'empty_sit_{SIT_VERSION}_emote.glb', 'EmptySit', LENGTH)
-build_empty(lambda f: pose_sitting(f, drinking=False, back=COUCH_BACK), f'empty_couch_{SIT_VERSION}_emote.glb', 'EmptyCouch', LENGTH)
+build_empty(lambda f: pose_sitting(f, drinking=False, back=COUCH_BACK, hips=COUCH_HIPS), f'empty_couch_{SIT_VERSION}_emote.glb', 'EmptyCouch', LENGTH)
