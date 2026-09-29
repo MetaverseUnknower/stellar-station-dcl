@@ -1,5 +1,5 @@
 // A bartender's speech: a holographic readout over its head, not a plain caption. A dark panel with a glowing frame,
-// a small tag (DEX's "DEX-7 // VOX"), and his words in monospace, typed out a character at a time like a terminal; whispers
+// a small tag (BETA's "BETA-7 // VOX"), and his words in monospace, typed out a character at a time like a terminal; whispers
 // in italics, dimmer. It turns to face you (Billboard), sizes itself to the line, and clears itself after a while.
 // Sizes are worked out from the monospace font's advance (about 0.6 em, an em being a tenth of the font size in
 // metres), since a TextShape can't report its own size.

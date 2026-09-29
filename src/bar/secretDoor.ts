@@ -1,6 +1,6 @@
 // The way to the Eld: the Space Bar's back bar has a centre bay of two leaves (build_space_bar.py LeafL_/LeafR_)
 // that swing open, hinged at their outer front corners, onto the doorway of a hidden pod (build_station_models.py
-// ELD_*). Ordering the Vacuum on the Rocks, hold the rocks (drinks.ts) buys one way in: DEX opens the leaves, they
+// ELD_*). Ordering the Vacuum on the Rocks, hold the rocks (drinks.ts) buys one way in: BETA opens the leaves, they
 // close behind you once you're through, open again when you come back to them from inside, and close behind you once
 // you're out. To go back in, order another. Only for you: nobody else sees them move. Anyone already through when the
 // scene reloads is inside, so the leaves still let them out.
@@ -33,7 +33,7 @@ let leaves: { e: Entity; openYaw: number }[] = []
 const listeners: ((from: DoorState, to: DoorState) => void)[] = []
 
 export const doorState = () => state
-/** Called on every change of state (DEX has something to say about most of them). */
+/** Called on every change of state (BETA has something to say about most of them). */
 export function onDoorChanged(fn: (from: DoorState, to: DoorState) => void): void {
   listeners.push(fn)
 }

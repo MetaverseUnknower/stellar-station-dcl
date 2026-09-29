@@ -1,4 +1,4 @@
-# Builds the Space Bar's robot bartenders (src/bar/bartender.ts). DEX: a mid-century hover-bot in ivory, brass and navy
+# Builds the Space Bar's robot bartenders (src/bar/bartender.ts). BETA: a mid-century hover-bot in ivory, brass and navy
 # lacquer to match the bar (build_space_bar.py), with a bow tie. BLIP: small, round and pastel, with blushing cheeks, a
 # smile and a heart on her antenna. Each in parts, so the scene can move them:
 #   bartender_body.glb    hover skirt, torso, arms, bow tie; origin on the floor under it

@@ -58,7 +58,7 @@ export type Drink = {
   sitEmote: string | null // the same, sitting (on a stool)
   couchEmote: string | null // and on a couch, further back
   colour: Color3 // the drink's, for the shards when it's dropped
-  served: string // what DEX says as he serves it
+  served: string // what BETA says as he serves it
 }
 
 // The game's rarity colours (stations/floraSpecies.ts)
@@ -126,7 +126,7 @@ export const DRINKS: Drink[] = [
     sitEmote: null,
     couchEmote: null,
     colour: Color3.Black(),
-    served: '' // DEX has a whole routine for this one (bartender.ts)
+    served: '' // BETA has a whole routine for this one (bartender.ts)
   }
 ]
 

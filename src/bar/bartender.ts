@@ -3,7 +3,7 @@
 // (speechBubble.ts) and, clicked, hands over the menu (menuUi.tsx); drinks are shaken, then served into your hand
 // (drinks.ts). The fourth thing on the menu isn't a drink: it's the way into the back room (secretDoor.ts), and each of
 // them handles that in character:
-//   DEX, the mid-century one with the bow tie: gives you a dirty look, then gets shifty (checks nobody's watching,
+//   BETA, the mid-century one with the bow tie: gives you a dirty look, then gets shifty (checks nobody's watching,
 //        drops his voice, asks if you were followed) before opening up; afterwards he never saw you, and he mutters
 //        that the shelves are just shelves.
 //   BLIP, small, round and pastel: thrilled someone ordered the special, waves you through, asks how it went, and all
@@ -22,8 +22,8 @@ const MAX_TURN = 70 // degrees the head turns either way
 const SHAKE_SECONDS = 1.6
 const RECENT_SECONDS = 120 // after you've come out of the back room, for this long it's "recent"
 const MUTTER_NEAR = 6 // metres: close enough to overhear
-const SCOWL = 20 // degrees each of DEX's eyes tilts, inner end down, for a dirty look
-const LEAN = 0.08 // metres DEX leans in when he's glaring
+const SCOWL = 20 // degrees each of BETA's eyes tilts, inner end down, for a dirty look
+const LEAN = 0.08 // metres BETA leans in when he's glaring
 
 const pick = <T,>(lines: T[]) => lines[Math.floor(Math.random() * lines.length)]
 
@@ -55,15 +55,15 @@ type Personality = {
   jittery: boolean // glances about when it mutters
 }
 
-const DEX: Personality = {
-  name: 'DEX',
+const BETA: Personality = {
+  name: 'BETA',
   angle: 239.4,
   neck: 1.62,
   hand: Vector3.create(0.3, 1.08, 0.36),
   body: 'assets/models/bartender_body.glb',
   head: 'assets/models/bartender_head.glb',
   eyes: 'visor',
-  bubble: { tag: 'DEX-7 // VOX', edge: Color3.create(0.2, 0.9, 1), text: Color4.create(0.75, 0.97, 1, 1), panel: Color4.create(0.015, 0.035, 0.08, 1) },
+  bubble: { tag: 'BETA-7 // VOX', edge: Color3.create(0.2, 0.9, 1), text: Color4.create(0.75, 0.97, 1, 1), panel: Color4.create(0.015, 0.035, 0.08, 1) },
   bob: 0.02,
   greetings: ['What can I get you?', 'What’ll it be?', 'Evening. Drink?', 'Name your poison. Non-toxic, obviously.'],
   preparing: 'Coming right up.',
@@ -140,7 +140,7 @@ const BLIP: Personality = {
     'Have you tried the Mythic Bloom? It sparkles!',
     'I polished every glass today!',
     'Psst. There’s a secret on the menu.',
-    'DEX is a sweetie really. Just very private.',
+    'BETA is a sweetie really. Just very private.',
     'I love it here!',
     'Ask me about the special!'
   ],
@@ -148,7 +148,7 @@ const BLIP: Personality = {
 }
 
 /** The menu (or, holding a drink, "would you like another?" first), and which bartender it's from. */
-export const barMenu = { open: false, asking: false, from: 'DEX' }
+export const barMenu = { open: false, asking: false, from: 'BETA' }
 
 type Bartender = { order: (drink: Drink) => void; takeGlass: () => void }
 const bartenders = new Map<string, Bartender>()
@@ -188,7 +188,7 @@ export function buildBartenders(): void {
   onDoorChanged((from, to) => {
     if (from === 'leaving' && to === 'closed') lastExit = clock
   })
-  for (const p of [DEX, BLIP]) bartenders.set(p.name, buildBartender(p))
+  for (const p of [BETA, BLIP]) bartenders.set(p.name, buildBartender(p))
 }
 
 function buildBartender(p: Personality): Bartender {
@@ -210,7 +210,7 @@ function buildBartender(p: Personality): Bartender {
   Transform.create(shaker, { parent: root, position: p.hand })
   GltfContainer.create(shaker, { src: 'assets/models/bartender_shaker.glb' })
 
-  // Eyes, drawn here so they can blink (and scowl, or squint with joy). DEX's are bars on his visor; BLIP's are big
+  // Eyes, drawn here so they can blink (and scowl, or squint with joy). BETA's are bars on his visor; BLIP's are big
   // glowing ovals on her face screen, with a highlight each.
   const EYE = p.eyes === 'visor'
     ? { y: 0.15, z: 0.2, x: 0.065, w: 0.06, h: 0.035, d: 0.01 }
@@ -313,7 +313,7 @@ function buildBartender(p: Personality): Bartender {
     const roll = happy > 0 ? Math.sin(t * 7) * 12 : p.eyes === 'round' ? Math.sin(t * 0.8) * 5 : 0 // BLIP tilts her head
     Transform.getMutable(head).rotation = Quaternion.fromEulerDegrees(0, headYaw, roll)
 
-    // Eyes: a blink now and then; DEX's narrow when he's shifty, and narrow and tilt for a dirty look; BLIP's squeeze
+    // Eyes: a blink now and then; BETA's narrow when he's shifty, and narrow and tilt for a dirty look; BLIP's squeeze
     // into happy arcs
     blink -= dt
     const shut = blink < 0.12

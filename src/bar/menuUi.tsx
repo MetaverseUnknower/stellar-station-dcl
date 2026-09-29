@@ -1,4 +1,4 @@
-// DEX's menu: the Space Bar's drinks, each with its rarity (in the game's colours), what's in it and how to make it
+// BETA's menu: the Space Bar's drinks, each with its rarity (in the game's colours), what's in it and how to make it
 // at home, and an ORDER button. In the bar's colours: navy lacquer, brass, and its cyan and pink neon. The drinks
 // are in drinks.ts; ordering is bartender.ts.
 import ReactEcs, { UiEntity, Label } from '@dcl/sdk/react-ecs'
