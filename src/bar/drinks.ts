@@ -11,8 +11,8 @@
 // explorer ends emotes on movement) and the hand's glass is back. Play any other emote and you drop it: it smashes on
 // the floor and "You dropped your drink..." (sitting down in one of the scene's seats is fine).
 //
-// Carrying one, running is a walk (the explorer's jog, its ordinary run, is capped at its walking speed), and if you
-// sprint, or jump, you spill it: it smashes as if you'd dropped it for an emote. The explorer won't let a scene change
+// Carrying one, you move as normal, but sprint or jump and you spill it: it smashes as if you'd dropped it for an emote.
+// (Capping the run at walking speed instead played the jog animation at a walk, which looked wrong.) The explorer won't let a scene change
 // the walk itself (its locomotion always wins over emotes), so this is the walking part.
 //
 // Everyone sees everyone's drinks. The emotes are broadcast by the explorer (to everyone near); the hand's glass is
@@ -21,7 +21,7 @@
 // the same station: the world is one room for every station (audience.ts hides everyone else's avatars), so anyone
 // else's glass or smash is hidden or skipped here, as is the glass of someone who's left with it still in hand.
 import {
-  engine, Entity, Transform, GltfContainer, AvatarAttach, AvatarAnchorPointType, AvatarEmoteCommand, AudioSource, AvatarLocomotionSettings,
+  engine, Entity, Transform, GltfContainer, AvatarAttach, AvatarAnchorPointType, AvatarEmoteCommand, AudioSource,
   VisibilityComponent, PlayerIdentityData, Schemas,
   MeshRenderer, Material, MaterialTransparencyMode, Tween, EasingFunction
 } from '@dcl/sdk/ecs'
@@ -139,11 +139,9 @@ const SIT_SETTLE = 0.6 // seconds for the seat's move to land
 const NOTICE_SECONDS = 3.5
 const DROP_SECONDS = 10 // a shared drop lives this long (to reach everyone), then goes
 const GLASS_BREAK = 'assets/audio/glass_break.mp3'
-// Carrying a drink: the explorer's jog (its ordinary run) at its walking speed; its sprint is left alone, and spills
-// it. (The explorer's own speeds, CharacterControllerSettings.asset in decentraland/unity-explorer: walk 1.5 m/s,
-// jog 8, run 10.)
-const CARRY = { jogSpeed: 1.5 } // m/s
-const SPILL_SPEED = 3 // m/s across the floor: well past the capped jog, a sprint
+// Carrying a drink: a sprint spills it. (The explorer's own speeds, CharacterControllerSettings.asset in
+// decentraland/unity-explorer: walk 1.5 m/s, jog 8, run, its sprint, 10.)
+const SPILL_SPEED = 9 // m/s across the floor: past a jog's 8, a sprint
 const SPILL_SECONDS = 0.3 // sprinting this long spills it
 const JUMP_SPEED = 3.2 // m/s upward: a jump (a lift climbs at 2.5, lift/lifts.ts SPEED)
 const TELEPORT_METRES = 2 // moved this far in a frame: a teleport (a seat, a lift's arrival), not running
@@ -219,15 +217,6 @@ function logSeatOffset(at: Vector3): void {
 
 /** The sitting drinking emote for the seat I'm in (a couch's sits further back). */
 const sittingEmote = (d: Drink | null, kind: 'stool' | 'couch' | undefined) => (kind === 'couch' ? d?.couchEmote : d?.sitEmote) ?? null
-
-/** Carrying: the capped speeds on while I hold a drink, off when I don't. */
-let carrying = false
-function carry(on: boolean): void {
-  if (on === carrying) return
-  carrying = on
-  if (on) AvatarLocomotionSettings.createOrReplace(engine.PlayerEntity, CARRY)
-  else AvatarLocomotionSettings.deleteFrom(engine.PlayerEntity)
-}
 
 /** Whether I'm holding a drink. */
 export const holdingDrink = (): boolean => holding !== null
@@ -391,7 +380,6 @@ export function startDrinks(): void {
   let prev: Vector3 | null = null
   engine.addSystem((dt) => {
     clock += dt
-    carry(holding !== null)
 
     for (let i = pieces.length - 1; i >= 0; i--) {
       if (clock - pieces[i].at > 0.3) shatter(pieces.splice(i, 1)[0])
