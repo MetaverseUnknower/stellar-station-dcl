@@ -70,15 +70,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   })
 }
 
+const SEND_ANSWER_MS = 90_000 // how long the panel waits on the wallet to send
+const SEND_ABANDON_MS = 300_000 // after which a still-unanswered send is taken as gone for good
+const NO_ANSWER_MESSAGE = 'Your wallet didn’t answer. If it does send the payment, it’ll still be credited.'
+let sendOpenSince: number | null = null // when the wallet was asked to send a payment it hasn't answered yet
+
 const walletRpc = (method: string, params: unknown[]) => withTimeout(rpc(method, params), WALLET_TIMEOUT_MS, WALLET_TIMEOUT_MESSAGE)
 
 /**
  * Asks the wallet to send `mana` MANA on Polygon to the game wallet. Resolves with the transaction hash.
  * `onSending` fires right before the wallet is asked to send, once the wallet has been asked to switch to Polygon.
+ * `onLate` gets the hash of a payment the wallet sent after payMana had given up waiting (see below).
  */
-export async function payMana(mana: number, onSending?: () => void): Promise<string> {
+export async function payMana(mana: number, onSending?: () => void, onLate?: (txHash: string) => void): Promise<string> {
   const from = getPlayer()?.userId
   if (!from || !/^0x[0-9a-fA-F]{40}$/.test(from)) throw new Error('Connect a wallet to buy with MANA')
+  if (sendOpenSince !== null && Date.now() - sendOpenSince < SEND_ABANDON_MS) {
+    throw new Error('Your wallet still has your last payment open. Finish with it there, then try again.')
+  }
 
   try {
     await walletRpc('wallet_switchEthereumChain', [{ chainId: POLYGON_CHAIN_ID }])
@@ -91,13 +100,40 @@ export async function payMana(mana: number, onSending?: () => void): Promise<str
   const wei = BigInt(Math.round(mana * 1000)) * 10n ** 15n
   const data = TRANSFER_SELECTOR + pad32(MANA_BENEFICIARY) + pad32(wei.toString(16))
   onSending?.()
-  // No timeout on the send itself: the wallet can broadcast the transaction even after it answers slowly or
-  // the player closes its UI, so we must keep waiting rather than tell the player nothing happened and risk
-  // a second, real payment going out.
-  const hash = await rpc('eth_sendTransaction', [{ from, to: POLYGON_MANA, data, value: '0x0' }])
-  if (typeof hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error('Wallet did not return a transaction hash')
+  // Close the wallet's confirmation without rejecting it and the explorer can leave this request unanswered, for
+  // minutes or for good, and it won't open another while it's waiting. So the panel stops waiting after
+  // SEND_ANSWER_MS, but the request is kept: if the wallet does send the payment late, `onLate` gets its hash so it
+  // can still be credited, and until the request's answered (or SEND_ABANDON_MS has gone by) a new payment isn't
+  // asked for, since the wallet wouldn't show it.
+  const started = Date.now()
+  sendOpenSince = started
+  const send = rpc('eth_sendTransaction', [{ from, to: POLYGON_MANA, data, value: '0x0' }])
+  const answered = () => {
+    if (sendOpenSince === started) sendOpenSince = null
+  }
+  send.then(answered, answered)
+  let hash: unknown
+  try {
+    hash = await withTimeout(send, SEND_ANSWER_MS, NO_ANSWER_MESSAGE)
+  } catch (e) {
+    if (e instanceof Error && e.message === NO_ANSWER_MESSAGE) {
+      send.then(
+        (late) => {
+          if (isTxHash(late)) {
+            console.log('[pay] the wallet sent the payment late:', late)
+            onLate?.(late)
+          }
+        },
+        () => {}
+      )
+    }
+    throw e
+  }
+  if (!isTxHash(hash)) throw new Error('Wallet did not return a transaction hash')
   return hash
 }
+
+const isTxHash = (h: unknown): h is string => typeof h === 'string' && /^0x[0-9a-fA-F]{64}$/.test(h)
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
@@ -129,6 +165,11 @@ let pendingPurchase: { tier: string; txHash: string } | null = null
 
 export function getPendingManaPurchase(): { tier: string; txHash: string } | null {
   return pendingPurchase
+}
+
+/** A payment the wallet sent after the panel stopped waiting: remembered, so the panel finishes it before any other. */
+export function rememberManaPurchase(tier: string, txHash: string): void {
+  pendingPurchase = { tier, txHash }
 }
 
 /** Redeems a payment with the API, retrying while Polygon has not confirmed the transaction yet. */

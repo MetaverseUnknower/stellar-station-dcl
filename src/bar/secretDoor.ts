@@ -7,6 +7,7 @@
 //
 //   closed ─(order)→ invited ─(through the doorway)→ inside ─(back at the doorway)→ leaving ─(clear of the bay)→ closed
 //   invited ─(wandered off)→ closed           leaving ─(back into the corridor)→ inside
+//   inside ─(gone some other way: a teleport, say)→ closed
 import { engine, Entity, Transform, GltfContainer, ColliderLayer, Tween, EasingFunction } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
 import { CENTER, FLOOR_Y } from '../station'
@@ -51,15 +52,25 @@ const bayCentre = () => {
   return Vector3.create(CENTER.x + Math.cos(a) * 26.9, FLOOR_Y + LOUNGE, CENTER.z + Math.sin(a) * 26.9)
 }
 
-/** How far out from the hub's centre I am if I'm behind the back bar (in the doorway, corridor or pod), or null. */
-function behindAt(p: Vector3): number | null {
+/** Where I am round the hub: how far out from its centre, how far round from the bar's middle, how far up from the lounge. */
+function polar(p: Vector3): { r: number; off: number; up: number } {
   const dx = p.x - CENTER.x
   const dz = p.z - CENTER.z
-  const r = Math.sqrt(dx * dx + dz * dz)
   let deg = (Math.atan2(dz, dx) * 180) / Math.PI
   if (deg < 0) deg += 360
-  const behind = r > BEHIND_R && Math.abs(deg - BAR_ANGLE) < 12 && Math.abs(p.y - (FLOOR_Y + LOUNGE)) < 6
-  return behind ? r : null
+  return { r: Math.sqrt(dx * dx + dz * dz), off: Math.abs(deg - BAR_ANGLE), up: Math.abs(p.y - (FLOOR_Y + LOUNGE)) }
+}
+
+/** How far out from the hub's centre I am if I'm behind the back bar (in the doorway, corridor or pod), or null. */
+function behindAt(p: Vector3): number | null {
+  const { r, off, up } = polar(p)
+  return r > BEHIND_R && off < 12 && up < 6 ? r : null
+}
+
+/** Nowhere near the Eld's place: gone some other way than back through the bar (a teleport, say, or a reload). */
+function farFromTheEld(p: Vector3): boolean {
+  const { r, off, up } = polar(p)
+  return r < BEHIND_R - 3 || off > 30 || up > 10
 }
 
 function swing(to: boolean): void {
@@ -120,10 +131,11 @@ export function buildSecretDoor(bar: Entity): void {
         break
       case 'inside':
         if (r !== null && r < EXIT_R) become('leaving')
+        else if (farFromTheEld(me.position)) become('closed') // or the back bar stays shut to every later order
         break
       case 'leaving':
         if (r !== null && r > EXIT_R + 1) become('inside')
-        else if (r === null && fromBay > CLEAR) become('closed')
+        else if (r === null && (fromBay > CLEAR || farFromTheEld(me.position))) become('closed')
         break
     }
   })

@@ -7,6 +7,7 @@ import {
   redeemManaPurchase,
   paymentErrorMessage,
   getPendingManaPurchase,
+  rememberManaPurchase,
   CONFIRM_POLL_MS,
   MANA_TIERS,
   type ManaTier
@@ -213,9 +214,13 @@ export async function buyTier(tier: ManaTier): Promise<void> {
   fuelPanel.busy = true
   fuelPanel.message = `Confirm sending ${tier.mana} MANA (Polygon) in your wallet…`
   try {
-    const txHash = await payMana(tier.mana, () => {
-      fuelPanel.message = 'Confirm in your wallet… (waiting for your wallet)'
-    })
+    const txHash = await payMana(
+      tier.mana,
+      () => {
+        fuelPanel.message = 'Confirm in your wallet… (waiting for your wallet)'
+      },
+      (late) => void finishLatePayment(tier.id, late)
+    )
     fuelPanel.message = 'Payment sent. Waiting for Polygon to confirm…'
     await redeemAndReport(tier.id, txHash)
   } catch (e) {
@@ -225,6 +230,15 @@ export async function buyTier(tier: ManaTier): Promise<void> {
     fuelPanel.busy = false
   }
 }
+
+/** The wallet sent a payment after the panel stopped waiting for it: credit it once the panel's free. */
+async function finishLatePayment(tierId: string, txHash: string): Promise<void> {
+  rememberManaPurchase(tierId, txHash) // a buy clicked meanwhile finishes this one first
+  while (fuelPanel.busy || fuelPanel.recovering) await delay(CONFIRM_POLL_MS)
+  if (getPendingManaPurchase()?.txHash === txHash) await resumePendingPurchase(undefined, 'Your payment went through after all. Finishing it…')
+}
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 // ── Operator switch ──
 

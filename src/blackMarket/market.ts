@@ -182,7 +182,11 @@ export async function pay(): Promise<void> {
   const sent = params(item)
   let txHash: string
   try {
-    txHash = await payMana(item.mana, () => say('Confirm in your wallet…'))
+    txHash = await payMana(
+      item.mana,
+      () => say('Confirm in your wallet…'),
+      (late) => void settleLate(item.id, sent, late)
+    )
   } catch (e) {
     market.phase = 'quoted'
     market.busy = false
@@ -190,6 +194,13 @@ export async function pay(): Promise<void> {
     return
   }
   await settle(item.id, sent, txHash)
+}
+
+/** The wallet sent the offering after the terminal stopped waiting for it: settle it once the terminal's free. */
+async function settleLate(itemId: string, sent: MarketParams, txHash: string): Promise<void> {
+  while (market.busy) await delay(CONFIRM_POLL_MS)
+  market.selected = market.items.find((i) => i.id === itemId) ?? market.selected
+  await settle(itemId, sent, txHash, true)
 }
 
 /** Poll the server until the payment is settled one way or the other. */
