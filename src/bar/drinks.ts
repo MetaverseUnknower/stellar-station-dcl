@@ -142,9 +142,10 @@ const GLASS_BREAK = 'assets/audio/glass_break.mp3'
 // Carrying a drink: a sprint spills it. (The explorer's own speeds, CharacterControllerSettings.asset in
 // decentraland/unity-explorer: walk 1.5 m/s, jog 8, run, its sprint, 10.)
 const SPILL_SPEED = 9 // m/s across the floor: past a jog's 8, a sprint
-const SPILL_SECONDS = 0.3 // sprinting this long spills it
+const SPILL_SECONDS = 0.3 // sprinting this long spills it (the speed's measured over this long)
 const JUMP_SPEED = 3.2 // m/s upward: a jump (a lift climbs at 2.5, lift/lifts.ts SPEED)
 const TELEPORT_METRES = 2 // moved this far in a frame: a teleport (a seat, a lift's arrival), not running
+const JUMP_WINDOW = 0.2 // seconds to measure a jump's rise over
 const GLASS_SRC = new Map(DRINKS.filter((d) => d.glass).map((d) => [d.id, d.glass as string]))
 
 /** A dropped drink, shared: every client smashes one where it fell. */
@@ -376,8 +377,9 @@ export function startDrinks(): void {
   let still = 0
   let lastEmote = -1
   let othersCheck = 0
-  let running = 0
-  let prev: Vector3 | null = null
+  // Where I've been lately, to measure speed over a moment rather than a frame (my position doesn't change every frame,
+  // and a frame-by-frame speed kept dropping to nothing, so a sprint never counted)
+  let trail: { t: number; p: Vector3 }[] = []
   engine.addSystem((dt) => {
     clock += dt
 
@@ -410,28 +412,32 @@ export function startDrinks(): void {
     }
 
     if (!holding || !glass) {
-      prev = null
-      running = 0
+      trail = []
       return
     }
     const me = Transform.getOrNull(engine.PlayerEntity)
     if (!me) return
 
-    // Sprinting or jumping with it: spilled. (Not while seated, or when a seat or a lift's arrival has just moved me.)
-    if (prev && dt > 0) {
-      const d = Vector3.subtract(me.position, prev)
-      const across = Math.hypot(d.x, d.z)
-      if (across < TELEPORT_METRES && !isSeated()) {
-        running = across / dt > SPILL_SPEED ? running + dt : 0
-        if (running >= SPILL_SECONDS || d.y / dt > JUMP_SPEED) {
-          prev = null
-          running = 0
-          dropDrink(d.y / dt > JUMP_SPEED ? 'You spilled your drink\u2026 (no jumping with a drink!)' : 'You spilled your drink\u2026 (no sprinting with a drink!)')
-          return
-        }
-      }
+    // Sprinting or jumping with it: spilled. Speed across the floor over the last SPILL_SECONDS, and upward over the last
+    // JUMP_WINDOW. (Not while seated; and a jump in position, a seat's or a lift's move, starts the measuring afresh.)
+    const last = trail[trail.length - 1]
+    if (isSeated() || (last && Vector3.distance(last.p, me.position) > TELEPORT_METRES)) trail = []
+    trail.push({ t: clock, p: me.position })
+    while (trail.length > 1 && clock - trail[1].t >= SPILL_SECONDS) trail.shift()
+    const since = (window: number) => {
+      for (const s of trail) if (clock - s.t <= window) return s
+      return null
     }
-    prev = me.position
+    const first = trail[0]
+    const span = clock - first.t
+    const sprint = span >= SPILL_SECONDS * 0.8 && Math.hypot(me.position.x - first.p.x, me.position.z - first.p.z) / span > SPILL_SPEED
+    const low = since(JUMP_WINDOW)
+    const jump = !!low && clock - low.t >= JUMP_WINDOW * 0.6 && (me.position.y - low.p.y) / (clock - low.t) > JUMP_SPEED
+    if (sprint || jump) {
+      trail = []
+      dropDrink(jump ? 'You spilled your drink\u2026 (no jumping with a drink!)' : 'You spilled your drink\u2026 (no sprinting with a drink!)')
+      return
+    }
     const moved = lastPos ? Vector3.distance(me.position, lastPos) : 0
     lastPos = me.position
     if (drinkingAt && Vector3.distance(me.position, drinkingAt) > MOVED_METRES) drinkingAt = null
