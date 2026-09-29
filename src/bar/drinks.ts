@@ -11,13 +11,17 @@
 // explorer ends emotes on movement) and the hand's glass is back. Play any other emote and you drop it: it smashes on
 // the floor and "You dropped your drink..." (sitting down in one of the scene's seats is fine).
 //
+// Carrying one, you can't run as fast (jogging and running are capped a little: a careful stroll), and if you run
+// anyway, or jump, you spill it: it smashes as if you'd dropped it for an emote. The explorer won't let a scene change
+// the walk itself (its locomotion always wins over emotes), so this is the walking part.
+//
 // Everyone sees everyone's drinks. The emotes are broadcast by the explorer (to everyone near); the hand's glass is
 // shared with syncEntity (an AvatarAttach naming my avatar, which every client attaches to my hand), and so is a
 // dropped drink (a DrinkDrop, which every client smashes where it fell, with the crash). Only for the crew docked at
 // the same station: the world is one room for every station (audience.ts hides everyone else's avatars), so anyone
 // else's glass or smash is hidden or skipped here, as is the glass of someone who's left with it still in hand.
 import {
-  engine, Entity, Transform, GltfContainer, AvatarAttach, AvatarAnchorPointType, AvatarEmoteCommand, AudioSource,
+  engine, Entity, Transform, GltfContainer, AvatarAttach, AvatarAnchorPointType, AvatarEmoteCommand, AudioSource, AvatarLocomotionSettings,
   VisibilityComponent, PlayerIdentityData, Schemas,
   MeshRenderer, Material, MaterialTransparencyMode, Tween, EasingFunction
 } from '@dcl/sdk/ecs'
@@ -135,6 +139,12 @@ const SIT_SETTLE = 0.6 // seconds for the seat's move to land
 const NOTICE_SECONDS = 3.5
 const DROP_SECONDS = 10 // a shared drop lives this long (to reach everyone), then goes
 const GLASS_BREAK = 'assets/audio/glass_break.mp3'
+// Carrying a drink: the explorer's jog and run capped (walking's untouched), and running or jumping anyway spills it.
+const CARRY = { jogSpeed: 2.4, runSpeed: 3.2 } // m/s
+const SPILL_SPEED = 2.9 // m/s across the floor: past a jog, a run
+const SPILL_SECONDS = 0.4 // running this long spills it
+const JUMP_SPEED = 3.2 // m/s upward: a jump (a lift climbs at 2.5, lift/lifts.ts SPEED)
+const TELEPORT_METRES = 2 // moved this far in a frame: a teleport (a seat, a lift's arrival), not running
 const GLASS_SRC = new Map(DRINKS.filter((d) => d.glass).map((d) => [d.id, d.glass as string]))
 
 /** A dropped drink, shared: every client smashes one where it fell. */
@@ -208,6 +218,15 @@ function logSeatOffset(at: Vector3): void {
 /** The sitting drinking emote for the seat I'm in (a couch's sits further back). */
 const sittingEmote = (d: Drink | null, kind: 'stool' | 'couch' | undefined) => (kind === 'couch' ? d?.couchEmote : d?.sitEmote) ?? null
 
+/** Carrying: the capped speeds on while I hold a drink, off when I don't. */
+let carrying = false
+function carry(on: boolean): void {
+  if (on === carrying) return
+  carrying = on
+  if (on) AvatarLocomotionSettings.createOrReplace(engine.PlayerEntity, CARRY)
+  else AvatarLocomotionSettings.deleteFrom(engine.PlayerEntity)
+}
+
 /** Whether I'm holding a drink. */
 export const holdingDrink = (): boolean => holding !== null
 
@@ -239,12 +258,12 @@ function sharedWithMe(address: string): boolean {
 }
 
 /** Drop mine: tell everyone (they smash it their end), smash it here, and say so. */
-function dropDrink(): void {
+function dropDrink(why = 'You dropped your drink\u2026'): void {
   const drink = holding
   const me = Transform.getOrNull(engine.PlayerEntity)
   finishDrink()
   if (!drink || !me) return
-  dropNotice.text = 'You dropped your drink\u2026'
+  dropNotice.text = why
   dropNotice.left = NOTICE_SECONDS
   // Where the hand would be: a little to my right and forward, at about waist height
   const right = Vector3.rotate(Vector3.create(0.25, 0, 0.2), me.rotation)
@@ -366,8 +385,11 @@ export function startDrinks(): void {
   let still = 0
   let lastEmote = -1
   let othersCheck = 0
+  let running = 0
+  let prev: Vector3 | null = null
   engine.addSystem((dt) => {
     clock += dt
+    carry(holding !== null)
 
     for (let i = pieces.length - 1; i >= 0; i--) {
       if (clock - pieces[i].at > 0.3) shatter(pieces.splice(i, 1)[0])
@@ -397,9 +419,29 @@ export function startDrinks(): void {
       }
     }
 
-    if (!holding || !glass) return
+    if (!holding || !glass) {
+      prev = null
+      running = 0
+      return
+    }
     const me = Transform.getOrNull(engine.PlayerEntity)
     if (!me) return
+
+    // Running or jumping with it: spilled. (Not while seated, or when a seat or a lift's arrival has just moved me.)
+    if (prev && dt > 0) {
+      const d = Vector3.subtract(me.position, prev)
+      const across = Math.hypot(d.x, d.z)
+      if (across < TELEPORT_METRES && !isSeated()) {
+        running = across / dt > SPILL_SPEED ? running + dt : 0
+        if (running >= SPILL_SECONDS || d.y / dt > JUMP_SPEED) {
+          prev = null
+          running = 0
+          dropDrink(d.y / dt > JUMP_SPEED ? 'You spilled your drink\u2026 (no jumping with a drink!)' : 'You spilled your drink\u2026 (no running with a drink!)')
+          return
+        }
+      }
+    }
+    prev = me.position
     const moved = lastPos ? Vector3.distance(me.position, lastPos) : 0
     lastPos = me.position
     if (drinkingAt && Vector3.distance(me.position, drinkingAt) > MOVED_METRES) drinkingAt = null
