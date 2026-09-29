@@ -71,8 +71,8 @@ export function buildClubLights(): void {
   const lasers = buildLasers()
 
   onBeat((beat) => {
-    // Every other beat, each spot moves on to the next colour.
-    if (beat % 2 !== 0) return
+    // Every other beat, each spot moves on to the next colour (only while someone's in the lounge to see it)
+    if (beat % 2 !== 0 || loungeFade() <= 0) return
     for (const s of spots) {
       s.colour = (s.colour + 1) % PALETTE.length
       const light = LightSource.getMutable(s.light)

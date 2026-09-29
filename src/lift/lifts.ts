@@ -186,12 +186,14 @@ function setGates(lift: Lift): void {
   lift.gates.forEach((gate, floor) => {
     if (!gate) return
     const open = !lift.moving && lift.at === floor && clock - lift.arrivedAt >= GATE_DELAY
-    const t = Transform.getMutable(gate)
+    // getMutable marks the Transform changed (re-sent to the explorer), so only on an actual open or close
     if (open && MeshCollider.has(gate)) {
       MeshCollider.deleteFrom(gate)
+      const t = Transform.getMutable(gate)
       t.scale = Vector3.create(t.scale.x, 0.001, t.scale.z) // hides the bar
     } else if (!open && !MeshCollider.has(gate)) {
       MeshCollider.setBox(gate, ColliderLayer.CL_PHYSICS)
+      const t = Transform.getMutable(gate)
       t.scale = Vector3.create(t.scale.x, 1.3, t.scale.z)
     }
   })
