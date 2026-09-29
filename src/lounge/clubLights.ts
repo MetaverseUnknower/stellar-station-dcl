@@ -15,6 +15,8 @@ const LOUNGE = 25 // build_station_models.py LOUNGE
 const RIG_HEIGHT = 9.5 // above the lounge floor (the dome is ~12 m up over the dance floor)
 const RIG_RADIUS = 9 // over the dance floor ring (7..13 m out)
 const SPOTS = 4
+const RANGE = 13 // the spots' furthest reach: the dance floor at the shallowest tilt
+const RANGE_PAST_FLOOR = 1.2 // each frame, a spot reaches this far along its beam: past the floor's level, not far
 const BEAM_LENGTH = 11 // at most; each frame a beam is cut to end at the lounge floor, or it pokes through into the deck below
 const PALETTE = [
   Color3.create(1, 0.1, 0.7),
@@ -41,7 +43,7 @@ export function buildClubLights(): void {
       intensity: 8000,
       // Only as far as the dance floor: 9.5 m down at the steepest tilt, ~12.8 m along the beam at the shallowest.
       // The old 26 m, with no shadows, lit the Observation Deck 8 m under the lounge's floor, through it.
-      range: 13,
+      range: RANGE,
       shadow: true // and the floor stops the light, wherever the range would still reach past it
     })
     // The visible beam: a translucent cone along the light's forward (+Z), narrow at the light.
@@ -84,7 +86,13 @@ export function buildClubLights(): void {
       const pitch = 62 + Math.sin(t * 0.9 + s.phase) * 14
       Transform.getMutable(s.light).rotation = Quaternion.fromEulerDegrees(pitch, yaw, 0)
       // The beam reaches down to the floor and no further (keeping its spread: the cone scales as a whole).
-      const length = Math.min(BEAM_LENGTH, (RIG_HEIGHT - 0.05) / Math.sin((pitch * Math.PI) / 180))
+      const toFloor = RIG_HEIGHT / Math.sin((pitch * Math.PI) / 180)
+      const length = Math.min(BEAM_LENGTH, toFloor - 0.05 / Math.sin((pitch * Math.PI) / 180))
+      // And so does the light itself. Shadows alone didn't hold it (the explorer only shadows some lights, depending
+      // on its settings), and over the central opening there's no floor to cast one: at its full range the light went
+      // on down onto the balconies below. So its range ends a little past the floor's level along the beam (the
+      // margin keeps the floor itself well lit; the light fades out toward its range).
+      LightSource.getMutable(s.light).range = Math.min(RANGE, toFloor * RANGE_PAST_FLOOR)
       const k = length / BEAM_LENGTH
       const beam = Transform.getMutable(s.beam)
       beam.position = Vector3.create(0, 0, length / 2)
