@@ -2,7 +2,7 @@
 // tools/build_space_bar.py) and a row of The Silt's pedestal bar stools in front of it, sittable with the same
 // seating as the couches (seating.ts). One colourway (cyan / magenta) for every stool, not The Silt's daily shuffle.
 //
-// The stool numbers are The Silt's (venue.ts): stools at 0.75 scale, stood up with a -90 degree X turn, 0.55 m out
+// The stool numbers are The Silt's (venue.ts) but for the spacing: stools at 0.75 scale, stood up with a -90 degree X turn, 0.7 m out
 // from the counter's front edge; the seat is 0.5 m up and 0.3 m toward the bar, the orb 1.15 m up.
 import { engine, Entity, Transform, GltfContainer, ColliderLayer } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
@@ -14,7 +14,7 @@ const ANGLE = 235 // the bar's middle, degrees from +X toward +Z (the sign is at
 const MODEL_ANGLE = 180 // where the model sits unturned (build_space_bar.py builds it on Blender +X)
 const HALF = 16 // build_space_bar.py HALF, degrees
 const TOP_FRONT = 24.45 // build_space_bar.py TOP_R0: the counter's front edge
-const STOOL_OUT = 0.55 // The Silt: stool centres 0.55 m out from the counter edge
+const STOOL_OUT = 0.7 // stool centres this far out from the counter edge (The Silt's 0.55 sat you tight against the bar)
 const STOOL_SPACING = 1.4 // metres along the bar
 const STOOL_SCALE = 0.75
 const SEAT_RISE = 0.5
