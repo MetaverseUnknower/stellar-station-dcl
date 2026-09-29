@@ -29,7 +29,8 @@ from mathutils import Vector, Matrix, Quaternion
 OUT = os.path.abspath(sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'assets/emotes')
 # Bumped with each change to the sitting emotes: the explorer caches emotes by file name, so a changed file under the
 # old name kept playing the old version. drinks.ts must use the same.
-SIT_VERSION = 'v7'
+SIT_VERSION = 'v8'
+SIT_GLASS = 1.25    # the glass a little larger in the sitting ones
 DRINKS = {   # drinks.ts ids, and the liquid's colour
     'helium3': (0.2, 0.75, 1.0),
     'plasma': (0.55, 0.2, 0.95),
@@ -335,7 +336,7 @@ pprop.rotation_mode = 'QUATERNION'
 liquid = prop_mesh.data.materials[1]
 
 
-def build(pose, suffix):
+def build(pose, suffix, glass_scale=1.0):
     # Work out every keyed pose with no action on the rig (with one, each update in aim() would put the keyed pose
     # back), then key them all.
     for o in (arm, prop):
@@ -368,7 +369,7 @@ def build(pose, suffix):
         palm = -(hand.to_3x3() @ Vector((1, 0, 0))).normalized()   # the palm's side: opposite the back of the hand
         grip = hand.translation + along * 0.06 + palm * 0.04 + Vector((0, 0, 0.015))
         s = sip_at(f)
-        g = Matrix.Translation(grip + Vector((0, 0, 0.03 * s))) @ Matrix.Rotation(F * 1.05 * s, 4, 'X')
+        g = Matrix.Translation(grip + Vector((0, 0, 0.03 * s))) @ Matrix.Rotation(F * 1.05 * s, 4, 'X') @ Matrix.Scale(glass_scale, 4)
         pprop.matrix = prop.matrix_world.inverted() @ g @ PROP_REST
         pprop.keyframe_insert('rotation_quaternion', frame=f)
         pprop.keyframe_insert('location', frame=f)
@@ -442,8 +443,8 @@ def build_empty(pose, filename, name, length):
 
 
 build(pose_standing, '')
-build(pose_sitting, '_sit')
-build(lambda f: pose_sitting(f, back=COUCH_BACK, hips=COUCH_HIPS), '_couch')
+build(pose_sitting, '_sit', SIT_GLASS)
+build(lambda f: pose_sitting(f, back=COUCH_BACK, hips=COUCH_HIPS), '_couch', SIT_GLASS)
 build_empty(pose_standing_empty, 'empty_emote.glb', 'Empty', EMPTY_LENGTH)
 build_empty(pose_sitting_empty, f'empty_sit_{SIT_VERSION}_emote.glb', 'EmptySit', LENGTH)
 build_empty(lambda f: pose_sitting(f, drinking=False, back=COUCH_BACK, hips=COUCH_HIPS), f'empty_couch_{SIT_VERSION}_emote.glb', 'EmptyCouch', LENGTH)

@@ -39,7 +39,7 @@ const IN_FIST = 0.09 // metres from the wrist to the middle of the grip
 const IN_HAND = { position: Vector3.create(0, IN_FIST, -0.03), rotation: Quaternion.Identity() }
 
 // build_drink_emote.py SIT_VERSION: the sitting emotes' file names change with them (the explorer caches by name)
-const SIT_VERSION = 'v7'
+const SIT_VERSION = 'v8'
 
 export type Drink = {
   id: string
