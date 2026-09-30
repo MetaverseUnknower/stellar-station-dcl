@@ -324,6 +324,9 @@
     "fixedTime": 3600
   },
   "worldConfiguration": {
-    "name": "stellarstation.dcl.eth"
+    "name": "stellarstation.dcl.eth",
+    "placesConfig": {
+      "optOut": true
+    }
   }
 }
