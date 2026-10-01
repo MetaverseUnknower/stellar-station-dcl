@@ -136,6 +136,9 @@ visitor draws the hologram locally, so only owners see the overlay.
 ### Polling
 
 - Once the gate says the player is aboard, `getMarketMine` says whether they own the map. If they don't, nothing polls.
+  A failed check is tried again every 60 s while aboard (the gate only reports changes, so it won't ask again).
+- The hologram loads its stars once. When the map names a star it doesn't have (found since then), the overlay asks
+  `galaxyHologram.ts` to reload its stars, at most once per new map.
 - When the player owns it: fetch once, then every 5 minutes while they're aboard. Never more than one request in
   flight.
 - Redraw only when the content has changed. An unchanged poll writes no entities or materials.
