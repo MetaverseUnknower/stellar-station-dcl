@@ -10,7 +10,7 @@ shows every known wormhole in your galaxy and where it leads. The map stays curr
 - **What it shows.** Every linked black-hole pair. Black holes that aren't linked yet, marked as dormant. The open
   timed wormhole and any scheduled ones, with their start times. Private (exclusive) wormholes show their target and
   are marked private; their guest lists are never shown.
-- **Where.** On every client: this station's projector, the ship scene's map and the iOS app. Each client is a
+- **Where.** On every client: this station's galaxy hologram, the ship scene's map and the iOS app. Each client is a
   separate follow-on after the server.
 - **Updating.** Polling only, no sockets. An owner's client fetches when its map is shown, then every 5 minutes while
   it stays on screen. Players who don't own the map never poll.
@@ -28,10 +28,10 @@ There are two kinds of wormhole (server):
 ## Order of work
 
 1. **Server.** Ownership, the item and the map route. The item stays `offSale` until step 2 ships.
-2. **This station scene.** The projector overlay. Ships with the item put on sale. Until steps 3 and 4 ship, the item's
-   blurb says the map shows on the station's projector.
+2. **This station scene.** The galaxy hologram overlay. Ships with the item put on sale. Until steps 3 and 4 ship, the item's
+   blurb says the map shows on the station's galaxy hologram.
 3. **The ship scene** (`galaxy-gardeners-dcl`). Its own spec and plan.
-4. **The iOS app** (`galaxy-gardeners-rn`). Its own spec and plan. The blurb drops "on the station's projector" once
+4. **The iOS app** (`galaxy-gardeners-rn`). Its own spec and plan. The blurb drops "on the station's galaxy hologram" once
    steps 3 and 4 are both done.
 
 This document specifies steps 1 and 2 in full, and the contract that steps 3 and 4 build on.
@@ -42,15 +42,15 @@ This document specifies steps 1 and 2 in full, and the contract that steps 3 and
 
 - `ItemId` gains `'wormhole_map'`, and `Item.kind` gains `'map'`.
 - `{ id: 'wormhole_map', name: 'Wormhole map', mana: 60, kind: 'map', offSale: true, blurb: … }`. The blurb is
-  Eld-voiced, for example "Every wormhole your galaxy has found, and where each one leads, on the station's projector.
-  The Eld keep it current. Yours for good."
+  Eld-voiced, for example "Every wormhole your galaxy has found, and where each one leads, on the station's galaxy
+  hologram. The Eld keep it current. Yours for good."
 
 ### Ownership (migration `061_wormhole_map.sql`)
 
 - `wormhole_maps (player_id uuid PRIMARY KEY REFERENCES players ON DELETE CASCADE, bought_at timestamptz NOT NULL
-  DEFAULT now(), granted_by uuid NULL)`. There's no purchase reference: `routes/blackMarket.ts` records the purchase
-  row (and its unique `tx_hash`) only after `apply` returns, and that row already ties the player to the item.
-  `granted_by` is set by an admin grant.
+  DEFAULT now(), granted boolean NOT NULL DEFAULT false)`. There's no purchase reference: `routes/blackMarket.ts`
+  records the purchase row (and its unique `tx_hash`) only after `apply` returns, and that row already ties the player to the item.
+  `granted` marks an admin grant (an admin's id isn't on the request, and isn't needed).
 - RLS on and no policies (service role only, like the other black-market tables).
 
 ### Purchase flow (`services/blackMarket/market.ts`, `routes/blackMarket.ts`)
@@ -112,10 +112,14 @@ It lives on the black-market router, next to `mine`, because ownership is a mark
   then pay. When owned, it shows "Owned" and the buy button is disabled. The "mine" line adds "Wormhole map".
 - A completed purchase tells the overlay to start straight away; there's no reload.
 
-### The overlay: `src/wormholeMap.ts`
+### The overlay: `src/observation/wormholeMap.ts`
 
-It mirrors `src/heatMap.ts`: it registers through `addMapRenderHooks`, draws under the galaxy root, and is cleared with
-the map. Each visitor draws the projector locally, so only owners see the overlay.
+The station's map is the galaxy hologram in the hub atrium (`observation/galaxyHologram.ts`): the ship's
+`galaxyMap.ts`, about 14 m across, turning slowly, always on once you're aboard, with no controls and no pointer
+events on its stars. `galaxyMap.ts` and `heatMap.ts` are unchanged copies of the ship's files, so the overlay is a new
+station file and leaves both alone. Like `heatMap.ts`, it registers through `addMapRenderHooks`, draws under the
+galaxy root (so it turns with the hologram), finds stars through `starEntities`, and is cleared with the map. Each
+visitor draws the hologram locally, so only owners see the overlay.
 
 - **Linked pair.** A thin violet beam (a cylinder stretched between the two stars, emissive, no collider).
 - **Dormant black hole.** A small, dim, broken ring (four short arc pieces) around the star.
@@ -123,28 +127,30 @@ the map. Each visitor draws the projector locally, so only owners see the overla
   built it.
 - **Scheduled timed wormhole.** A faint, dashed beam (short segments) from the centre to the target.
 - **Private.** The target end gets a small cap in a distinct colour, so the marking doesn't rely on colour alone.
-- **Hover.** Pointing at a black hole adds "⇄ <other end>" or "dormant" to its existing hover text, and pointing at a
-  timed wormhole's target adds "wormhole open until HH:MM" or "wormhole opens HH:MM".
+- **Labels.** The stars can't be pointed at, so every wormhole star gets a small billboard label in its marking's
+  colour: its own name, for black holes (so you can read both ends of a pair); "WORMHOLE · until HH:MM" or
+  "WORMHOLE · opens HH:MM" (UTC) over a timed wormhole's target.
 - **The pulse.** Material writes happen at most ten times a second, and only on the open event's beam.
-- **Toggle.** A "Wormholes" toggle next to the heat map toggle in the projector controls, saved through `prefs.ts`. It
-  defaults to on, and is shown only to owners.
+- **No toggle.** The hologram has no controls. Owners always see the overlay, the way everyone sees the heat map.
 
 ### Polling
 
-- Ownership comes from `getMarketMine` once the player is signed in. If they don't own the map, nothing polls.
-- When the player owns it: fetch when the galaxy view is shown, then every 5 minutes while it stays shown. Never more
-  than one request in flight. Nothing is fetched in the system view or while the toggle is off.
+- Once the gate says the player is aboard, `getMarketMine` says whether they own the map. If they don't, nothing polls.
+- When the player owns it: fetch once, then every 5 minutes while they're aboard. Never more than one request in
+  flight.
 - Redraw only when the content has changed. An unchanged poll writes no entities or materials.
 - A 403 marks the map not owned (revoked), clears the overlay and stops polling. A network error keeps what's drawn.
+- A completed purchase at the relay starts the overlay at once (an ownership hook called from `market.ts`).
 
 ### Tests (vitest, the headless engine)
 
 - Not owned: no overlay entities and no map requests.
-- Owned: one beam per pair, one ring per dormant black hole, and one beam per event, dashed when scheduled.
-- An unchanged second poll: no Transform or Material writes.
-- One request in flight: a slow response doesn't stack a second request.
-- System view or toggle off: no polling. Back to the galaxy view: one fetch.
+- Owned: one beam per pair, one ring per dormant black hole, one beam per event (dashed when scheduled), and labels.
+- An unchanged second poll: no Transform, Material or TextShape writes.
+- One request in flight: a slow response doesn't stack a second request over 15 minutes.
+- Polls every 5 minutes: two more requests after 10 minutes.
 - A 403 after owning: the overlay is cleared and polling stops.
+- Buying it at the relay starts the overlay without a reload.
 
 ## 3 and 4. Ship scene and iOS app (follow-ons)
 
