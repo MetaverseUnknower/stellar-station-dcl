@@ -8,8 +8,9 @@ on sale once the server stops serving a remnant's contents and this station's ga
 
 - **Gate.** The server and this station first, then sell it. The ship scene and the iOS app draw remnants as
   follow-ons; they already can't travel to one.
-- **Look.** A remnant on the hologram is a small dim dark-red ember inside a faint translucent shell, with its name
-  hanging below in dull red. Everyone sees it (it isn't tied to owning anything). There's no animation.
+- **Look.** A remnant on the hologram is a dim dark-red ember inside a faint translucent shell. It's deliberately
+  smaller than any live star, to help de-crowd busy parts of the galaxy, and it has no name label. Everyone sees it
+  (it isn't tied to owning anything). There's no animation.
 - **Black holes can never be destroyed.** They aren't offered in the station's star picker for destruction, and the
   server refuses them as a backstop. A destroyed black hole would leave a live wormhole into a dead star, because the
   black-hole jump (`services/fuel/blackHoleWormhole.ts`) doesn't check for remnants.
@@ -65,11 +66,13 @@ copies the updated file, so the two stay identical.
 
 - `StarSystem` (`src/types.ts`) gains `remnant_at?: string | null`. The systems list already sends it.
 - In `renderStarSystems`, a remnant gets:
-  - The ember: the star's sphere at size 0.045, dark red (albedo ≈ (0.35, 0.05, 0.03), emissive ≈ (0.5, 0.08, 0.04)
-    at intensity 1.2), with no home pin, station halo or current-location marker.
-  - The shell: a translucent sphere (diameter 0.22, albedo ≈ (0.8, 0.25, 0.15, 0.10), emissive at a low intensity,
+  - Sizes: a plain star is 0.05 across (station stars 0.08, wormhole stars 0.07, home 0.12, current 0.15). A
+    remnant's whole footprint, shell included, stays under a plain star's.
+  - The ember: the star's own sphere at size 0.025 (half a plain star), dark red (albedo ≈ (0.35, 0.05, 0.03),
+    emissive ≈ (0.5, 0.08, 0.04) at intensity 1.2), with no home pin, station halo or current-location marker.
+  - The shell: a translucent sphere 0.045 across (albedo ≈ (0.8, 0.25, 0.15, 0.10), emissive at a low intensity,
     alpha blend, no collider).
-  - Its name below in dull red: a billboard label, like the wormhole map's labels.
+  - No label. Its name is still in its system detail and in the travel refusal.
   - Everything is created once at render. Nothing is written per frame.
 - A remnant is never a wormhole star on the map (black holes can't be destroyed), so it doesn't collide with the
   wormhole overlay.
@@ -87,8 +90,8 @@ copies the updated file, so the two stay identical.
 
 ### Tests (vitest, the headless engine)
 
-- A remnant renders as the ember plus the shell plus its label, with no station halo or home pin. Ticking 10 s writes
-  no materials for it.
+- A remnant renders as the ember plus the shell, with no label, station halo or home pin. Both are smaller than a
+  plain star (0.05). Ticking 10 s writes no materials for it.
 - The destroy picker omits black holes; the wormhole picker still includes them.
 - A completed destroy purchase calls the star reload exactly once; a completed cloak purchase doesn't.
 
