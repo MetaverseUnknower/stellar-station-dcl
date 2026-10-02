@@ -1,5 +1,6 @@
 // The galaxy hologram (at balcony 1, the Recreation Deck): the ship's 3D galaxy map, big, turning slowly in the middle of the
-// hub's atrium at the balcony's eye level, with the social heat map on (where explorers are in the galaxy). galaxyMap.ts,
+// hub's atrium at the balcony's eye level, with the social heat map on (where explorers are in the galaxy). Owners of the Eld's wormhole map also see every known
+// wormhole on it (wormholeMap.ts). galaxyMap.ts,
 // heatMap.ts and prefs.ts are copied unchanged from the ship scene (environment.ts is a stand-in for its constants).
 //
 // The ship places its map at its projector, ~1 m above the deck (world 128, 41, 128). Rather than edit that, the map's
@@ -12,7 +13,8 @@
 import { engine, Transform, MeshRenderer, Material, MaterialTransparencyMode, TextureWrapMode } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion, Color3, Color4 } from '@dcl/sdk/math'
 import * as api from '../api'
-import { getGalaxyRoot, renderStarSystems, galaxyAnimationSystem, setMapView } from '../galaxyMap'
+import { getGalaxyRoot, renderStarSystems, galaxyAnimationSystem, setMapView, clearMap } from '../galaxyMap'
+import { setupWormholeMap } from './wormholeMap'
 import { setupHeatMap } from '../heatMap'
 import { setPref } from '../prefs'
 import { onGateChanged } from '../gate'
@@ -59,6 +61,16 @@ export function buildGalaxyHologram(): void {
     angle = (angle + dt * SPIN) % 360
     Transform.getMutable(outer).rotation = Quaternion.fromEulerDegrees(0, angle, 0)
   })
+
+  // The stars, again: when the Eld's wormhole map names one found since they loaded (wormholeMap.ts)
+  async function reloadStars(): Promise<void> {
+    const me = await api.getPlayerMe()
+    const systems = await api.getSystems(me.galaxy_id)
+    clearMap()
+    Transform.getMutable(getGalaxyRoot()).parent = inner
+    renderStarSystems(systems, me.home_system_id, me.current_system_id)
+  }
+  setupWormholeMap(reloadStars)
 
   let shown = false
   onGateChanged((gate) => {
