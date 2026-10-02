@@ -186,7 +186,8 @@ function Actions(props: { item: MarketItem }) {
   const phase = market.phase
   return (
     <UiEntity uiTransform={{ flexDirection: 'row', alignItems: 'center', margin: { top: px(8) } }}>
-      {phase === 'browse' && <Button label="PETITION" primary enabled={!market.busy} onClick={() => void askQuote()} />}
+      {phase === 'browse' && item.kind === 'map' && market.ownsMap && <Button label="ALREADY YOURS" enabled={false} onClick={() => {}} />}
+      {phase === 'browse' && !(item.kind === 'map' && market.ownsMap) && <Button label="PETITION" primary enabled={!market.busy} onClick={() => void askQuote()} />}
       {phase === 'quoted' && <Button label={`OFFER ${item.mana} MANA`} primary enabled={!market.busy} onClick={() => void pay()} />}
       {phase === 'quoted' && <Button label="WITHDRAW" enabled={!market.busy} onClick={again} />}
       {phase === 'done' && <Button label="ANOTHER PETITION" enabled={!market.busy} onClick={again} />}

@@ -10,6 +10,7 @@ import {
 } from '../stationApi'
 import { payMana, paymentErrorMessage, CONFIRM_POLL_MS } from '../fuel/payments'
 import type { StarSystem } from '../types'
+import { wormholeMapOwned } from '../observation/wormholeMap'
 
 const CONFIRM_MAX_POLLS = 60 // three minutes
 const STAR_RESULTS = 6
@@ -37,7 +38,9 @@ export const market = {
   // lookups
   stars: [] as StarSystem[],
   friends: [] as Friend[],
-  mine: '' // "Cloaked until 14:20 · 1 insurance policy"
+  mine: '', // "Cloaked until 14:20 · 1 insurance policy · Wormhole map"
+  /** the player owns the Eld's wormhole map (it can't be petitioned for again) */
+  ownsMap: false
 }
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -90,6 +93,9 @@ async function refreshMine(): Promise<void> {
     const bits: string[] = []
     if (mine.cloakedUntil) bits.push(`Cloaked until ${hhmm(mine.cloakedUntil)} UTC`)
     if (mine.insurancePolicies) bits.push(`${mine.insurancePolicies} insurance polic${mine.insurancePolicies === 1 ? 'y' : 'ies'}`)
+    if (mine.wormholeMap) bits.push('Wormhole map')
+    market.ownsMap = !!mine.wormholeMap
+    if (mine.wormholeMap) wormholeMapOwned()
     market.mine = bits.join('  ·  ')
   } catch {
     market.mine = ''
@@ -154,6 +160,7 @@ function params(item: MarketItem): MarketParams {
 export async function askQuote(): Promise<void> {
   const item = market.selected
   if (!item || market.busy) return
+  if (item.kind === 'map' && market.ownsMap) return
   if (needsStar(item) && !market.star) {
     say('Name a star first.', true)
     return
@@ -215,6 +222,10 @@ async function settle(itemId: string, sent: MarketParams, txHash: string, resumi
         market.phase = 'done'
         market.summary = r.summary
         say('It is done.')
+        if (market.items.find((i) => i.id === itemId)?.kind === 'map') {
+          market.ownsMap = true
+          wormholeMapOwned()
+        }
         void refreshMine()
         return
       }
