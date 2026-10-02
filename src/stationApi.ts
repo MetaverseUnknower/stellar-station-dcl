@@ -237,7 +237,10 @@ export async function getWormholeMap(): Promise<WormholeMap | null> {
   try {
     return await apiGet<WormholeMap>('/api/black-market/wormhole-map')
   } catch (e) {
-    if ((e as { status?: number }).status === 403) return null
+    // Only the server's own "not owned" 403: the auth middleware answers a different 403 ("No player account found") when
+    // its player lookup fails transiently, and that must not read as "not owned".
+    const err = e as { status?: number; message?: string }
+    if (err.status === 403 && err.message === 'not owned') return null
     throw e
   }
 }
