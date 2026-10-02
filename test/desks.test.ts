@@ -32,4 +32,4 @@ it('the hall of records polls only while someone is near it, one load at a time'
   putPlayer(hubDesk(HUB_DESK_ANGLES.hallOfRecords).position)
   await tick(300)
   expect(boardCalls).toBe(1)               // walking up refreshes at once; the stuck load isn't stacked on
-})
+}, 20000)

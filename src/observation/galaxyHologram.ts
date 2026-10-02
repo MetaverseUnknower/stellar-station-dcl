@@ -1,7 +1,7 @@
-// The galaxy hologram (at balcony 1, the Recreation Deck): the ship's 3D galaxy map, big, turning slowly in the middle of the
-// hub's atrium at the balcony's eye level, with the social heat map on (where explorers are in the galaxy). Owners of the Eld's wormhole map also see every known
-// wormhole on it (wormholeMap.ts). galaxyMap.ts,
-// heatMap.ts and prefs.ts are copied unchanged from the ship scene (environment.ts is a stand-in for its constants).
+// The galaxy hologram (at balcony 1, the Recreation Deck): the ship's 3D galaxy map, big, turning slowly in the middle of
+// the hub's atrium at the balcony's eye level, with the social heat map on (where explorers are in the galaxy). Owners
+// of the Eld's wormhole map also see every known wormhole on it (wormholeMap.ts). galaxyMap.ts, heatMap.ts and
+// prefs.ts are copied unchanged from the ship scene (environment.ts is a stand-in for its constants).
 //
 // The ship places its map at its projector, ~1 m above the deck (world 128, 41, 128). Rather than edit that, the map's
 // root is parented under two mounts: the outer one stands at the hub's centre, raised to balcony 1, and

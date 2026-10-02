@@ -16,7 +16,7 @@ import { onGateChanged } from '../gate'
 
 const POLL_SECONDS = 300
 const OWNERSHIP_RETRY_SECONDS = 60 // a failed ownership check, tried again
-const PULSE_STEP = 0.1 // the open wormhole's beam: ten material writes a second at most
+const PULSE_STEP = 0.1 // the open wormholes' beams: ten checks a second, a write only when the step changes
 const BEAM = 0.012 // beam radius, in the map's units (its stars are 0.05–0.15 across)
 const DASH = 0.12 // a scheduled wormhole's dash, and the gap after it
 const MAX_DASHES = 60
@@ -38,7 +38,7 @@ let map: WormholeMap | null = null
 let mapKey = '' // the last map fetched, as JSON
 let drawnKey = '' // the map on the hologram ('' = nothing drawn)
 let parts: { entity: Entity; part: Part }[] = []
-let openBeam: { entity: Entity; color: Color3 } | null = null
+let openBeams: { entity: Entity; color: Color3; step: number }[] = [] // every open wormhole's beam, and the look last written
 let inFlight = false
 let sincePoll = 0
 let pulseTimer = 0
@@ -112,7 +112,8 @@ async function poll(): Promise<void> {
     mapKey = key
     draw()
   } catch {
-    /* keep what's drawn */
+    /* keep what's drawn; with nothing drawn yet, try again in a minute rather than five */
+    if (mapKey === '') sincePoll = POLL_SECONDS - OWNERSHIP_RETRY_SECONDS
   } finally {
     inFlight = false
   }
@@ -121,7 +122,7 @@ async function poll(): Promise<void> {
 function clear(): void {
   for (const p of parts) engine.removeEntity(p.entity)
   parts = []
-  openBeam = null
+  openBeams = []
   drawnKey = ''
 }
 
@@ -162,7 +163,7 @@ function draw(): void {
     const colour = ev.eldBuilt ? GOLD : ICE
     if (ev.status === 'open') {
       const beam = segment(root, centre, p, colour, 4, 0.7, 'beam')
-      if (beam) openBeam = { entity: beam, color: colour }
+      if (beam) openBeams.push({ entity: beam, color: colour, step: -1 })
     } else {
       dashes(root, centre, p, colour)
     }
@@ -239,13 +240,19 @@ function wormholeMapSystem(dt: number): void {
     }
     return
   }
+  if (!aboard) return // polled while aboard only; owned stays true across an undock, so polling resumes on return
   sincePoll += dt
   if (sincePoll >= POLL_SECONDS) void poll()
-  if (!openBeam) return
+  if (openBeams.length === 0) return
   t += dt
   pulseTimer -= dt
   if (pulseTimer > 0) return
   pulseTimer = PULSE_STEP
-  const k = 0.5 + 0.5 * Math.sin(t * 3)
-  Material.setPbrMaterial(openBeam.entity, look(openBeam.color, 3 + k * 4, 0.5 + 0.4 * k))
+  // The beam steps through eleven looks and is written only when the step changes
+  const step = Math.round((0.5 + 0.5 * Math.sin(t * 3)) * 10) / 10
+  for (const beam of openBeams) {
+    if (beam.step === step) continue
+    beam.step = step
+    Material.setPbrMaterial(beam.entity, look(beam.color, 3 + step * 4, 0.5 + 0.4 * step))
+  }
 }

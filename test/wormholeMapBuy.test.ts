@@ -3,8 +3,6 @@
 import { it, expect, vi } from 'vitest'
 import { tick } from './helpers'
 
-vi.setConfig({ testTimeout: 60000 }) // ticking through simulated minutes takes real seconds
-
 const sys = (id: string, x: number) => ({
   id, name: `Star ${id}`, coord_r: 0, coord_theta: 0, coord_x: x, coord_y: 0, coord_z: 0, origin: false,
   discovered_by: null, discovered_by_name: null, has_station: false, solar_recharge_rate: 1, has_wormhole: true,
@@ -44,7 +42,7 @@ import { market, openMarket, selectItem, askQuote, pay, again } from '../src/bla
 it('draws nothing and asks for nothing when the player has no map', async () => {
   buildGalaxyHologram()
   await startGate()
-  await tick(600)
+  await tick(600, 2)
   expect(mapCalls).toBe(0)
   expect(wormholeMapParts().beam).toBe(0)
 })
@@ -76,6 +74,6 @@ it('buying it at the relay shows it straight away, and marks it owned', async ()
 it('never has two map requests in flight, however slow the server is', async () => {
   reply = () => new Promise(() => {})
   const calls = mapCalls
-  await tick(900)                    // three polls would be due
+  await tick(900, 2)                    // three polls would be due
   expect(mapCalls).toBe(calls + 1)   // one, still waiting
 })
