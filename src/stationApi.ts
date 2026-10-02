@@ -182,7 +182,7 @@ export type MarketItem = {
   name: string
   mana: number
   blurb: string
-  kind: 'wormhole' | 'destroy' | 'rename' | 'cloak' | 'radio' | 'insurance'
+  kind: 'wormhole' | 'destroy' | 'rename' | 'cloak' | 'radio' | 'insurance' | 'map'
   hours: number | null
   exclusive: boolean
 }
@@ -209,12 +209,37 @@ export function getMarketPending(): Promise<{ pending: MarketPending[] }> {
   return apiGet('/api/black-market/pending')
 }
 
-export function getMarketMine(): Promise<{ cloakedUntil: string | null; insurancePolicies: number }> {
+/** `wormholeMap` is missing from a server older than the map. */
+export function getMarketMine(): Promise<{ cloakedUntil: string | null; insurancePolicies: number; wormholeMap?: boolean }> {
   return apiGet('/api/black-market/mine')
 }
 
 export function getPirateRadio(): Promise<{ broadcast: { message: string; by: string; endsAt: string } | null }> {
   return apiGet('/api/black-market/radio')
+}
+
+// ---- the Eld's wormhole map (server services/blackMarket/wormholeMap.ts), for players who bought it ----
+
+export type MapStar = { id: string; name: string }
+export type MapEvent = {
+  id: string
+  target: MapStar
+  startsAt: string
+  endsAt: string
+  status: 'open' | 'scheduled'
+  exclusive: boolean
+  eldBuilt: boolean
+}
+export type WormholeMap = { links: { a: MapStar; b: MapStar }[]; dormant: MapStar[]; events: MapEvent[] }
+
+/** Every known wormhole in my galaxy, or null when I don't own the map (the server's 403). */
+export async function getWormholeMap(): Promise<WormholeMap | null> {
+  try {
+    return await apiGet<WormholeMap>('/api/black-market/wormhole-map')
+  } catch (e) {
+    if ((e as { status?: number }).status === 403) return null
+    throw e
+  }
 }
 
 // ---- friends (server routes/friends.ts) ----
