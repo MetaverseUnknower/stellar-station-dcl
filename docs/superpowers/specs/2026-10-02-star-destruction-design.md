@@ -38,7 +38,8 @@ on sale once the server stops serving a remnant's contents and this station's ga
 
 - `GET /api/systems/detail/:systemId`: when the system has `remnant_at`, it responds
   `{ system, stellarBodies: [], planets: [], asteroidBelts: [], station: null, wormhole: null, remnant: true }`
-  without querying planets, belts, bodies, the station or the wormhole. Other systems also gain `remnant: false`.
+  (the route's parallel queries still run, so live systems aren't slowed; their results are dropped). Other systems
+  also gain `remnant: false`.
 - `GET /api/planets/:systemId` returns `[]` for a remnant.
 - `GET /api/planets/detail/:planetId` returns `404 { error: 'That world is gone.' }` when the planet's system is a
   remnant.
@@ -81,7 +82,8 @@ copies the updated file, so the two stay identical.
 
 - When a `destroy` purchase completes at the relay (`market.ts` `settle`), the hologram reloads its stars
   (`galaxyHologram.ts` `reloadStars`, exported through a small hook so `market.ts` doesn't import the hologram).
-  Other visitors see it the next time they board.
+  Other visitors see it the next time they board. The destroyed star also leaves the market's star list at once, so
+  it can't be picked again before the panel is reopened.
 
 ### No black holes in the picker
 
